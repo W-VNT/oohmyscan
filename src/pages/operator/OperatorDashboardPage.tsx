@@ -4,9 +4,20 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { usePanels } from '@/hooks/usePanels'
-import { StatusBadge } from '@/components/shared/StatusBadge'
-import { Loader2, PanelTop, ScanLine, Camera, Megaphone, ArrowRight } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { Loader2, ScanLine, PanelTop, Camera, Megaphone, ChevronRight, MapPin } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { PanelStatus } from '@/lib/constants'
+
+const STATUS_LABELS: Record<string, string> = {
+  active: 'Actif',
+  vacant: 'Vacant',
+  maintenance: 'Maintenance',
+  missing: 'Manquant',
+}
 
 export function OperatorDashboardPage() {
   const { session, profile } = useAuth()
@@ -44,33 +55,22 @@ export function OperatorDashboardPage() {
 
   const stats = useMemo(() => {
     if (!panels) return null
-
     const total = panels.length
     const byStatus: Record<string, number> = {}
     panels.forEach((p) => {
       byStatus[p.status] = (byStatus[p.status] || 0) + 1
     })
-
-    // Today's date
     const today = new Date().toISOString().split('T')[0]
-    const todayCount = panels.filter(
-      (p) => p.created_at && p.created_at.startsWith(today)
-    ).length
-
-    // This week
+    const todayCount = panels.filter((p) => p.created_at?.startsWith(today)).length
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
-    const weekCount = panels.filter(
-      (p) => p.created_at && new Date(p.created_at) >= weekAgo
-    ).length
-
+    const weekCount = panels.filter((p) => p.created_at && new Date(p.created_at) >= weekAgo).length
     return { total, byStatus, todayCount, weekCount }
   }, [panels])
 
-  // Last scanned panel (most recently created/updated)
   const lastPanel = useMemo(() => {
     if (!panels?.length) return null
-    return panels[0] // Already sorted by created_at desc
+    return panels[0]
   }, [panels])
 
   const isLoading = panelsLoading || photosLoading || assignLoading
@@ -78,12 +78,11 @@ export function OperatorDashboardPage() {
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
-  // Merge recent activity
   type ActivityItem = {
     id: string
     type: 'photo' | 'assignment'
@@ -119,135 +118,145 @@ export function OperatorDashboardPage() {
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
-    <div className="space-y-5 p-4">
-      {/* Header */}
+    <div className="space-y-6 p-4 pb-20">
+      {/* Greeting */}
       <div>
-        <p className="text-sm text-muted-foreground">Bonjour,</p>
-        <h1 className="text-xl font-bold">{profile?.full_name || 'Opérateur'}</h1>
+        <p className="text-[13px] text-muted-foreground">Bonjour,</p>
+        <h1 className="text-lg font-semibold tracking-tight">{profile?.full_name || 'Opérateur'}</h1>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <p className="text-2xl font-bold">{stats?.total ?? 0}</p>
-          <p className="text-xs text-muted-foreground">Points total</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <p className="text-2xl font-bold">{stats?.todayCount ?? 0}</p>
-          <p className="text-xs text-muted-foreground">Aujourd'hui</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4 text-center">
-          <p className="text-2xl font-bold">{stats?.weekCount ?? 0}</p>
-          <p className="text-xs text-muted-foreground">Cette semaine</p>
-        </div>
+      {/* KPI row */}
+      <div className="grid grid-cols-3 gap-2">
+        <Card size="sm">
+          <CardContent className="text-center">
+            <p className="text-2xl font-semibold tracking-tight">{stats?.total ?? 0}</p>
+            <p className="text-[11px] text-muted-foreground">Points total</p>
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardContent className="text-center">
+            <p className="text-2xl font-semibold tracking-tight">{stats?.todayCount ?? 0}</p>
+            <p className="text-[11px] text-muted-foreground">Aujourd'hui</p>
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardContent className="text-center">
+            <p className="text-2xl font-semibold tracking-tight">{stats?.weekCount ?? 0}</p>
+            <p className="text-[11px] text-muted-foreground">Cette semaine</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Status breakdown */}
+      {/* Status pills */}
       {stats && Object.keys(stats.byStatus).length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {Object.entries(stats.byStatus).map(([status, count]) => (
-            <div key={status} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-              <StatusBadge status={status as PanelStatus} />
-              <span className="text-sm font-semibold">{count}</span>
-            </div>
+            <Badge key={status} variant="secondary" className="gap-1.5 font-normal">
+              <span className="text-muted-foreground">{STATUS_LABELS[status] ?? status}</span>
+              <span className="font-semibold">{count}</span>
+            </Badge>
           ))}
         </div>
       )}
 
-      {/* Last scanned panel */}
+      {/* Last scanned */}
       {lastPanel && (
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Dernier point scanné</p>
-            <ScanLine className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="mt-3 flex items-center justify-between">
-            <div>
-              <p className="font-semibold">{lastPanel.reference}</p>
-              <p className="text-sm text-muted-foreground">{lastPanel.city || lastPanel.address || '—'}</p>
-            </div>
-            <StatusBadge status={lastPanel.status as PanelStatus} />
-          </div>
-          {lastPanel.created_at && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {new Date(lastPanel.created_at).toLocaleDateString('fr-FR', {
-                day: 'numeric',
-                month: 'long',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+        <Card size="sm">
+          <CardContent>
+            <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+              Dernier point
             </p>
-          )}
-        </div>
+            <div className="mt-2 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">{lastPanel.reference}</p>
+                {(lastPanel.city || lastPanel.address) && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <MapPin className="size-3" />
+                    <span>{lastPanel.city || lastPanel.address}</span>
+                  </div>
+                )}
+              </div>
+              <Badge variant="outline" className="text-[11px]">
+                {STATUS_LABELS[lastPanel.status] ?? lastPanel.status}
+              </Badge>
+            </div>
+            {lastPanel.created_at && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                {new Date(lastPanel.created_at).toLocaleDateString('fr-FR', {
+                  day: 'numeric',
+                  month: 'long',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link
-          to="/scan"
-          className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors active:bg-accent"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <ScanLine className="h-5 w-5" />
+      <div className="grid grid-cols-2 gap-2">
+        <Link to="/scan" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto justify-start gap-3 px-3 py-3')}>
+          <div className="flex size-8 items-center justify-center rounded-md bg-foreground/5">
+            <ScanLine className="size-4" strokeWidth={1.5} />
           </div>
-          <span className="text-sm font-medium">Scanner</span>
+          <span className="text-[13px]">Scanner un point</span>
         </Link>
-        <Link
-          to="/panels"
-          className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors active:bg-accent"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <PanelTop className="h-5 w-5" />
+        <Link to="/panels" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto justify-start gap-3 px-3 py-3')}>
+          <div className="flex size-8 items-center justify-center rounded-md bg-foreground/5">
+            <PanelTop className="size-4" strokeWidth={1.5} />
           </div>
-          <span className="text-sm font-medium">Mes points</span>
+          <span className="text-[13px]">Mes points</span>
         </Link>
       </div>
 
-      {/* Recent activity */}
+      <Separator />
+
+      {/* Activity */}
       <div>
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Activité récente</h2>
+          <h2 className="text-[13px] font-medium">Activité récente</h2>
           {activities.length > 5 && (
-            <Link to="/panels" className="flex items-center gap-1 text-xs text-primary">
-              Tout voir <ArrowRight className="h-3 w-3" />
+            <Link to="/panels" className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground">
+              Tout voir <ChevronRight className="size-3" />
             </Link>
           )}
         </div>
 
         {activities.length === 0 ? (
-          <div className="mt-4 flex flex-col items-center py-10 text-muted-foreground">
-            <PanelTop className="h-10 w-10" />
-            <p className="mt-3 text-sm">Aucune activité récente</p>
-            <Link to="/scan" className="mt-2 text-sm font-medium text-primary">
+          <div className="flex flex-col items-center py-12 text-muted-foreground">
+            <PanelTop className="size-8" strokeWidth={1} />
+            <p className="mt-3 text-sm">Aucune activité</p>
+            <Link to="/scan" className="mt-1 text-sm font-medium text-primary hover:underline">
               Commencer à scanner
             </Link>
           </div>
         ) : (
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-1">
             {activities.slice(0, 5).map((item) => (
               <div
                 key={item.id}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
+                className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
               >
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                  item.type === 'photo' ? 'bg-blue-500/10 text-blue-600' : 'bg-green-500/10 text-green-600'
-                }`}>
-                  {item.type === 'photo' ? <Camera className="h-4 w-4" /> : <Megaphone className="h-4 w-4" />}
+                <div className={cn(
+                  'flex size-7 shrink-0 items-center justify-center rounded-md',
+                  item.type === 'photo' ? 'bg-blue-500/10 text-blue-500' : 'bg-emerald-500/10 text-emerald-500'
+                )}>
+                  {item.type === 'photo' ? <Camera className="size-3.5" /> : <Megaphone className="size-3.5" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">{item.panelRef}</p>
+                    <p className="truncate text-[13px] font-medium">{item.panelRef}</p>
                     {item.panelStatus && (
-                      <StatusBadge status={item.panelStatus as PanelStatus} />
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        {STATUS_LABELS[item.panelStatus as PanelStatus] ?? item.panelStatus}
+                      </Badge>
                     )}
                   </div>
-                  <p className="truncate text-xs text-muted-foreground">{item.detail}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">{item.detail}</p>
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {new Date(item.date).toLocaleDateString('fr-FR', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {new Date(item.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                 </span>
               </div>
             ))}

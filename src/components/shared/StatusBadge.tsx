@@ -1,11 +1,11 @@
-import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import type { PanelStatus } from '@/lib/constants'
 
-const statusConfig: Record<PanelStatus, { label: string; className: string }> = {
-  active: { label: 'Actif', className: 'bg-green-500/15 text-green-600' },
-  vacant: { label: 'Vacant', className: 'bg-gray-500/15 text-gray-500' },
-  missing: { label: 'Manquant', className: 'bg-red-500/15 text-red-600' },
-  maintenance: { label: 'Maintenance', className: 'bg-orange-500/15 text-orange-600' },
+const statusConfig: Record<PanelStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
+  active: { label: 'Actif', variant: 'default' },
+  vacant: { label: 'Vacant', variant: 'secondary' },
+  missing: { label: 'Manquant', variant: 'destructive' },
+  maintenance: { label: 'Maintenance', variant: 'outline' },
 }
 
 interface StatusBadgeProps {
@@ -16,14 +16,8 @@ interface StatusBadgeProps {
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const config = statusConfig[status]
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        config.className,
-        className
-      )}
-    >
+    <Badge variant={config.variant} className={className}>
       {config.label}
-    </span>
+    </Badge>
   )
 }

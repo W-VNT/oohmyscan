@@ -1,51 +1,67 @@
 import { useAuth } from '@/hooks/useAuth'
-import { LogOut, User, Shield } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { LogOut, Shield, ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export function ProfilePage() {
   const { profile, signOut, isAdmin } = useAuth()
 
-  return (
-    <div className="p-4 space-y-6">
-      <h1 className="text-xl font-bold">Profil</h1>
+  const initials = (profile?.full_name ?? '?')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
 
-      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <User className="h-7 w-7 text-primary" />
-          </div>
-          <div>
-            <p className="font-semibold text-lg">{profile?.full_name ?? '—'}</p>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Shield className="h-3.5 w-3.5" />
-              {profile?.role === 'admin' ? 'Administrateur' : 'Opérateur'}
+  return (
+    <div className="space-y-6 p-4 pb-20">
+      <h1 className="text-lg font-semibold tracking-tight">Profil</h1>
+
+      <Card>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <Avatar className="size-11">
+              <AvatarFallback className="text-sm font-medium">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{profile?.full_name ?? '—'}</p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Shield className="size-3" />
+                <span>{profile?.role === 'admin' ? 'Administrateur' : 'Opérateur'}</span>
+              </div>
             </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        {profile?.phone && (
-          <div>
-            <p className="text-xs text-muted-foreground">Téléphone</p>
-            <p className="text-sm">{profile.phone}</p>
-          </div>
-        )}
-      </div>
-
-      {isAdmin && (
-        <a
-          href="/admin"
-          className="flex w-full items-center justify-center rounded-md border border-input px-4 py-3 text-sm font-medium transition-colors hover:bg-accent"
-        >
-          Accéder au panneau admin
-        </a>
+      {profile?.phone && (
+        <Card>
+          <CardContent>
+            <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Téléphone</p>
+            <p className="mt-1 text-sm">{profile.phone}</p>
+          </CardContent>
+        </Card>
       )}
 
-      <button
-        onClick={signOut}
-        className="flex w-full items-center justify-center gap-2 rounded-md bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/20"
-      >
-        <LogOut className="h-4 w-4" />
+      {isAdmin && (
+        <>
+          <Separator />
+          <a href="/admin" className={cn(buttonVariants({ variant: 'outline' }), 'w-full justify-between')}>
+            Panneau admin
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </a>
+        </>
+      )}
+
+      <Separator />
+
+      <Button variant="destructive" className="w-full gap-2" onClick={signOut}>
+        <LogOut className="size-4" />
         Se déconnecter
-      </button>
+      </Button>
     </div>
   )
 }

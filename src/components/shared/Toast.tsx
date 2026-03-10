@@ -39,13 +39,13 @@ export function ToastContainer() {
   return (
     <div className="fixed bottom-20 left-4 right-4 z-[100] flex flex-col gap-2 sm:bottom-8 sm:left-auto sm:right-8 sm:w-80">
       {toasts.map((t) => (
-        <ToastItem key={t.id} toast={t} onDismiss={() => remove(t.id)} />
+        <ToastNotification key={t.id} toast={t} onDismiss={() => remove(t.id)} />
       ))}
     </div>
   )
 }
 
-function ToastItem({ toast: t, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
+function ToastNotification({ toast: t, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
   useEffect(() => {
     const timer = setTimeout(onDismiss, 3000)
     return () => clearTimeout(timer)
@@ -54,20 +54,18 @@ function ToastItem({ toast: t, onDismiss }: { toast: ToastItem; onDismiss: () =>
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg animate-in slide-in-from-bottom-2',
-        t.type === 'success'
-          ? 'border-green-500/20 bg-green-500/10 text-green-600'
-          : 'border-red-500/20 bg-red-500/10 text-red-600'
+        'flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-card-foreground shadow-lg animate-in slide-in-from-bottom-2',
+        t.type === 'error' && 'border-destructive/20'
       )}
     >
       {t.type === 'success' ? (
-        <CheckCircle className="h-5 w-5 shrink-0" />
+        <CheckCircle className="size-4 shrink-0 text-emerald-500" />
       ) : (
-        <AlertCircle className="h-5 w-5 shrink-0" />
+        <AlertCircle className="size-4 shrink-0 text-destructive" />
       )}
-      <p className="flex-1 text-sm font-medium">{t.message}</p>
-      <button onClick={onDismiss} className="shrink-0">
-        <X className="h-4 w-4 opacity-60" />
+      <p className="flex-1 text-[13px]">{t.message}</p>
+      <button onClick={onDismiss} className="shrink-0 rounded-md p-0.5 hover:bg-muted">
+        <X className="size-3.5 text-muted-foreground" />
       </button>
     </div>
   )
