@@ -18,9 +18,9 @@ const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ de
 const ScanPage = lazy(() => import('@/pages/operator/ScanPage').then((m) => ({ default: m.ScanPage })))
 const RegisterPanelPage = lazy(() => import('@/pages/operator/RegisterPanelPage').then((m) => ({ default: m.RegisterPanelPage })))
 const AssignCampaignPage = lazy(() => import('@/pages/operator/AssignCampaignPage').then((m) => ({ default: m.AssignCampaignPage })))
+const OperatorDashboardPage = lazy(() => import('@/pages/operator/OperatorDashboardPage').then((m) => ({ default: m.OperatorDashboardPage })))
 const OperatorPanelsPage = lazy(() => import('@/pages/operator/OperatorPanelsPage').then((m) => ({ default: m.OperatorPanelsPage })))
 const OperatorMapPage = lazy(() => import('@/pages/operator/OperatorMapPage').then((m) => ({ default: m.OperatorMapPage })))
-const ActivityPage = lazy(() => import('@/pages/operator/ActivityPage').then((m) => ({ default: m.ActivityPage })))
 const ProfilePage = lazy(() => import('@/pages/operator/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 
 // Admin pages
@@ -54,11 +54,11 @@ export default function App() {
               {/* Operator routes (mobile-first) — admin can also access */}
               <Route element={<ProtectedRoute role="operator" />}>
                 <Route element={<AppLayout />}>
-                  <Route path="/" element={<Navigate to="/scan" replace />} />
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<OperatorDashboardPage />} />
                   <Route path="/scan" element={<ScanPage />} />
                   <Route path="/panels" element={<OperatorPanelsPage />} />
                   <Route path="/map" element={<OperatorMapPage />} />
-                  <Route path="/activity" element={<ActivityPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/register/:panelId" element={<RegisterPanelPage />} />
                   <Route path="/assign/:panelId" element={<AssignCampaignPage />} />

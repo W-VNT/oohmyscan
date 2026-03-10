@@ -1,14 +1,14 @@
 import { NavLink } from 'react-router-dom'
-import { ClipboardList, MapPin, ScanLine, Activity, User } from 'lucide-react'
+import { LayoutDashboard, MapPin, ScanLine, PanelTop, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const leftItems = [
-  { to: '/panels', icon: ClipboardList, label: 'Panneaux' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/map', icon: MapPin, label: 'Carte' },
 ]
 
 const rightItems = [
-  { to: '/activity', icon: Activity, label: 'Activité' },
+  { to: '/panels', icon: PanelTop, label: 'Panneaux' },
   { to: '/profile', icon: User, label: 'Profil' },
 ]
 
