@@ -8,11 +8,17 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, ScanLine, PanelTop, Camera, Megaphone, ChevronRight, MapPin } from 'lucide-react'
+import { Loader2, Plus, Megaphone, Camera, PanelTop, ChevronRight, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { PanelStatus } from '@/lib/constants'
 
-const STATUS_LABELS: Record<string, string> = {
+const PHOTO_TYPE_LABELS: Record<string, string> = {
+  installation: 'Installation',
+  check: 'Vérification',
+  campaign: 'Campagne',
+  damage: 'Dégât',
+}
+
+const PANEL_STATUS_LABELS: Record<string, string> = {
   active: 'Actif',
   vacant: 'Vacant',
   maintenance: 'Maintenance',
@@ -56,16 +62,12 @@ export function OperatorDashboardPage() {
   const stats = useMemo(() => {
     if (!panels) return null
     const total = panels.length
-    const byStatus: Record<string, number> = {}
-    panels.forEach((p) => {
-      byStatus[p.status] = (byStatus[p.status] || 0) + 1
-    })
     const today = new Date().toISOString().split('T')[0]
     const todayCount = panels.filter((p) => p.created_at?.startsWith(today)).length
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
     const weekCount = panels.filter((p) => p.created_at && new Date(p.created_at) >= weekAgo).length
-    return { total, byStatus, todayCount, weekCount }
+    return { total, todayCount, weekCount }
   }, [panels])
 
   const lastPanel = useMemo(() => {
@@ -101,7 +103,7 @@ export function OperatorDashboardPage() {
         date: p.taken_at,
         panelRef: panel?.reference ?? '—',
         panelStatus: panel?.status,
-        detail: p.photo_type === 'installation' ? 'Installation' : p.photo_type === 'check' ? 'Vérification' : p.photo_type === 'campaign' ? 'Campagne' : 'Dégât',
+        detail: PHOTO_TYPE_LABELS[p.photo_type] ?? p.photo_type,
       }
     }),
     ...(recentAssignments ?? []).map((a) => {
@@ -147,18 +149,6 @@ export function OperatorDashboardPage() {
         </Card>
       </div>
 
-      {/* Status pills */}
-      {stats && Object.keys(stats.byStatus).length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(stats.byStatus).map(([status, count]) => (
-            <Badge key={status} variant="secondary" className="gap-1.5 font-normal">
-              <span className="text-muted-foreground">{STATUS_LABELS[status] ?? status}</span>
-              <span className="font-semibold">{count}</span>
-            </Badge>
-          ))}
-        </div>
-      )}
-
       {/* Last scanned */}
       {lastPanel && (
         <Card size="sm">
@@ -177,7 +167,7 @@ export function OperatorDashboardPage() {
                 )}
               </div>
               <Badge variant="outline" className="text-[11px]">
-                {STATUS_LABELS[lastPanel.status] ?? lastPanel.status}
+                {PANEL_STATUS_LABELS[lastPanel.status] ?? lastPanel.status}
               </Badge>
             </div>
             {lastPanel.created_at && (
@@ -196,17 +186,17 @@ export function OperatorDashboardPage() {
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-2">
-        <Link to="/scan" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto justify-start gap-3 px-3 py-3')}>
-          <div className="flex size-8 items-center justify-center rounded-md bg-foreground/5">
-            <ScanLine className="size-4" strokeWidth={1.5} />
+        <Link to="/scan" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
+          <div className="flex size-10 items-center justify-center rounded-full bg-foreground/5">
+            <Plus className="size-5" strokeWidth={1.5} />
           </div>
-          <span className="text-[13px]">Scanner un point</span>
+          <span className="text-[13px] font-medium">Installer un point</span>
         </Link>
-        <Link to="/panels" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto justify-start gap-3 px-3 py-3')}>
-          <div className="flex size-8 items-center justify-center rounded-md bg-foreground/5">
-            <PanelTop className="size-4" strokeWidth={1.5} />
+        <Link to="/scan" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
+          <div className="flex size-10 items-center justify-center rounded-full bg-foreground/5">
+            <Megaphone className="size-5" strokeWidth={1.5} />
           </div>
-          <span className="text-[13px]">Mes points</span>
+          <span className="text-[13px] font-medium">Diffuser une campagne</span>
         </Link>
       </div>
 
@@ -249,7 +239,7 @@ export function OperatorDashboardPage() {
                     <p className="truncate text-[13px] font-medium">{item.panelRef}</p>
                     {item.panelStatus && (
                       <Badge variant="outline" className="text-[10px] font-normal">
-                        {STATUS_LABELS[item.panelStatus as PanelStatus] ?? item.panelStatus}
+                        {PANEL_STATUS_LABELS[item.panelStatus ?? ''] ?? item.panelStatus}
                       </Badge>
                     )}
                   </div>

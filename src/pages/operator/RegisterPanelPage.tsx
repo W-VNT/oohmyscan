@@ -18,6 +18,8 @@ export function RegisterPanelPage() {
 
   const [form, setForm] = useState({
     name: '',
+    address: '',
+    city: '',
     format: '',
     type: '',
     notes: '',
@@ -53,6 +55,8 @@ export function RegisterPanelPage() {
         qr_code: panelId,
         reference,
         name: form.name || null,
+        address: form.address || null,
+        city: form.city || null,
         lat,
         lng,
         format: form.format || null,
@@ -141,6 +145,42 @@ export function RegisterPanelPage() {
           />
         </div>
 
+        {/* Nom commerce */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Nom du commerce / lieu</label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="Ex: Boulangerie Dupont, Gare SNCF..."
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+          />
+        </div>
+
+        {/* Adresse */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Adresse</label>
+          <input
+            type="text"
+            value={form.address}
+            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            placeholder="Ex: 12 rue de Rivoli"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+          />
+        </div>
+
+        {/* Ville */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Ville</label>
+          <input
+            type="text"
+            value={form.city}
+            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+            placeholder="Ex: Paris"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+          />
+        </div>
+
         {/* Format */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Format</label>
@@ -169,18 +209,6 @@ export function RegisterPanelPage() {
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-        </div>
-
-        {/* Name */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Nom / description</label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="Ex: Panneau angle rue de Rivoli"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-          />
         </div>
 
         {/* Notes */}
