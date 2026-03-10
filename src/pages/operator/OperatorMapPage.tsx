@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { usePanels } from '@/hooks/usePanels'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { PANEL_STATUS_COLORS, type PanelStatus } from '@/lib/constants'
-import { Loader2 } from 'lucide-react'
+import { Loader2, LocateFixed } from 'lucide-react'
 import type { Panel } from '@/types'
 import Map, { Marker, Popup } from 'react-map-gl/mapbox'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
+
+// Zoom ~16 ≈ 200m radius view
+const USER_ZOOM = 16
 
 export function OperatorMapPage() {
   const { data: panels, isLoading } = usePanels()
@@ -15,8 +18,29 @@ export function OperatorMapPage() {
   const [viewState, setViewState] = useState({
     longitude: 2.3522,
     latitude: 48.8566,
-    zoom: 5,
+    zoom: 12,
   })
+  const [userPos, setUserPos] = useState<{ lng: number; lat: number } | null>(null)
+  const [locating, setLocating] = useState(true)
+
+  const flyToUser = useCallback(() => {
+    if (!navigator.geolocation) return
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        setUserPos({ lat: latitude, lng: longitude })
+        setViewState({ latitude, longitude, zoom: USER_ZOOM })
+        setLocating(false)
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    )
+  }, [])
+
+  useEffect(() => {
+    flyToUser()
+  }, [flyToUser])
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -27,7 +51,7 @@ export function OperatorMapPage() {
     )
   }
 
-  if (isLoading) {
+  if (isLoading && locating) {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -36,7 +60,7 @@ export function OperatorMapPage() {
   }
 
   return (
-    <div style={{ height: 'calc(100vh - 4rem)' }}>
+    <div style={{ height: 'calc(100vh - 4rem)' }} className="relative">
       <Map
         {...viewState}
         onMove={(evt: { viewState: typeof viewState }) => setViewState(evt.viewState)}
@@ -44,6 +68,17 @@ export function OperatorMapPage() {
         mapStyle="mapbox://styles/mapbox/dark-v11"
         style={{ width: '100%', height: '100%' }}
       >
+        {/* User position marker */}
+        {userPos && (
+          <Marker longitude={userPos.lng} latitude={userPos.lat} anchor="center">
+            <div className="relative flex items-center justify-center">
+              <div className="absolute size-8 animate-ping rounded-full bg-blue-500/20" />
+              <div className="size-3.5 rounded-full border-2 border-white bg-blue-500 shadow-md" />
+            </div>
+          </Marker>
+        )}
+
+        {/* Panel markers */}
         {(panels ?? []).map((panel) => (
           <Marker
             key={panel.id}
@@ -85,6 +120,19 @@ export function OperatorMapPage() {
           </Popup>
         )}
       </Map>
+
+      {/* Re-center button */}
+      <button
+        onClick={flyToUser}
+        disabled={locating}
+        className="absolute bottom-6 right-4 flex size-10 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
+      >
+        {locating ? (
+          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+        ) : (
+          <LocateFixed className="size-4" />
+        )}
+      </button>
     </div>
   )
 }
