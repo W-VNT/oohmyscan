@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { usePanels } from '@/hooks/usePanels'
-import { PANEL_STATUS_COLORS, type PanelStatus } from '@/lib/constants'
 import { Loader2, LocateFixed, Navigation, Eye, Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -155,6 +154,9 @@ export function OperatorMapPage() {
         {/* Panel markers */}
         {(panels ?? []).map((panel) => {
           const hasCampaign = panelCampaigns.has(panel.id)
+          const hasIssue = panel.status === 'maintenance' || panel.status === 'missing'
+          // Vert = libre, Rouge = occupé, Orange = problème
+          const color = hasIssue ? '#f97316' : hasCampaign ? '#ef4444' : '#22c55e'
           return (
             <Marker
               key={panel.id}
@@ -166,17 +168,10 @@ export function OperatorMapPage() {
                 setSelectedPanel(panel)
               }}
             >
-              <div className="relative">
-                <div
-                  className="size-4 cursor-pointer rounded-full border-2 border-white shadow-md"
-                  style={{
-                    backgroundColor: PANEL_STATUS_COLORS[panel.status as PanelStatus] ?? '#6b7280',
-                  }}
-                />
-                {hasCampaign && (
-                  <div className="absolute -right-1 -top-1 size-2 rounded-full bg-amber-400 ring-1 ring-white" />
-                )}
-              </div>
+              <div
+                className="size-4 cursor-pointer rounded-full border-2 border-white shadow-md"
+                style={{ backgroundColor: color }}
+              />
             </Marker>
           )
         })}
@@ -196,16 +191,13 @@ export function OperatorMapPage() {
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">{selectedPanel.reference}</p>
-                  <Badge
-                    variant={
-                      ({ active: 'default', vacant: 'secondary', maintenance: 'outline', missing: 'destructive' } as const)[
-                        selectedPanel.status as PanelStatus
-                      ] ?? 'secondary'
-                    }
-                    className="text-[10px]"
-                  >
-                    {{ active: 'Actif', vacant: 'Vacant', maintenance: 'Maintenance', missing: 'Manquant' }[selectedPanel.status] ?? selectedPanel.status}
-                  </Badge>
+                  {(() => {
+                    const hasIssue = selectedPanel.status === 'maintenance' || selectedPanel.status === 'missing'
+                    const occupied = panelCampaigns.has(selectedPanel.id)
+                    if (hasIssue) return <Badge variant="outline" className="text-[10px] border-orange-500 text-orange-500">Problème</Badge>
+                    if (occupied) return <Badge variant="destructive" className="text-[10px]">Occupé</Badge>
+                    return <Badge variant="default" className="text-[10px] bg-green-600">Libre</Badge>
+                  })()}
                 </div>
                 {(selectedPanel.name || selectedPanel.city) && (
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -273,7 +265,14 @@ export function OperatorMapPage() {
                   >
                     <div
                       className="size-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: PANEL_STATUS_COLORS[panel.status as PanelStatus] ?? '#6b7280' }}
+                      style={{
+                        backgroundColor:
+                          panel.status === 'maintenance' || panel.status === 'missing'
+                            ? '#f97316'
+                            : panelCampaigns.has(panel.id)
+                              ? '#ef4444'
+                              : '#22c55e',
+                      }}
                     />
                     <div className="min-w-0">
                       <p className="text-[13px] font-medium">{panel.reference}</p>
@@ -300,6 +299,22 @@ export function OperatorMapPage() {
             <span className="text-[13px] text-muted-foreground">Rechercher un point...</span>
           </button>
         )}
+      </div>
+
+      {/* Legend */}
+      <div className="absolute bottom-6 left-3 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
+        <div className="flex items-center gap-1.5">
+          <div className="size-2.5 rounded-full bg-green-500" />
+          <span className="text-[11px]">Libre</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="size-2.5 rounded-full bg-red-500" />
+          <span className="text-[11px]">Occupé</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="size-2.5 rounded-full bg-orange-500" />
+          <span className="text-[11px]">Problème</span>
+        </div>
       </div>
 
       {/* Re-center button */}
