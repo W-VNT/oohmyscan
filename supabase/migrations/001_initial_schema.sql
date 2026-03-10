@@ -103,5 +103,11 @@ CREATE POLICY "Admins full access panel_campaigns" ON panel_campaigns FOR ALL TO
   USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
 CREATE POLICY "Admins full access panel_photos" ON panel_photos FOR ALL TO authenticated
   USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
-CREATE POLICY "Admins full access profiles" ON profiles FOR ALL TO authenticated
+-- Pour profiles, on ne peut pas faire SELECT FROM profiles (récursion infinie)
+-- On utilise une policy simple : chaque user peut modifier son propre profil
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE TO authenticated
+  USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+CREATE POLICY "Admins can insert profiles" ON profiles FOR INSERT TO authenticated
+  WITH CHECK ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+CREATE POLICY "Admins can delete profiles" ON profiles FOR DELETE TO authenticated
   USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
