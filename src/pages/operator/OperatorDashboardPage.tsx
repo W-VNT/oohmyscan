@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Plus, Megaphone, Camera, PanelTop, ChevronRight, MapPin } from 'lucide-react'
+import { Loader2, Plus, Megaphone, Camera, PanelTop, ChevronRight, MapPin, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const PHOTO_TYPE_LABELS: Record<string, string> = {
@@ -55,6 +55,44 @@ export function OperatorDashboardPage() {
         .limit(10)
       if (error) throw error
       return data
+    },
+    enabled: !!session,
+  })
+
+  // Active campaigns with progress
+  const { data: activeCampaigns } = useQuery({
+    queryKey: ['my-active-campaigns', session?.user.id],
+    queryFn: async () => {
+      // Get active campaigns
+      const { data: campaigns, error: cErr } = await supabase
+        .from('campaigns')
+        .select('id, name, client, start_date, end_date')
+        .eq('status', 'active')
+      if (cErr) throw cErr
+      if (!campaigns?.length) return []
+
+      // For each campaign, get total assigned panels and how many this operator did
+      const results = await Promise.all(
+        campaigns.map(async (c) => {
+          const [totalRes, myRes] = await Promise.all([
+            supabase
+              .from('panel_campaigns')
+              .select('id', { count: 'exact', head: true })
+              .eq('campaign_id', c.id),
+            supabase
+              .from('panel_campaigns')
+              .select('id', { count: 'exact', head: true })
+              .eq('campaign_id', c.id)
+              .eq('assigned_by', session!.user.id),
+          ])
+          return {
+            ...c,
+            totalPanels: totalRes.count ?? 0,
+            myPanels: myRes.count ?? 0,
+          }
+        })
+      )
+      return results
     },
     enabled: !!session,
   })
@@ -148,6 +186,79 @@ export function OperatorDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Active campaigns */}
+      {activeCampaigns && activeCampaigns.length > 0 && (
+        <div className="space-y-2">
+          {activeCampaigns.map((campaign) => {
+            const progress = campaign.totalPanels > 0
+              ? Math.round((campaign.myPanels / campaign.totalPanels) * 100)
+              : 0
+            const isDone = campaign.myPanels >= campaign.totalPanels && campaign.totalPanels > 0
+            return (
+              <Card key={campaign.id}>
+                <CardContent className="space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                        Campagne en cours
+                      </p>
+                      <p className="mt-1 text-sm font-semibold">{campaign.name}</p>
+                      <p className="text-[12px] text-muted-foreground">{campaign.client}</p>
+                    </div>
+                    {isDone ? (
+                      <div className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1">
+                        <CheckCircle2 className="size-3 text-green-600" />
+                        <span className="text-[11px] font-medium text-green-600">Terminé</span>
+                      </div>
+                    ) : (
+                      <div className="text-right">
+                        <p className="text-lg font-bold">{campaign.myPanels}<span className="text-sm font-normal text-muted-foreground">/{campaign.totalPanels}</span></p>
+                        <p className="text-[11px] text-muted-foreground">points posés</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all',
+                          isDone ? 'bg-green-500' : 'bg-primary'
+                        )}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{progress}% complété</span>
+                      <span>
+                        {new Date(campaign.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                        {' → '}
+                        {new Date(campaign.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* CTA */}
+                  {!isDone && (
+                    <Link
+                      to="/scan"
+                      className={cn(
+                        buttonVariants({ size: 'sm' }),
+                        'w-full gap-1.5'
+                      )}
+                    >
+                      <Megaphone className="size-3.5" />
+                      Continuer la diffusion
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
 
       {/* Last scanned */}
       {lastPanel && (
