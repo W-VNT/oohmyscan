@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useCampaigns, useCreateCampaign } from '@/hooks/useCampaigns'
 import { useAuth } from '@/hooks/useAuth'
 import { Loader2, Plus, X, Megaphone } from 'lucide-react'
+import { toast } from '@/components/shared/Toast'
 import type { CampaignStatus } from '@/lib/constants'
 
 const statusLabels: Record<CampaignStatus, { label: string; className: string }> = {
@@ -40,6 +41,7 @@ export function CampaignsPage() {
         status: 'draft',
         created_by: session?.user?.id,
       })
+      toast('Campagne créée')
       setShowForm(false)
       setForm({ name: '', client: '', description: '', start_date: '', end_date: '' })
     } catch (err) {

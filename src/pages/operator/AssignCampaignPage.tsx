@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, CheckCircle, Megaphone } from 'lucide-react'
 import { usePanel } from '@/hooks/usePanels'
 import { useActiveCampaigns, useAssignCampaign } from '@/hooks/useCampaigns'
+import { toast } from '@/components/shared/Toast'
 import { useAuth } from '@/hooks/useAuth'
 import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -66,6 +67,7 @@ export function AssignCampaignPage() {
         })
         .eq('id', panelId)
 
+      toast('Campagne assignée avec succès')
       navigate('/scan', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de l\'assignation')

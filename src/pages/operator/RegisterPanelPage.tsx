@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { MapPin, Loader2, ArrowLeft, CheckCircle } from 'lucide-react'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useCreatePanel } from '@/hooks/usePanels'
+import { toast } from '@/components/shared/Toast'
 import { useAuth } from '@/hooks/useAuth'
 import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { supabase } from '@/lib/supabase'
@@ -70,6 +71,7 @@ export function RegisterPanelPage() {
         taken_by: session?.user?.id,
       })
 
+      toast('Panneau enregistré avec succès')
       navigate('/scan', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement')
