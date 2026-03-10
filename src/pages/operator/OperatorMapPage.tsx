@@ -3,9 +3,6 @@ import { Link } from 'react-router-dom'
 import { usePanels } from '@/hooks/usePanels'
 import { Loader2, LocateFixed, Navigation, Eye, Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import type { Panel } from '@/types'
 import Map, { Marker, Popup } from 'react-map-gl/mapbox'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -187,47 +184,81 @@ export function OperatorMapPage() {
             closeOnClick={false}
             offset={12}
           >
-            <div className="min-w-48 space-y-2.5 p-1">
+            <div style={{ minWidth: 200, color: '#111' }} className="space-y-2.5 p-1">
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">{selectedPanel.reference}</p>
+                  <p style={{ color: '#111', fontSize: 14, fontWeight: 600 }}>{selectedPanel.reference}</p>
                   {(() => {
                     const hasIssue = selectedPanel.status === 'maintenance' || selectedPanel.status === 'missing'
                     const occupied = panelCampaigns.has(selectedPanel.id)
-                    if (hasIssue) return <Badge variant="outline" className="text-[10px] border-orange-500 text-orange-500">Problème</Badge>
-                    if (occupied) return <Badge variant="destructive" className="text-[10px]">Occupé</Badge>
-                    return <Badge variant="default" className="text-[10px] bg-green-600">Libre</Badge>
+                    const label = hasIssue ? 'Problème' : occupied ? 'Occupé' : 'Libre'
+                    const bg = hasIssue ? '#fff7ed' : occupied ? '#fef2f2' : '#f0fdf4'
+                    const fg = hasIssue ? '#ea580c' : occupied ? '#dc2626' : '#16a34a'
+                    return (
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: fg,
+                        backgroundColor: bg,
+                        padding: '2px 8px',
+                        borderRadius: 9999,
+                      }}>
+                        {label}
+                      </span>
+                    )
                   })()}
                 </div>
                 {(selectedPanel.name || selectedPanel.city) && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p style={{ color: '#666', fontSize: 12, marginTop: 2 }}>
                     {selectedPanel.name}{selectedPanel.name && selectedPanel.city ? ' · ' : ''}{selectedPanel.city}
                   </p>
                 )}
                 {distanceToSelected !== null && (
-                  <p className="mt-0.5 text-[11px] font-medium text-blue-500">
+                  <p style={{ color: '#2563eb', fontSize: 11, fontWeight: 600, marginTop: 2 }}>
                     à {formatDistance(distanceToSelected)}
                   </p>
                 )}
               </div>
 
-              <div className="flex gap-1.5">
+              <div style={{ display: 'flex', gap: 6 }}>
                 <Link
                   to={`/panels/${selectedPanel.id}`}
-                  className={cn(
-                    buttonVariants({ variant: 'outline', size: 'sm' }),
-                    'h-7 flex-1 gap-1 text-[11px]'
-                  )}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    height: 30,
+                    fontSize: 11,
+                    fontWeight: 500,
+                    borderRadius: 6,
+                    border: '1px solid #e5e7eb',
+                    color: '#333',
+                    textDecoration: 'none',
+                    backgroundColor: '#fff',
+                  }}
                 >
                   <Eye className="size-3" />
                   Voir
                 </Link>
                 <button
                   onClick={() => openDirections(selectedPanel.lat, selectedPanel.lng)}
-                  className={cn(
-                    buttonVariants({ variant: 'default', size: 'sm' }),
-                    'h-7 flex-1 gap-1 text-[11px]'
-                  )}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    height: 30,
+                    fontSize: 11,
+                    fontWeight: 500,
+                    borderRadius: 6,
+                    border: 'none',
+                    color: '#fff',
+                    backgroundColor: '#111',
+                    cursor: 'pointer',
+                  }}
                 >
                   <Navigation className="size-3" />
                   Itinéraire
