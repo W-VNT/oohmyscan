@@ -257,7 +257,7 @@ export function OperatorDashboardPage() {
 
       {/* 4 — Last point (contexte terrain) */}
       {lastPanel && (
-        <Link to={`/panels/${lastPanel.id}`}>
+        <Link to={`/panels/${lastPanel.id}`} className="block">
           <Card size="sm">
             <CardContent>
               <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
