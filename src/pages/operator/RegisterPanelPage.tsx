@@ -1,6 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { MapPin, Loader2, ArrowLeft, CheckCircle } from 'lucide-react'
+import {
+  MapPin,
+  Loader2,
+  ArrowLeft,
+  CheckCircle,
+  Search,
+  MapPinned,
+  Phone,
+  Camera,
+  ChevronRight,
+  Building2,
+} from 'lucide-react'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useCreatePanel } from '@/hooks/usePanels'
 import { toast } from '@/components/shared/Toast'
@@ -9,6 +20,56 @@ import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { supabase } from '@/lib/supabase'
 import { PANEL_FORMATS, PANEL_TYPES } from '@/lib/constants'
 
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
+
+interface PlaceSuggestion {
+  id: string
+  name: string
+  address: string
+  city: string
+  lat: number
+  lng: number
+}
+
+async function searchPlaces(
+  query: string,
+  lng: number,
+  lat: number,
+): Promise<PlaceSuggestion[]> {
+  if (!query.trim() || !MAPBOX_TOKEN) return []
+
+  const url = new URL(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
+  )
+  url.searchParams.set('proximity', `${lng},${lat}`)
+  url.searchParams.set('types', 'poi,address')
+  url.searchParams.set('language', 'fr')
+  url.searchParams.set('limit', '5')
+  url.searchParams.set('access_token', MAPBOX_TOKEN)
+
+  const res = await fetch(url.toString())
+  if (!res.ok) return []
+
+  const data = await res.json()
+  return (data.features ?? []).map((f: Record<string, unknown>) => {
+    const ctx = (f.context as Array<{ id: string; text: string }>) ?? []
+    const cityCtx = ctx.find((c) => c.id.startsWith('place'))
+    const [fLng, fLat] = (f.center as [number, number]) ?? [lng, lat]
+    return {
+      id: f.id as string,
+      name: f.text as string,
+      address: (f.properties as Record<string, string>)?.address
+        ?? (f.place_name as string)?.split(',')[0]
+        ?? '',
+      city: cityCtx?.text ?? '',
+      lat: fLat,
+      lng: fLng,
+    }
+  })
+}
+
+type Step = 1 | 2 | 3
+
 export function RegisterPanelPage() {
   const { panelId } = useParams<{ panelId: string }>()
   const navigate = useNavigate()
@@ -16,15 +77,27 @@ export function RegisterPanelPage() {
   const { lat, lng, accuracy, loading: gpsLoading, error: gpsError, requestPosition } = useGeolocation()
   const createPanel = useCreatePanel()
 
-  const [form, setForm] = useState({
-    name: '',
-    address: '',
-    city: '',
-    format: '',
-    type: '',
-    notes: '',
-  })
+  const [step, setStep] = useState<Step>(1)
+
+  // Step 1: Place
+  const [placeQuery, setPlaceQuery] = useState('')
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([])
+  const [searching, setSearching] = useState(false)
+  const [selectedPlace, setSelectedPlace] = useState<PlaceSuggestion | null>(null)
+  const [manualName, setManualName] = useState('')
+  const [manualAddress, setManualAddress] = useState('')
+  const [manualCity, setManualCity] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  // Step 2: Contact & details
+  const [contactPhone, setContactPhone] = useState('')
+  const [format, setFormat] = useState('')
+  const [type, setType] = useState('')
+  const [notes, setNotes] = useState('')
+
+  // Step 3: Photo
   const [photoPath, setPhotoPath] = useState<string | null>(null)
+
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -32,9 +105,46 @@ export function RegisterPanelPage() {
     requestPosition()
   }, [requestPosition])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  // Debounced search
+  const handleQueryChange = useCallback(
+    (value: string) => {
+      setPlaceQuery(value)
+      setSelectedPlace(null)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
 
+      if (!value.trim() || !lat || !lng) {
+        setSuggestions([])
+        return
+      }
+
+      debounceRef.current = setTimeout(async () => {
+        setSearching(true)
+        const results = await searchPlaces(value, lng, lat)
+        setSuggestions(results)
+        setSearching(false)
+      }, 300)
+    },
+    [lat, lng],
+  )
+
+  function selectPlace(place: PlaceSuggestion) {
+    setSelectedPlace(place)
+    setPlaceQuery(place.name)
+    setSuggestions([])
+    setManualName(place.name)
+    setManualAddress(place.address)
+    setManualCity(place.city)
+  }
+
+  function canGoStep2() {
+    return (selectedPlace || manualName.trim()) && lat && lng
+  }
+
+  function canGoStep3() {
+    return true // contact phone is optional
+  }
+
+  async function handleSubmit() {
     if (!lat || !lng) {
       setError('Position GPS requise')
       return
@@ -54,14 +164,15 @@ export function RegisterPanelPage() {
       const panel = await createPanel.mutateAsync({
         qr_code: panelId,
         reference,
-        name: form.name || null,
-        address: form.address || null,
-        city: form.city || null,
-        lat,
-        lng,
-        format: form.format || null,
-        type: form.type || null,
-        notes: form.notes || null,
+        name: manualName || null,
+        address: manualAddress || null,
+        city: manualCity || null,
+        contact_phone: contactPhone || null,
+        lat: selectedPlace?.lat ?? lat,
+        lng: selectedPlace?.lng ?? lng,
+        format: format || null,
+        type: type || null,
+        notes: notes || null,
         status: 'active',
         installed_at: new Date().toISOString(),
         installed_by: session?.user?.id,
@@ -76,174 +187,378 @@ export function RegisterPanelPage() {
       })
 
       toast('Panneau enregistré avec succès')
-      navigate('/scan', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement')
+      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement")
     } finally {
       setSubmitting(false)
     }
   }
 
+  const stepLabels = ['Lieu', 'Détails', 'Photo']
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
+        <button
+          onClick={() => (step > 1 ? setStep((s) => (s - 1) as Step) : navigate(-1))}
+        >
+          <ArrowLeft className="size-5" />
         </button>
-        <h1 className="text-lg font-semibold">Nouveau panneau</h1>
+        <h1 className="text-lg font-semibold">Nouveau point</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 p-4">
-        {/* GPS */}
-        <div className="rounded-lg border border-border p-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <MapPin className="h-4 w-4" />
-            Position GPS
-          </div>
+      {/* Steps indicator */}
+      <div className="px-4 pt-4">
+        <div className="flex gap-1">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={`h-1 flex-1 rounded-full transition-colors ${
+                s <= step ? 'bg-primary' : 'bg-muted'
+              }`}
+            />
+          ))}
+        </div>
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+          Étape {step}/3 — {stepLabels[step - 1]}
+        </p>
+      </div>
+
+      {/* GPS status (always visible) */}
+      <div className="mx-4 mt-3 rounded-lg border border-border px-3 py-2.5">
+        <div className="flex items-center gap-2 text-[13px]">
+          <MapPin className="size-3.5" />
           {gpsLoading ? (
-            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" />
               Acquisition GPS...
-            </div>
+            </span>
           ) : lat && lng ? (
-            <div className="mt-2 space-y-1">
-              <div className="flex items-center gap-1 text-sm text-green-600">
-                <CheckCircle className="h-3.5 w-3.5" />
-                Position acquise
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {lat.toFixed(6)}, {lng.toFixed(6)}
-                {accuracy && ` (±${Math.round(accuracy)}m)`}
-              </p>
-            </div>
-          ) : (
-            <div className="mt-2">
-              {gpsError && (
-                <p className="text-sm text-destructive-foreground">{gpsError}</p>
+            <span className="flex items-center gap-1.5 text-green-600">
+              <CheckCircle className="size-3" />
+              Position acquise
+              {accuracy && (
+                <span className="text-[11px] text-muted-foreground">
+                  (±{Math.round(accuracy)}m)
+                </span>
               )}
+            </span>
+          ) : (
+            <span className="text-destructive-foreground">
+              {gpsError ?? 'GPS indisponible'}
               <button
-                type="button"
                 onClick={requestPosition}
-                className="mt-1 text-sm text-primary underline"
+                className="ml-2 text-primary underline"
               >
                 Réessayer
               </button>
-            </div>
+            </span>
           )}
         </div>
+      </div>
 
-        {/* Photo */}
-        <div>
-          <label className="mb-2 block text-sm font-medium">
-            Photo d'installation *
-          </label>
-          <PhotoCapture
-            folder={`panels/${panelId}`}
-            onPhotoUploaded={setPhotoPath}
-            required
-          />
-        </div>
+      <div className="p-4">
+        {/* ─── Step 1: Lieu ─── */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium">Où se trouve le point ?</p>
+              <p className="text-[12px] text-muted-foreground">
+                Tapez le nom du commerce ou lieu pour trouver l'adresse
+              </p>
+            </div>
 
-        {/* Nom commerce */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Nom du commerce / lieu</label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="Ex: Boulangerie Dupont, Gare SNCF..."
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-          />
-        </div>
+            {/* Search input */}
+            <div className="relative">
+              <div className="flex items-center gap-2 rounded-lg border border-border px-3">
+                <Search className="size-4 shrink-0 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={placeQuery}
+                  onChange={(e) => handleQueryChange(e.target.value)}
+                  placeholder="Ex: Tabac, Boulangerie, Gare..."
+                  className="h-11 w-full bg-transparent text-[14px] outline-none placeholder:text-muted-foreground"
+                  autoFocus
+                />
+                {searching && <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />}
+              </div>
 
-        {/* Adresse */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Adresse</label>
-          <input
-            type="text"
-            value={form.address}
-            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-            placeholder="Ex: 12 rue de Rivoli"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-          />
-        </div>
+              {/* Suggestions dropdown */}
+              {suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg">
+                  {suggestions.map((place) => (
+                    <button
+                      key={place.id}
+                      onClick={() => selectPlace(place)}
+                      className="flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+                    >
+                      <MapPinned className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium">{place.name}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {place.address}
+                          {place.city ? `, ${place.city}` : ''}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-        {/* Ville */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Ville</label>
-          <input
-            type="text"
-            value={form.city}
-            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-            placeholder="Ex: Paris"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-          />
-        </div>
+            {/* Selected place card */}
+            {selectedPlace && (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-500/20 dark:bg-green-500/10">
+                <div className="flex items-start gap-2.5">
+                  <CheckCircle className="mt-0.5 size-4 shrink-0 text-green-600" />
+                  <div>
+                    <p className="text-[13px] font-medium text-green-900 dark:text-green-200">
+                      {selectedPlace.name}
+                    </p>
+                    <p className="text-[12px] text-green-700 dark:text-green-300">
+                      {selectedPlace.address}
+                      {selectedPlace.city ? `, ${selectedPlace.city}` : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-        {/* Format */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Format</label>
-          <select
-            value={form.format}
-            onChange={(e) => setForm((f) => ({ ...f, format: e.target.value }))}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Sélectionner un format</option>
-            {PANEL_FORMATS.map((f) => (
-              <option key={f} value={f}>{f}</option>
-            ))}
-          </select>
-        </div>
+            {/* Manual fallback fields (shown if no place selected and user typed something) */}
+            {!selectedPlace && placeQuery.trim() && suggestions.length === 0 && !searching && (
+              <div className="space-y-3 rounded-lg border border-border p-3">
+                <p className="text-[12px] text-muted-foreground">
+                  Aucun résultat ? Remplissez manuellement :
+                </p>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={manualName}
+                    onChange={(e) => setManualName(e.target.value)}
+                    placeholder="Nom du lieu"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-[13px] placeholder:text-muted-foreground"
+                  />
+                  <input
+                    type="text"
+                    value={manualAddress}
+                    onChange={(e) => setManualAddress(e.target.value)}
+                    placeholder="Adresse"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-[13px] placeholder:text-muted-foreground"
+                  />
+                  <input
+                    type="text"
+                    value={manualCity}
+                    onChange={(e) => setManualCity(e.target.value)}
+                    placeholder="Ville"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-[13px] placeholder:text-muted-foreground"
+                  />
+                </div>
+              </div>
+            )}
 
-        {/* Type */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Type</label>
-          <select
-            value={form.type}
-            onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Sélectionner un type</option>
-            {PANEL_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Notes */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Notes</label>
-          <textarea
-            value={form.notes}
-            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            placeholder="Observations..."
-            rows={3}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-          />
-        </div>
-
-        {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive-foreground">
-            {error}
+            <button
+              onClick={() => setStep(2)}
+              disabled={!canGoStep2()}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-foreground text-[14px] font-medium text-background transition-colors disabled:opacity-40"
+            >
+              Continuer
+              <ChevronRight className="size-4" />
+            </button>
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={submitting || !lat || !lng || !photoPath}
-          className="inline-flex h-12 w-full items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Enregistrement...
-            </>
-          ) : (
-            'Valider l\'installation'
-          )}
-        </button>
-      </form>
+        {/* ─── Step 2: Contact & Détails ─── */}
+        {step === 2 && (
+          <div className="space-y-4">
+            {/* Recap lieu */}
+            <div className="rounded-lg border border-border p-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="size-4 text-muted-foreground" />
+                <div>
+                  <p className="text-[13px] font-medium">{manualName || 'Sans nom'}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {manualAddress}
+                    {manualCity ? `, ${manualCity}` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact phone */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-1.5 text-sm font-medium">
+                <Phone className="size-3.5" />
+                Téléphone du lieu
+              </label>
+              <input
+                type="tel"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                placeholder="Ex: 01 23 45 67 89"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-[13px] placeholder:text-muted-foreground"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Optionnel — utile pour recontacter le commerce
+              </p>
+            </div>
+
+            {/* Format */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Format du panneau</label>
+              <div className="flex flex-wrap gap-2">
+                {PANEL_FORMATS.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFormat(format === f ? '' : f)}
+                    className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                      format === f
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground'
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Type */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Type de panneau</label>
+              <div className="flex flex-wrap gap-2">
+                {PANEL_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setType(type === t ? '' : t)}
+                    className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                      type === t
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Observations..."
+                rows={2}
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground"
+              />
+            </div>
+
+            <button
+              onClick={() => setStep(3)}
+              disabled={!canGoStep3()}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-foreground text-[14px] font-medium text-background transition-colors disabled:opacity-40"
+            >
+              Continuer
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        )}
+
+        {/* ─── Step 3: Photo + Submit ─── */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Camera className="size-4" />
+                <p className="text-sm font-medium">Photo d'installation</p>
+              </div>
+              <p className="text-[12px] text-muted-foreground">
+                Prenez une photo du panneau installé
+              </p>
+            </div>
+
+            <PhotoCapture
+              folder={`panels/${panelId}`}
+              onPhotoUploaded={setPhotoPath}
+            />
+
+            {/* Recap */}
+            {photoPath && (
+              <div className="rounded-lg border border-border p-3">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                  Récapitulatif
+                </p>
+                <div className="space-y-1.5 text-[13px]">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Lieu</span>
+                    <span className="font-medium">{manualName || '—'}</span>
+                  </div>
+                  {manualAddress && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Adresse</span>
+                      <span className="text-right">{manualAddress}</span>
+                    </div>
+                  )}
+                  {manualCity && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Ville</span>
+                      <span>{manualCity}</span>
+                    </div>
+                  )}
+                  {contactPhone && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tél.</span>
+                      <span>{contactPhone}</span>
+                    </div>
+                  )}
+                  {format && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Format</span>
+                      <span>{format}</span>
+                    </div>
+                  )}
+                  {type && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Type</span>
+                      <span>{type}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1 pt-1 text-green-600">
+                    <CheckCircle className="size-3" />
+                    <span className="text-[12px]">Photo prise</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive-foreground">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !photoPath || !lat || !lng}
+              className="flex h-12 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-40"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                "Valider l'installation"
+              )}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

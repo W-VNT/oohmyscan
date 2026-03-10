@@ -46,6 +46,7 @@ export function OperatorPanelDetailPage() {
     name: '',
     address: '',
     city: '',
+    contact_phone: '',
     format: '',
     type: '',
     notes: '',
@@ -88,6 +89,7 @@ export function OperatorPanelDetailPage() {
         name: panel.name ?? '',
         address: panel.address ?? '',
         city: panel.city ?? '',
+        contact_phone: panel.contact_phone ?? '',
         format: panel.format ?? '',
         type: panel.type ?? '',
         notes: panel.notes ?? '',
@@ -103,6 +105,7 @@ export function OperatorPanelDetailPage() {
         name: form.name || null,
         address: form.address || null,
         city: form.city || null,
+        contact_phone: form.contact_phone || null,
         format: form.format || null,
         type: form.type || null,
         notes: form.notes || null,
@@ -141,7 +144,7 @@ export function OperatorPanelDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="bg-background pb-20">
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center gap-3">
@@ -207,6 +210,16 @@ export function OperatorPanelDetailPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-muted-foreground">Téléphone du lieu</label>
+                  <Input
+                    value={form.contact_phone}
+                    onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))}
+                    placeholder="Ex: 01 23 45 67 89"
+                    type="tel"
+                    className="text-[13px]"
+                  />
+                </div>
+                <div className="space-y-1.5">
                   <label className="text-[11px] font-medium text-muted-foreground">Format</label>
                   <select
                     value={form.format}
@@ -259,6 +272,7 @@ export function OperatorPanelDetailPage() {
                 <InfoRow label="Nom" value={panel.name} />
                 <InfoRow label="Adresse" value={panel.address} />
                 <InfoRow label="Ville" value={panel.city} />
+                <InfoRow label="Tél. du lieu" value={panel.contact_phone} />
                 <InfoRow label="Format" value={panel.format} />
                 <InfoRow label="Type" value={panel.type} />
                 <InfoRow label="Notes" value={panel.notes} />

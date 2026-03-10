@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, MapPin, ScanLine, PanelTop, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ScanMissionSheet } from '@/components/shared/ScanMissionSheet'
 
 const leftItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -30,34 +32,33 @@ function NavItem({ to, icon: Icon, label }: { to: string; icon: typeof LayoutDas
 }
 
 export function BottomNav() {
+  const [sheetOpen, setSheetOpen] = useState(false)
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-lg items-center">
-        {leftItems.map((item) => (
-          <NavItem key={item.to} {...item} />
-        ))}
+    <>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-lg items-center">
+          {leftItems.map((item) => (
+            <NavItem key={item.to} {...item} />
+          ))}
 
-        {/* Central scan button */}
-        <div className="flex flex-1 items-center justify-center">
-          <NavLink
-            to="/scan"
-            className={({ isActive }) =>
-              cn(
-                '-mt-6 flex size-12 items-center justify-center rounded-full border transition-all active:scale-95',
-                isActive
-                  ? 'border-foreground/20 bg-foreground text-background shadow-lg'
-                  : 'border-border bg-card text-foreground shadow-md hover:shadow-lg'
-              )
-            }
-          >
-            <ScanLine className="size-5" strokeWidth={1.5} />
-          </NavLink>
+          {/* Central scan button */}
+          <div className="flex flex-1 items-center justify-center">
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="-mt-6 flex size-12 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-md transition-all active:scale-95 hover:shadow-lg"
+            >
+              <ScanLine className="size-5" strokeWidth={1.5} />
+            </button>
+          </div>
+
+          {rightItems.map((item) => (
+            <NavItem key={item.to} {...item} />
+          ))}
         </div>
+      </nav>
 
-        {rightItems.map((item) => (
-          <NavItem key={item.to} {...item} />
-        ))}
-      </div>
-    </nav>
+      <ScanMissionSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </>
   )
 }

@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Full bleed background for maskable -->
+  <rect width="512" height="512" fill="#111111"/>
+  <!-- Scan frame - top left -->
+  <path d="M132 228V164C132 146.327 146.327 132 164 132H228" stroke="white" stroke-width="22" stroke-linecap="round"/>
+  <!-- Scan frame - top right -->
+  <path d="M284 132H348C365.673 132 380 146.327 380 164V228" stroke="white" stroke-width="22" stroke-linecap="round"/>
+  <!-- Scan frame - bottom left -->
+  <path d="M132 284V348C132 365.673 146.327 380 164 380H228" stroke="white" stroke-width="22" stroke-linecap="round"/>
+  <!-- Scan frame - bottom right -->
+  <path d="M284 380H348C365.673 380 380 365.673 380 348V284" stroke="white" stroke-width="22" stroke-linecap="round"/>
+  <!-- Scan line -->
+  <line x1="156" y1="256" x2="356" y2="256" stroke="white" stroke-width="22" stroke-linecap="round"/>
+</svg>

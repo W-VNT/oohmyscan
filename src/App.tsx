@@ -23,6 +23,7 @@ const OperatorPanelsPage = lazy(() => import('@/pages/operator/OperatorPanelsPag
 const OperatorMapPage = lazy(() => import('@/pages/operator/OperatorMapPage').then((m) => ({ default: m.OperatorMapPage })))
 const OperatorPanelDetailPage = lazy(() => import('@/pages/operator/OperatorPanelDetailPage').then((m) => ({ default: m.OperatorPanelDetailPage })))
 const ProfilePage = lazy(() => import('@/pages/operator/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const MyCampaignsPage = lazy(() => import('@/pages/operator/MyCampaignsPage').then((m) => ({ default: m.MyCampaignsPage })))
 
 // Admin pages
 const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
@@ -62,6 +63,7 @@ export default function App() {
                   <Route path="/panels/:id" element={<OperatorPanelDetailPage />} />
                   <Route path="/map" element={<OperatorMapPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/my-campaigns" element={<MyCampaignsPage />} />
                   <Route path="/register/:panelId" element={<RegisterPanelPage />} />
                   <Route path="/assign/:panelId" element={<AssignCampaignPage />} />
                 </Route>

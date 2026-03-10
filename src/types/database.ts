@@ -7,6 +7,7 @@ export interface Database {
           full_name: string
           role: 'admin' | 'operator'
           phone: string | null
+          avatar_url: string | null
           created_at: string
         }
         Insert: {
@@ -14,6 +15,7 @@ export interface Database {
           full_name: string
           role: 'admin' | 'operator'
           phone?: string | null
+          avatar_url?: string | null
           created_at?: string
         }
         Update: {
@@ -21,6 +23,7 @@ export interface Database {
           full_name?: string
           role?: 'admin' | 'operator'
           phone?: string | null
+          avatar_url?: string | null
           created_at?: string
         }
         Relationships: []
@@ -35,6 +38,7 @@ export interface Database {
           lng: number
           address: string | null
           city: string | null
+          contact_phone: string | null
           format: string | null
           type: string | null
           status: 'active' | 'vacant' | 'missing' | 'maintenance'
@@ -54,6 +58,7 @@ export interface Database {
           lng: number
           address?: string | null
           city?: string | null
+          contact_phone?: string | null
           format?: string | null
           type?: string | null
           status?: 'active' | 'vacant' | 'missing' | 'maintenance'
@@ -73,6 +78,7 @@ export interface Database {
           lng?: number
           address?: string | null
           city?: string | null
+          contact_phone?: string | null
           format?: string | null
           type?: string | null
           status?: 'active' | 'vacant' | 'missing' | 'maintenance'

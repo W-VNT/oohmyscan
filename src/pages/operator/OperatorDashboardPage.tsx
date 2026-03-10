@@ -125,6 +125,7 @@ export function OperatorDashboardPage() {
 
   type ActivityItem = {
     id: string
+    panelId: string
     type: 'photo' | 'assignment'
     date: string
     panelRef: string
@@ -137,6 +138,7 @@ export function OperatorDashboardPage() {
       const panel = (p as Record<string, unknown>).panels as { reference: string; status: string; city: string } | null
       return {
         id: p.id,
+        panelId: p.panel_id,
         type: 'photo' as const,
         date: p.taken_at,
         panelRef: panel?.reference ?? '—',
@@ -149,6 +151,7 @@ export function OperatorDashboardPage() {
       const campaign = (a as Record<string, unknown>).campaigns as { name: string; client: string } | null
       return {
         id: a.id,
+        panelId: a.panel_id,
         type: 'assignment' as const,
         date: a.assigned_at,
         panelRef: panel?.reference ?? '—',
@@ -158,14 +161,141 @@ export function OperatorDashboardPage() {
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
-    <div className="space-y-6 p-4 pb-20">
-      {/* Greeting */}
+    <div className="space-y-5 p-4 pb-20">
+      {/* 1 — Greeting */}
       <div>
         <p className="text-[13px] text-muted-foreground">Bonjour,</p>
         <h1 className="text-lg font-semibold tracking-tight">{profile?.full_name || 'Opérateur'}</h1>
       </div>
 
-      {/* KPI row */}
+      {/* 2 — Action buttons (terrain-first) */}
+      <div className="grid grid-cols-2 gap-2">
+        <Link to="/scan?mode=install" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
+          <div className="flex size-10 items-center justify-center rounded-full bg-blue-500/10">
+            <Plus className="size-5 text-blue-500" strokeWidth={1.5} />
+          </div>
+          <span className="text-[13px] font-medium">Installer</span>
+        </Link>
+        <Link to="/scan?mode=campaign" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
+          <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500/10">
+            <Megaphone className="size-5 text-emerald-500" strokeWidth={1.5} />
+          </div>
+          <span className="text-[13px] font-medium">Diffuser</span>
+        </Link>
+      </div>
+
+      {/* 3 — Active campaign (mission du jour) */}
+      {activeCampaigns && activeCampaigns.length > 0 && (
+        <div className="space-y-2">
+          {activeCampaigns.map((campaign) => {
+            const progress = campaign.totalPanels > 0
+              ? Math.round((campaign.myPanels / campaign.totalPanels) * 100)
+              : 0
+            const isDone = campaign.myPanels >= campaign.totalPanels && campaign.totalPanels > 0
+            return (
+              <Card key={campaign.id}>
+                <CardContent className="space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                        Mission en cours
+                      </p>
+                      <p className="mt-1 text-sm font-semibold">{campaign.name}</p>
+                      <p className="text-[12px] text-muted-foreground">{campaign.client}</p>
+                    </div>
+                    {isDone ? (
+                      <div className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1">
+                        <CheckCircle2 className="size-3 text-green-600" />
+                        <span className="text-[11px] font-medium text-green-600">Terminé</span>
+                      </div>
+                    ) : (
+                      <div className="text-right">
+                        <p className="text-lg font-bold">{campaign.myPanels}<span className="text-sm font-normal text-muted-foreground">/{campaign.totalPanels}</span></p>
+                        <p className="text-[11px] text-muted-foreground">points posés</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all',
+                          isDone ? 'bg-green-500' : 'bg-primary'
+                        )}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{progress}% complété</span>
+                      <span>
+                        {new Date(campaign.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                        {' → '}
+                        {new Date(campaign.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!isDone && (
+                    <Link
+                      to="/scan?mode=campaign"
+                      className={cn(
+                        buttonVariants({ size: 'sm' }),
+                        'w-full gap-1.5'
+                      )}
+                    >
+                      <Megaphone className="size-3.5" />
+                      Continuer la diffusion
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 4 — Last point (contexte terrain) */}
+      {lastPanel && (
+        <Link to={`/panels/${lastPanel.id}`}>
+          <Card size="sm">
+            <CardContent>
+              <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                Dernier point
+              </p>
+              <div className="mt-2 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">{lastPanel.reference}</p>
+                  {(lastPanel.city || lastPanel.address) && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <MapPin className="size-3" />
+                      <span>{lastPanel.city || lastPanel.address}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[11px]">
+                    {PANEL_STATUS_LABELS[lastPanel.status] ?? lastPanel.status}
+                  </Badge>
+                  <ChevronRight className="size-4 text-muted-foreground/50" />
+                </div>
+              </div>
+              {lastPanel.created_at && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {new Date(lastPanel.created_at).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+      )}
+
+      {/* 5 — Stats (discret, en bas) */}
       <div className="grid grid-cols-3 gap-2">
         <Card size="sm">
           <CardContent className="text-center">
@@ -187,133 +317,9 @@ export function OperatorDashboardPage() {
         </Card>
       </div>
 
-      {/* Active campaigns */}
-      {activeCampaigns && activeCampaigns.length > 0 && (
-        <div className="space-y-2">
-          {activeCampaigns.map((campaign) => {
-            const progress = campaign.totalPanels > 0
-              ? Math.round((campaign.myPanels / campaign.totalPanels) * 100)
-              : 0
-            const isDone = campaign.myPanels >= campaign.totalPanels && campaign.totalPanels > 0
-            return (
-              <Card key={campaign.id}>
-                <CardContent className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                        Campagne en cours
-                      </p>
-                      <p className="mt-1 text-sm font-semibold">{campaign.name}</p>
-                      <p className="text-[12px] text-muted-foreground">{campaign.client}</p>
-                    </div>
-                    {isDone ? (
-                      <div className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1">
-                        <CheckCircle2 className="size-3 text-green-600" />
-                        <span className="text-[11px] font-medium text-green-600">Terminé</span>
-                      </div>
-                    ) : (
-                      <div className="text-right">
-                        <p className="text-lg font-bold">{campaign.myPanels}<span className="text-sm font-normal text-muted-foreground">/{campaign.totalPanels}</span></p>
-                        <p className="text-[11px] text-muted-foreground">points posés</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Progress bar */}
-                  <div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={cn(
-                          'h-full rounded-full transition-all',
-                          isDone ? 'bg-green-500' : 'bg-primary'
-                        )}
-                        style={{ width: `${Math.min(progress, 100)}%` }}
-                      />
-                    </div>
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>{progress}% complété</span>
-                      <span>
-                        {new Date(campaign.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                        {' → '}
-                        {new Date(campaign.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* CTA */}
-                  {!isDone && (
-                    <Link
-                      to="/scan"
-                      className={cn(
-                        buttonVariants({ size: 'sm' }),
-                        'w-full gap-1.5'
-                      )}
-                    >
-                      <Megaphone className="size-3.5" />
-                      Continuer la diffusion
-                    </Link>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Last scanned */}
-      {lastPanel && (
-        <Card size="sm">
-          <CardContent>
-            <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-              Dernier point
-            </p>
-            <div className="mt-2 flex items-center justify-between">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium">{lastPanel.reference}</p>
-                {(lastPanel.city || lastPanel.address) && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <MapPin className="size-3" />
-                    <span>{lastPanel.city || lastPanel.address}</span>
-                  </div>
-                )}
-              </div>
-              <Badge variant="outline" className="text-[11px]">
-                {PANEL_STATUS_LABELS[lastPanel.status] ?? lastPanel.status}
-              </Badge>
-            </div>
-            {lastPanel.created_at && (
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                {new Date(lastPanel.created_at).toLocaleDateString('fr-FR', {
-                  day: 'numeric',
-                  month: 'long',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-2">
-        <Link to="/scan" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
-          <div className="flex size-10 items-center justify-center rounded-full bg-foreground/5">
-            <Plus className="size-5" strokeWidth={1.5} />
-          </div>
-          <span className="text-[13px] font-medium">Installer un point</span>
-        </Link>
-        <Link to="/scan" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
-          <div className="flex size-10 items-center justify-center rounded-full bg-foreground/5">
-            <Megaphone className="size-5" strokeWidth={1.5} />
-          </div>
-          <span className="text-[13px] font-medium">Diffuser une campagne</span>
-        </Link>
-      </div>
-
       <Separator />
 
-      {/* Activity */}
+      {/* 6 — Activity feed (historique) */}
       <div>
         <div className="flex items-center justify-between">
           <h2 className="text-[13px] font-medium">Activité récente</h2>
@@ -335,8 +341,9 @@ export function OperatorDashboardPage() {
         ) : (
           <div className="mt-3 space-y-1">
             {activities.slice(0, 5).map((item) => (
-              <div
+              <Link
                 key={item.id}
+                to={`/panels/${item.panelId}`}
                 className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
               >
                 <div className={cn(
@@ -359,7 +366,7 @@ export function OperatorDashboardPage() {
                 <span className="shrink-0 text-[11px] text-muted-foreground">
                   {new Date(item.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         )}
