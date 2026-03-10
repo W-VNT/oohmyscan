@@ -1,23 +1,26 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// Layouts
+// Layouts (always loaded)
 import { AppLayout } from '@/components/layout/AppLayout'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
+import { LoadingScreen } from '@/components/shared/LoadingScreen'
 
-// Pages
-import { LoginPage } from '@/pages/auth/LoginPage'
-import { ScanPage } from '@/pages/operator/ScanPage'
-import { RegisterPanelPage } from '@/pages/operator/RegisterPanelPage'
-import { AssignCampaignPage } from '@/pages/operator/AssignCampaignPage'
-import { DashboardPage } from '@/pages/admin/DashboardPage'
-import { MapPage } from '@/pages/admin/MapPage'
-import { PanelsPage } from '@/pages/admin/PanelsPage'
-import { PanelDetailPage } from '@/pages/admin/PanelDetailPage'
-import { CampaignsPage } from '@/pages/admin/CampaignsPage'
-import { CampaignDetailPage } from '@/pages/admin/CampaignDetailPage'
-import { ReportsPage } from '@/pages/admin/ReportsPage'
+// Lazy loaded pages
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
+const ScanPage = lazy(() => import('@/pages/operator/ScanPage').then((m) => ({ default: m.ScanPage })))
+const RegisterPanelPage = lazy(() => import('@/pages/operator/RegisterPanelPage').then((m) => ({ default: m.RegisterPanelPage })))
+const AssignCampaignPage = lazy(() => import('@/pages/operator/AssignCampaignPage').then((m) => ({ default: m.AssignCampaignPage })))
+const OperatorPanelsPage = lazy(() => import('@/pages/operator/OperatorPanelsPage').then((m) => ({ default: m.OperatorPanelsPage })))
+const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const MapPage = lazy(() => import('@/pages/admin/MapPage').then((m) => ({ default: m.MapPage })))
+const PanelsPage = lazy(() => import('@/pages/admin/PanelsPage').then((m) => ({ default: m.PanelsPage })))
+const PanelDetailPage = lazy(() => import('@/pages/admin/PanelDetailPage').then((m) => ({ default: m.PanelDetailPage })))
+const CampaignsPage = lazy(() => import('@/pages/admin/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
+const CampaignDetailPage = lazy(() => import('@/pages/admin/CampaignDetailPage').then((m) => ({ default: m.CampaignDetailPage })))
+const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,33 +35,36 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          {/* Public */}
-          <Route path="/login" element={<LoginPage />} />
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            {/* Public */}
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Operator routes (mobile-first) */}
-          <Route element={<ProtectedRoute role="operator" />}>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Navigate to="/scan" replace />} />
-              <Route path="/scan" element={<ScanPage />} />
-              <Route path="/register/:panelId" element={<RegisterPanelPage />} />
-              <Route path="/assign/:panelId" element={<AssignCampaignPage />} />
+            {/* Operator routes (mobile-first) — admin can also access */}
+            <Route element={<ProtectedRoute role="operator" />}>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Navigate to="/scan" replace />} />
+                <Route path="/scan" element={<ScanPage />} />
+                <Route path="/panels" element={<OperatorPanelsPage />} />
+                <Route path="/register/:panelId" element={<RegisterPanelPage />} />
+                <Route path="/assign/:panelId" element={<AssignCampaignPage />} />
+              </Route>
             </Route>
-          </Route>
 
-          {/* Admin routes */}
-          <Route element={<ProtectedRoute role="admin" />}>
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<DashboardPage />} />
-              <Route path="map" element={<MapPage />} />
-              <Route path="panels" element={<PanelsPage />} />
-              <Route path="panels/:id" element={<PanelDetailPage />} />
-              <Route path="campaigns" element={<CampaignsPage />} />
-              <Route path="campaigns/:id" element={<CampaignDetailPage />} />
-              <Route path="reports" element={<ReportsPage />} />
+            {/* Admin routes */}
+            <Route element={<ProtectedRoute role="admin" />}>
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="map" element={<MapPage />} />
+                <Route path="panels" element={<PanelsPage />} />
+                <Route path="panels/:id" element={<PanelDetailPage />} />
+                <Route path="campaigns" element={<CampaignsPage />} />
+                <Route path="campaigns/:id" element={<CampaignDetailPage />} />
+                <Route path="reports" element={<ReportsPage />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </QueryClientProvider>
   )
