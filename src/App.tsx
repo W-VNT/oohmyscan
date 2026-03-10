@@ -14,6 +14,8 @@ const ScanPage = lazy(() => import('@/pages/operator/ScanPage').then((m) => ({ d
 const RegisterPanelPage = lazy(() => import('@/pages/operator/RegisterPanelPage').then((m) => ({ default: m.RegisterPanelPage })))
 const AssignCampaignPage = lazy(() => import('@/pages/operator/AssignCampaignPage').then((m) => ({ default: m.AssignCampaignPage })))
 const OperatorPanelsPage = lazy(() => import('@/pages/operator/OperatorPanelsPage').then((m) => ({ default: m.OperatorPanelsPage })))
+const OperatorMapPage = lazy(() => import('@/pages/operator/OperatorMapPage').then((m) => ({ default: m.OperatorMapPage })))
+const ProfilePage = lazy(() => import('@/pages/operator/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const MapPage = lazy(() => import('@/pages/admin/MapPage').then((m) => ({ default: m.MapPage })))
 const PanelsPage = lazy(() => import('@/pages/admin/PanelsPage').then((m) => ({ default: m.PanelsPage })))
@@ -46,6 +48,8 @@ export default function App() {
                 <Route path="/" element={<Navigate to="/scan" replace />} />
                 <Route path="/scan" element={<ScanPage />} />
                 <Route path="/panels" element={<OperatorPanelsPage />} />
+                <Route path="/map" element={<OperatorMapPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/register/:panelId" element={<RegisterPanelPage />} />
                 <Route path="/assign/:panelId" element={<AssignCampaignPage />} />
               </Route>
