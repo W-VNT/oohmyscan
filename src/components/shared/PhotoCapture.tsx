@@ -1,0 +1,125 @@
+import { useState, useRef } from 'react'
+import { Camera, X, Loader2 } from 'lucide-react'
+import imageCompression from 'browser-image-compression'
+import { supabase } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
+
+interface PhotoCaptureProps {
+  onPhotoUploaded: (storagePath: string) => void
+  folder: string
+  className?: string
+  required?: boolean
+}
+
+export function PhotoCapture({
+  onPhotoUploaded,
+  folder,
+  className,
+}: PhotoCaptureProps) {
+  const [preview, setPreview] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setError(null)
+    setUploading(true)
+
+    try {
+      // Compress image
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+      })
+
+      // Preview
+      const reader = new FileReader()
+      reader.onload = (ev) => setPreview(ev.target?.result as string)
+      reader.readAsDataURL(compressed)
+
+      // Upload to Supabase Storage
+      const timestamp = Date.now()
+      const ext = compressed.name.split('.').pop() || 'jpg'
+      const path = `${folder}/${timestamp}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('panel-photos')
+        .upload(path, compressed, {
+          contentType: compressed.type,
+          upsert: false,
+        })
+
+      if (uploadError) throw uploadError
+
+      onPhotoUploaded(path)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de l\'upload')
+      setPreview(null)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function handleRemove() {
+    setPreview(null)
+    setError(null)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  return (
+    <div className={cn('space-y-2', className)}>
+      {preview ? (
+        <div className="relative">
+          <img
+            src={preview}
+            alt="Aperçu"
+            className="h-48 w-full rounded-lg object-cover"
+          />
+          <button
+            type="button"
+            onClick={handleRemove}
+            className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="flex h-48 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="text-sm">Compression et upload...</span>
+            </>
+          ) : (
+            <>
+              <Camera className="h-8 w-8" />
+              <span className="text-sm">Prendre une photo</span>
+            </>
+          )}
+        </button>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      {error && (
+        <p className="text-sm text-destructive-foreground">{error}</p>
+      )}
+    </div>
+  )
+}

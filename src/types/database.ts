@@ -23,6 +23,7 @@ export interface Database {
           phone?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       panels: {
         Row: {
@@ -82,6 +83,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       panel_photos: {
         Row: {
@@ -111,6 +113,7 @@ export interface Database {
           taken_at?: string
           notes?: string | null
         }
+        Relationships: []
       }
       campaigns: {
         Row: {
@@ -146,6 +149,7 @@ export interface Database {
           created_by?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       panel_campaigns: {
         Row: {
@@ -181,7 +185,20 @@ export interface Database {
           validated_at?: string | null
           notes?: string | null
         }
+        Relationships: []
       }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }
