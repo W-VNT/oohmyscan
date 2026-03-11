@@ -36,7 +36,7 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/80 backdrop-blur-xl">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-lg items-center">
           {leftItems.map((item) => (
             <NavItem key={item.to} {...item} />

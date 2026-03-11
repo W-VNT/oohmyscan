@@ -306,7 +306,7 @@ export function OperatorPanelDetailPage() {
   return (
     <div className="bg-background pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-[env(safe-area-inset-top)] z-10 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} aria-label="Retour">
             <ArrowLeft className="size-5" />

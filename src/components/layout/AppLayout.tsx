@@ -3,7 +3,7 @@ import { BottomNav } from './BottomNav'
 
 export function AppLayout() {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background pt-[env(safe-area-inset-top)]">
       <main className="flex-1 pb-16">
         <Outlet />
       </main>

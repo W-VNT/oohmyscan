@@ -343,7 +343,7 @@ export function OperatorMapPage() {
       </Map>
 
       {/* Floating search bar */}
-      <div className="absolute left-3 right-3 top-3">
+      <div className="absolute left-3 right-3 top-[max(0.75rem,env(safe-area-inset-top))]">
         {showSearch ? (
           <div className="rounded-xl border border-border bg-background/95 shadow-lg backdrop-blur">
             <div className="flex items-center gap-2 px-3">

@@ -135,20 +135,9 @@
   }
 }
 
-/* Fullscreen QR scanner — override html5-qrcode inline styles */
+/* QR scanner — video fills container */
 #qr-reader {
-  border: none !important;
-}
-#qr-reader video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  position: absolute !important;
-  inset: 0 !important;
-}
-#qr-reader img[alt="Info icon"],
-#qr-reader div[style*="text-align"] {
-  display: none !important;
+  overflow: hidden;
 }
 
 /* Mapbox popup — dark theme */
