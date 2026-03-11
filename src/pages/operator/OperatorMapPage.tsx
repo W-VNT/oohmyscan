@@ -342,7 +342,7 @@ export function OperatorMapPage() {
       </Map>
 
       {/* Floating search bar */}
-      <div className="absolute left-3 right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10">
+      <div className="absolute left-3 right-3 top-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))] z-10">
         {showSearch ? (
           <div className="rounded-xl border border-border bg-background/95 shadow-lg backdrop-blur">
             <div className="flex items-center gap-2 px-3">
@@ -409,7 +409,7 @@ export function OperatorMapPage() {
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-20 left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
+      <div className="absolute bottom-20 left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-center gap-1">
           <CircleCheck className="size-3 text-green-500" />
           <span className="text-[11px]">Libre</span>
@@ -430,6 +430,7 @@ export function OperatorMapPage() {
         disabled={locating}
         aria-label="Recentrer sur ma position"
         className="absolute bottom-20 right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
+        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
       >
         {locating ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />

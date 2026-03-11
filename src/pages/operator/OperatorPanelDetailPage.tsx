@@ -205,30 +205,18 @@ export function OperatorPanelDetailPage() {
     setSuggestions([])
   }
 
-  // Quick photo upload with preview
+  // Quick photo upload (no preview — iOS handles its own confirmation)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [photoPreview, setPhotoPreview] = useState<{ url: string; file: File } | null>(null)
 
-  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setPhotoPreview({ url, file })
+    if (!file || !session || !id) return
     if (photoInputRef.current) photoInputRef.current.value = ''
-  }
-
-  function cancelPhotoPreview() {
-    if (photoPreview) URL.revokeObjectURL(photoPreview.url)
-    setPhotoPreview(null)
-  }
-
-  async function confirmPhotoUpload() {
-    if (!photoPreview || !session || !id) return
 
     setUploadingPhoto(true)
     try {
-      const compressed = await imageCompression(photoPreview.file, {
+      const compressed = await imageCompression(file, {
         maxSizeMB: 1,
         maxWidthOrHeight: 1920,
         useWebWorker: true,
@@ -257,7 +245,6 @@ export function OperatorPanelDetailPage() {
       toast("Erreur lors de l'upload", 'error')
     } finally {
       setUploadingPhoto(false)
-      cancelPhotoPreview()
     }
   }
 
@@ -448,7 +435,7 @@ export function OperatorPanelDetailPage() {
             ) : (
               <Camera className="size-4 text-blue-500" />
             )}
-            <span className="text-[11px] font-medium">Photo</span>
+            <span className="text-[11px] font-medium">Vérifier</span>
           </button>
           <input
             ref={photoInputRef}
@@ -678,14 +665,20 @@ export function OperatorPanelDetailPage() {
           </Card>
         )}
 
-        {/* Photos grid */}
-        {photos && photos.length > 0 && (
+        {/* Photos grid — hide campaign photos when panel is vacant */}
+        {photos && photos.length > 0 && (() => {
+          const isActive = panel.status === 'active'
+          const visiblePhotos = isActive
+            ? photos
+            : photos.filter((p) => p.photo_type !== 'campaign')
+          if (!visiblePhotos.length) return null
+          return (
           <div>
             <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-              Photos ({photos.length})
+              Photos ({visiblePhotos.length})
             </p>
             <div className="mt-2 grid grid-cols-3 gap-1.5">
-              {photos.map((photo) => {
+              {visiblePhotos.map((photo) => {
                 const url = photoUrls?.[photo.id]
                 return (
                   <button
@@ -724,7 +717,8 @@ export function OperatorPanelDetailPage() {
               })}
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {/* No photos state */}
         {(!photos || photos.length === 0) && !editing && (
@@ -787,40 +781,6 @@ export function OperatorPanelDetailPage() {
           )}
         </div>
       </div>
-
-      {/* Photo preview overlay (new upload) */}
-      {photoPreview && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4">
-          <img
-            src={photoPreview.url}
-            alt="Aperçu"
-            className="max-h-[60vh] w-full rounded-xl object-contain"
-          />
-          <p className="mt-3 text-[13px] text-white/70">Vérifiez la photo avant d'envoyer</p>
-          <div className="mt-4 flex gap-3">
-            <button
-              onClick={cancelPhotoPreview}
-              disabled={uploadingPhoto}
-              className="flex items-center gap-1.5 rounded-lg border border-white/20 px-5 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-white/10"
-            >
-              <X className="size-4" />
-              Reprendre
-            </button>
-            <button
-              onClick={confirmPhotoUpload}
-              disabled={uploadingPhoto}
-              className="flex items-center gap-1.5 rounded-lg bg-white px-5 py-2.5 text-[13px] font-medium text-black transition-colors hover:bg-white/90"
-            >
-              {uploadingPhoto ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Camera className="size-4" />
-              )}
-              Valider
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Photo viewer overlay (existing photo) */}
       {viewingPhoto && (
