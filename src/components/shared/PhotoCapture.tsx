@@ -131,7 +131,7 @@ export function PhotoCapture({
       />
 
       {error && (
-        <p className="text-sm text-destructive-foreground">{error}</p>
+        <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
       )}
     </div>
   )

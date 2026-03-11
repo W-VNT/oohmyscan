@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { Loader2, Camera, Megaphone, PanelTop } from 'lucide-react'
-import type { PanelStatus } from '@/lib/constants'
+import { Loader2, Camera, Megaphone, PanelTop, ScanLine } from 'lucide-react'
+import { PHOTO_TYPE_LABELS } from '@/lib/constants'
+import type { PanelStatus, PhotoType } from '@/lib/constants'
+import { Link } from 'react-router-dom'
 
 export function ActivityPage() {
   const { session } = useAuth()
@@ -67,7 +69,7 @@ export function ActivityPage() {
         date: p.taken_at,
         panelRef: panel?.name || panel?.reference || '—',
         panelStatus: panel?.status,
-        detail: p.photo_type === 'installation' ? 'Installation' : p.photo_type === 'check' ? 'Vérification' : p.photo_type === 'campaign' ? 'Campagne' : 'Dégât',
+        detail: PHOTO_TYPE_LABELS[p.photo_type as PhotoType] ?? p.photo_type,
       }
     }),
     ...(recentAssignments ?? []).map((a) => {
@@ -91,6 +93,13 @@ export function ActivityPage() {
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
           <PanelTop className="h-12 w-12" />
           <p className="mt-4">Aucune activité récente</p>
+          <Link
+            to="/scan"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground"
+          >
+            <ScanLine className="size-3.5" />
+            Scanner un point
+          </Link>
         </div>
       ) : (
         <div className="space-y-2">

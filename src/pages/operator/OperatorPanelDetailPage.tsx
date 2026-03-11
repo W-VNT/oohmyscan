@@ -440,7 +440,7 @@ export function OperatorPanelDetailPage() {
           <button
             onClick={() => photoInputRef.current?.click()}
             disabled={uploadingPhoto}
-            className="flex flex-col items-center gap-1.5 rounded-xl border border-border px-2 py-3 transition-colors hover:bg-muted"
+            className="flex flex-col items-center gap-1.5 rounded-xl border border-border px-2 py-3 transition-colors hover:bg-muted disabled:opacity-50"
           >
             {uploadingPhoto ? (
               <Loader2 className="size-4 animate-spin text-blue-500" />
