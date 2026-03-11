@@ -21,9 +21,21 @@ export function PhotoCapture({
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+  const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB before compression
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError('Format non supporté. Utilisez JPG, PNG ou WebP.')
+      return
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setError('Fichier trop volumineux (max 20 Mo)')
+      return
+    }
 
     setError(null)
     setUploading(true)

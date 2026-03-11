@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { usePanels } from '@/hooks/usePanels'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { Loader2, LocateFixed, Navigation, Eye, Search, X, MapPinOff } from 'lucide-react'
+import { Loader2, LocateFixed, Navigation, Eye, Search, X, MapPinOff, CircleCheck, Megaphone, AlertTriangle } from 'lucide-react'
 import type { Panel } from '@/types'
 import Map, { Marker, Popup, Source, Layer } from 'react-map-gl/mapbox'
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox'
@@ -179,7 +179,7 @@ export function OperatorMapPage() {
 
   if (!MAPBOX_TOKEN) {
     return (
-      <div className="flex flex-col items-center justify-center p-6 text-center" style={{ height: 'calc(100vh - 4rem)' }}>
+      <div className="flex h-[calc(100dvh-4rem-env(safe-area-inset-top))] flex-col items-center justify-center p-6 text-center">
         <p className="text-lg font-medium">Carte non disponible</p>
         <p className="mt-2 text-sm text-muted-foreground">Token Mapbox manquant</p>
       </div>
@@ -195,7 +195,7 @@ export function OperatorMapPage() {
   }
 
   return (
-    <div style={{ height: 'calc(100vh - 4rem)' }} className="relative">
+    <div className="relative h-[calc(100dvh-4rem-env(safe-area-inset-top))]">
       <Map
         ref={mapRef}
         {...viewState}
@@ -354,7 +354,7 @@ export function OperatorMapPage() {
                 className="h-10 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
                 autoFocus
               />
-              <button onClick={() => { setShowSearch(false); setSearch('') }} aria-label="Fermer la recherche">
+              <button onClick={() => { setShowSearch(false); setSearch('') }} aria-label="Fermer la recherche" className="flex size-10 items-center justify-center">
                 <X className="size-4 text-muted-foreground" />
               </button>
             </div>
@@ -364,7 +364,7 @@ export function OperatorMapPage() {
                   <button
                     key={panel.id}
                     onClick={() => flyToPanel(panel)}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors active:bg-muted/50"
                   >
                     <div
                       className="size-2.5 shrink-0 rounded-full"
@@ -409,17 +409,17 @@ export function OperatorMapPage() {
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-6 left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
-        <div className="flex items-center gap-1.5">
-          <div className="size-2.5 rounded-full bg-green-500" />
+      <div className="absolute bottom-3 left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
+        <div className="flex items-center gap-1">
+          <CircleCheck className="size-3 text-green-500" />
           <span className="text-[11px]">Libre</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="size-2.5 rounded-full bg-red-500" />
+        <div className="flex items-center gap-1">
+          <Megaphone className="size-3 text-red-500" />
           <span className="text-[11px]">Occupé</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="size-2.5 rounded-full bg-orange-500" />
+        <div className="flex items-center gap-1">
+          <AlertTriangle className="size-3 text-orange-500" />
           <span className="text-[11px]">Problème</span>
         </div>
       </div>
@@ -429,7 +429,7 @@ export function OperatorMapPage() {
         onClick={flyToUser}
         disabled={locating}
         aria-label="Recentrer sur ma position"
-        className="absolute bottom-6 right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
+        className="absolute bottom-3 right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
       >
         {locating ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />

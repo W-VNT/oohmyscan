@@ -18,8 +18,13 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />
   }
 
-  // Admin can access everything
-  if (role && profile?.role !== 'admin' && profile?.role !== role) {
+  // Wait for profile to load before checking role
+  if (!profile) {
+    return <LoadingScreen />
+  }
+
+  // Admin can access everything; others must match required role
+  if (role && profile.role !== 'admin' && profile.role !== role) {
     return <Navigate to="/" replace />
   }
 

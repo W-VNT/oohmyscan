@@ -13,6 +13,7 @@ import { toast } from '@/components/shared/Toast'
 import { PANEL_FORMATS, PANEL_TYPES, PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS } from '@/lib/constants'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
 import { searchPlaces, type PlaceSuggestion } from '@/lib/google-places'
+import { isValidUUID } from '@/lib/utils'
 import imageCompression from 'browser-image-compression'
 import {
   ArrowLeft,
@@ -33,7 +34,8 @@ export function OperatorPanelDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { session } = useAuth()
-  const { data: panel, isLoading } = usePanel(id)
+  const validId = isValidUUID(id) ? id : undefined
+  const { data: panel, isLoading } = usePanel(validId)
   const updatePanel = useUpdatePanel()
 
   const [editing, setEditing] = useState(false)
@@ -218,7 +220,7 @@ export function OperatorPanelDetailPage() {
     }
   }
 
-  const PHONE_RE = /^\+?[0-9\s\-().]{7,20}$/
+  const PHONE_RE = /^(?:\+?33|0)\s*[1-9](?:[\s.\-]?\d{2}){4}$/
 
   async function handleSave() {
     if (!id) return
@@ -510,6 +512,7 @@ export function OperatorPanelDetailPage() {
                   onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
                   placeholder="Ex: 12 rue de Rivoli"
                   className="text-[13px]"
+                  maxLength={150}
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -520,6 +523,7 @@ export function OperatorPanelDetailPage() {
                     onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
                     placeholder="Paris"
                     className="text-[13px]"
+                    maxLength={80}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -530,6 +534,7 @@ export function OperatorPanelDetailPage() {
                     placeholder="01 23 45 67 89"
                     type="tel"
                     className="text-[13px]"
+                    maxLength={20}
                   />
                 </div>
               </div>

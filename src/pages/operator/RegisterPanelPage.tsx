@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { supabase } from '@/lib/supabase'
 import { PANEL_FORMATS, PANEL_TYPES } from '@/lib/constants'
+import { isValidUUID } from '@/lib/utils'
 import { searchPlaces, nearbyPlaces, type PlaceSuggestion } from '@/lib/google-places'
 
 type Step = 1 | 2 | 3
@@ -27,6 +28,15 @@ export function RegisterPanelPage() {
   const { panelId } = useParams<{ panelId: string }>()
   const navigate = useNavigate()
   const { session } = useAuth()
+
+  if (!isValidUUID(panelId)) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-sm text-muted-foreground">Identifiant de panneau invalide</p>
+        <button onClick={() => navigate(-1)} className="mt-2 text-sm text-primary underline">Retour</button>
+      </div>
+    )
+  }
   const { lat, lng, accuracy, loading: gpsLoading, error: gpsError, requestPosition } = useGeolocation()
   const createPanel = useCreatePanel()
 
@@ -313,21 +323,24 @@ export function RegisterPanelPage() {
                     value={manualName}
                     onChange={(e) => setManualName(e.target.value)}
                     placeholder="Nom du lieu"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-[13px] placeholder:text-muted-foreground"
+                    maxLength={100}
+                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
                   />
                   <input
                     type="text"
                     value={manualAddress}
                     onChange={(e) => setManualAddress(e.target.value)}
                     placeholder="Adresse"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-[13px] placeholder:text-muted-foreground"
+                    maxLength={150}
+                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
                   />
                   <input
                     type="text"
                     value={manualCity}
                     onChange={(e) => setManualCity(e.target.value)}
                     placeholder="Ville"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-[13px] placeholder:text-muted-foreground"
+                    maxLength={80}
+                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
                   />
                 </div>
               </div>
@@ -372,7 +385,8 @@ export function RegisterPanelPage() {
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
                 placeholder="Ex: 01 23 45 67 89"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-[13px] placeholder:text-muted-foreground"
+                maxLength={20}
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
               />
               <p className="text-[11px] text-muted-foreground">
                 Optionnel — utile pour recontacter le commerce
@@ -426,10 +440,11 @@ export function RegisterPanelPage() {
               <label className="text-sm font-medium">Notes</label>
               <textarea
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e) => setNotes(e.target.value.slice(0, 500))}
                 placeholder="Observations..."
                 rows={2}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground"
+                maxLength={500}
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
               />
             </div>
 

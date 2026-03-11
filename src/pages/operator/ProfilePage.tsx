@@ -245,7 +245,7 @@ export function ProfilePage() {
         <h1 className="text-lg font-semibold tracking-tight">Profil</h1>
         <button
           onClick={toggleTheme}
-          className="flex size-9 items-center justify-center rounded-full border border-border transition-colors hover:bg-muted"
+          className="flex size-11 items-center justify-center rounded-full border border-border transition-colors hover:bg-muted"
           aria-label={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
         >
           {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -352,6 +352,7 @@ export function ProfilePage() {
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Prénom Nom"
                   className="text-[13px]"
+                  maxLength={80}
                 />
                 <Button size="sm" onClick={saveName} disabled={savingName || !fullName.trim()}>
                   {savingName ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
@@ -390,6 +391,7 @@ export function ProfilePage() {
                   placeholder="06 12 34 56 78"
                   type="tel"
                   className="text-[13px]"
+                  maxLength={20}
                 />
                 <Button size="sm" onClick={savePhone} disabled={savingPhone}>
                   {savingPhone ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
