@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   MapPin,
@@ -19,6 +19,20 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/app.store'
+
+const PAGE_TITLES: Record<string, string> = {
+  '/admin': 'Dashboard',
+  '/admin/map': 'Carte',
+  '/admin/panels': 'Panneaux',
+  '/admin/campaigns': 'Campagnes',
+  '/admin/clients': 'Clients',
+  '/admin/quotes': 'Devis',
+  '/admin/invoices': 'Factures',
+  '/admin/qr': 'QR Codes',
+  '/admin/users': 'Utilisateurs',
+  '/admin/reports': 'Rapports',
+  '/admin/settings': 'Paramètres',
+}
 
 const navSections = [
   {
@@ -57,6 +71,17 @@ const navSections = [
 export function AdminLayout() {
   const { signOut, profile } = useAuth()
   const { sidebarOpen, toggleSidebar } = useAppStore()
+  const { pathname } = useLocation()
+
+  // Match exact path or parent path for detail pages
+  const pageTitle = PAGE_TITLES[pathname] ?? (
+    pathname.startsWith('/admin/panels/') ? 'Détail panneau' :
+    pathname.startsWith('/admin/campaigns/') ? 'Détail campagne' :
+    pathname.startsWith('/admin/quotes/') ? 'Détail devis' :
+    pathname.startsWith('/admin/invoices/') ? 'Détail facture' :
+    pathname.startsWith('/admin/reports/') ? 'Justificatif de pose' :
+    ''
+  )
 
   return (
     <div className="flex h-screen bg-background pt-[env(safe-area-inset-top)]">
@@ -142,6 +167,7 @@ export function AdminLayout() {
           <button onClick={toggleSidebar} className="lg:hidden" aria-label="Menu">
             <Menu className="size-5" />
           </button>
+          {pageTitle && <h2 className="text-sm font-semibold">{pageTitle}</h2>}
           <div className="flex-1" />
         </header>
         <main className="flex-1 overflow-y-auto p-6">
