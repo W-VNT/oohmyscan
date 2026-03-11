@@ -101,6 +101,46 @@ export function OperatorPanelDetailPage() {
     enabled: !!id,
   })
 
+  // Campaign visual matching this panel's format
+  const activeCampaignId = assignments?.[0]?.campaign_id as string | undefined
+  const { data: campaignVisualUrl } = useQuery({
+    queryKey: ['campaign-visual', activeCampaignId, panel?.format],
+    queryFn: async () => {
+      const { data: visuals, error } = await supabase
+        .from('campaign_visuals')
+        .select('*')
+        .eq('campaign_id', activeCampaignId!)
+      if (error) throw error
+      if (!visuals?.length) return null
+
+      // Resolve format names for visuals that have a panel_format_id
+      const formatIds = visuals.map((v) => v.panel_format_id).filter(Boolean) as string[]
+      let formatMap: Record<string, string> = {}
+      if (formatIds.length > 0) {
+        const { data: formats } = await supabase
+          .from('panel_formats')
+          .select('id, name')
+          .in('id', formatIds)
+        if (formats) {
+          formatMap = Object.fromEntries(formats.map((f) => [f.id, f.name]))
+        }
+      }
+
+      // Find visual matching this panel's format, or fallback
+      const match =
+        visuals.find((v) => v.panel_format_id && formatMap[v.panel_format_id] === panel!.format) ??
+        visuals.find((v) => !v.panel_format_id) ??
+        visuals[0]
+
+      const { data: signed } = await supabase.storage
+        .from('campaign-visuals')
+        .createSignedUrl(match.storage_path, 3600)
+      return signed?.signedUrl ?? null
+    },
+    enabled: !!activeCampaignId && !!panel?.format,
+    staleTime: 30 * 60 * 1000,
+  })
+
   useEffect(() => {
     if (panel) {
       setForm({
@@ -465,21 +505,31 @@ export function OperatorPanelDetailPage() {
                     end_date: string
                   } | null
                   return (
-                    <div key={a.id} className="flex items-center gap-3">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10">
-                        <Megaphone className="size-3.5 text-emerald-500" />
+                    <div key={a.id} className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10">
+                          <Megaphone className="size-3.5 text-emerald-500" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-medium">{campaign?.name ?? '—'}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {campaign?.client}
+                            {campaign?.start_date && (
+                              <> · {new Date(campaign.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                              {' → '}
+                              {new Date(campaign.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</>
+                            )}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-medium">{campaign?.name ?? '—'}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {campaign?.client}
-                          {campaign?.start_date && (
-                            <> · {new Date(campaign.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                            {' → '}
-                            {new Date(campaign.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</>
-                          )}
-                        </p>
-                      </div>
+                      {campaignVisualUrl && (
+                        <img
+                          src={campaignVisualUrl}
+                          alt="Visuel campagne"
+                          className="w-full rounded-lg border border-border object-contain"
+                          style={{ maxHeight: 200 }}
+                        />
+                      )}
                     </div>
                   )
                 })}

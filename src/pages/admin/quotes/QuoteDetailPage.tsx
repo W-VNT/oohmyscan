@@ -5,6 +5,7 @@ import { useClients } from '@/hooks/admin/useClients'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
+import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -164,12 +165,17 @@ export function QuoteDetailPage() {
       let quoteId = id!
 
       if (isNew) {
-        const prefix = settings?.quote_prefix ?? 'D'
-        const nextNum = settings?.next_quote_number ?? 1
-        const quoteNumber = `${prefix}${String(nextNum).padStart(4, '0')}`
+        // Atomic numbering via SQL function
+        const { data: quoteNumber, error: rpcError } = await supabase.rpc('get_next_quote_number')
+        if (rpcError || !quoteNumber) {
+          // Fallback to client-side numbering
+          const prefix = settings?.quote_prefix ?? 'D'
+          const nextNum = settings?.next_quote_number ?? 1
+          var fallbackNumber = `${prefix}-${new Date().getFullYear()}-${String(nextNum).padStart(3, '0')}`
+        }
 
         const result = await createQuote.mutateAsync({
-          quote_number: quoteNumber,
+          quote_number: quoteNumber ?? fallbackNumber!,
           client_id: clientId,
           campaign_id: campaignId || null,
           status: 'draft',
@@ -250,7 +256,12 @@ export function QuoteDetailPage() {
             tva_rate: l.tva_rate,
             total_ht: l.total_ht,
           }))}
-          company={settings}
+          company={{
+            ...settings,
+            logo_url: settings.logo_path
+              ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
+              : null,
+          }}
         />,
       ).toBlob()
       const url = URL.createObjectURL(blob)

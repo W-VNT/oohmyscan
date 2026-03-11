@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, StyleSheet, Font } from '@react-pdf/renderer'
+import { Document, Page, View, Text, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import { computeTotals, formatEUR, formatDateFR, type DocumentLine } from './pdf-helpers'
 
 Font.register({
@@ -104,6 +104,7 @@ export interface InvoicePDFProps {
     iban: string | null
     bic: string | null
     legal_mentions: string | null
+    logo_url?: string | null
   }
 }
 
@@ -116,6 +117,9 @@ export function InvoicePDF({ invoice, quoteNumber, client, lines, company }: Inv
         {/* Header */}
         <View style={s.headerRow}>
           <View style={s.companyBlock}>
+            {company.logo_url && (
+              <Image src={company.logo_url} style={{ width: 80, height: 40, marginBottom: 6, objectFit: 'contain' }} />
+            )}
             <Text style={s.companyName}>{company.company_name ?? 'OOHMYAD'}</Text>
             {company.address && <Text style={s.companyLine}>{company.address}</Text>}
             {(company.postal_code || company.city) && (

@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
+    "@types/file-saver": "^2.0.7",
     "@types/mapbox-gl": "^3.5.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.14",
@@ -43,7 +44,9 @@
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "file-saver": "^2.0.5",
     "jsqr": "^1.4.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.577.0",
     "mapbox-gl": "^3.19.1",
     "qrcode": "^1.5.4",

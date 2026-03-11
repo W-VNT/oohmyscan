@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCampaigns, useCreateCampaign } from '@/hooks/useCampaigns'
+import { useClients } from '@/hooks/admin/useClients'
 import { useAuth } from '@/hooks/useAuth'
 import { Loader2, Plus, X, Megaphone } from 'lucide-react'
 import { toast } from '@/components/shared/Toast'
@@ -15,12 +16,13 @@ const statusLabels: Record<CampaignStatus, { label: string; className: string }>
 
 export function CampaignsPage() {
   const { data: campaigns, isLoading } = useCampaigns()
+  const { data: clients } = useClients()
   const createCampaign = useCreateCampaign()
   const { session } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
     name: '',
-    client: '',
+    client_id: '',
     description: '',
     start_date: '',
     end_date: '',
@@ -31,10 +33,13 @@ export function CampaignsPage() {
     e.preventDefault()
     setError(null)
 
+    const selectedClient = clients?.find((c) => c.id === form.client_id)
+
     try {
       await createCampaign.mutateAsync({
         name: form.name,
-        client: form.client,
+        client: selectedClient?.company_name ?? '',
+        client_id: form.client_id || null,
         description: form.description || null,
         start_date: form.start_date,
         end_date: form.end_date,
@@ -43,7 +48,7 @@ export function CampaignsPage() {
       })
       toast('Campagne créée')
       setShowForm(false)
-      setForm({ name: '', client: '', description: '', start_date: '', end_date: '' })
+      setForm({ name: '', client_id: '', description: '', start_date: '', end_date: '' })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de création')
     }
@@ -82,14 +87,17 @@ export function CampaignsPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Client *</label>
-              <input
-                type="text"
+              <select
                 required
-                value={form.client}
-                onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
-                placeholder="Ex: Nike"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-              />
+                value={form.client_id}
+                onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Sélectionner un client</option>
+                {clients?.filter((c) => c.is_active).map((c) => (
+                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Date début *</label>
@@ -150,6 +158,7 @@ export function CampaignsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {campaigns.map((campaign) => {
             const status = statusLabels[campaign.status as CampaignStatus]
+            const clientName = campaign.clients?.company_name ?? campaign.client
             return (
               <Link
                 key={campaign.id}
@@ -162,7 +171,7 @@ export function CampaignsPage() {
                     {status.label}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">{campaign.client}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{clientName}</p>
                 <div className="mt-3 text-xs text-muted-foreground">
                   {new Date(campaign.start_date).toLocaleDateString('fr-FR')} →{' '}
                   {new Date(campaign.end_date).toLocaleDateString('fr-FR')}

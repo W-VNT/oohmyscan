@@ -8,6 +8,7 @@ export interface Database {
           role: 'admin' | 'operator'
           phone: string | null
           avatar_url: string | null
+          is_active: boolean
           created_at: string
         }
         Insert: {
@@ -16,6 +17,7 @@ export interface Database {
           role: 'admin' | 'operator'
           phone?: string | null
           avatar_url?: string | null
+          is_active?: boolean
           created_at?: string
         }
         Update: {
@@ -24,6 +26,7 @@ export interface Database {
           role?: 'admin' | 'operator'
           phone?: string | null
           avatar_url?: string | null
+          is_active?: boolean
           created_at?: string
         }
         Relationships: []
@@ -126,10 +129,14 @@ export interface Database {
           id: string
           name: string
           client: string
+          client_id: string | null
           description: string | null
           start_date: string
           end_date: string
           status: 'draft' | 'active' | 'completed' | 'cancelled'
+          budget: number | null
+          target_panel_count: number | null
+          notes: string | null
           created_by: string | null
           created_at: string
         }
@@ -137,10 +144,14 @@ export interface Database {
           id?: string
           name: string
           client: string
+          client_id?: string | null
           description?: string | null
           start_date: string
           end_date: string
           status?: 'draft' | 'active' | 'completed' | 'cancelled'
+          budget?: number | null
+          target_panel_count?: number | null
+          notes?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -148,10 +159,14 @@ export interface Database {
           id?: string
           name?: string
           client?: string
+          client_id?: string | null
           description?: string | null
           start_date?: string
           end_date?: string
           status?: 'draft' | 'active' | 'completed' | 'cancelled'
+          budget?: number | null
+          target_panel_count?: number | null
+          notes?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -551,6 +566,7 @@ export interface Database {
         Row: {
           id: string
           campaign_id: string
+          panel_format_id: string | null
           storage_path: string
           file_name: string
           sort_order: number
@@ -559,6 +575,7 @@ export interface Database {
         Insert: {
           id?: string
           campaign_id: string
+          panel_format_id?: string | null
           storage_path: string
           file_name?: string
           sort_order?: number
@@ -567,6 +584,7 @@ export interface Database {
         Update: {
           id?: string
           campaign_id?: string
+          panel_format_id?: string | null
           storage_path?: string
           file_name?: string
           sort_order?: number
@@ -606,7 +624,14 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_next_quote_number: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      get_next_invoice_number: {
+        Args: Record<string, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

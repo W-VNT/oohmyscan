@@ -62,6 +62,7 @@ export interface ProofData {
   }[]
   photoUrls: string[]
   texts: string[]
+  mapImageUrl?: string | null
   blockOrder: string[]
 }
 
@@ -144,6 +145,15 @@ function TextBlock({ content }: { content: string }) {
   )
 }
 
+function MapBlock({ url }: { url: string }) {
+  return (
+    <View style={s.photosSection} wrap={false}>
+      <Text style={s.sectionTitle}>Carte des panneaux</Text>
+      <Image src={url} style={{ width: '100%', height: 200, objectFit: 'contain', borderRadius: 3 }} />
+    </View>
+  )
+}
+
 export function ProofPDF({ data }: { data: ProofData }) {
   // Render blocks in order, deduplicating by type tracking
   let textIndex = 0
@@ -172,6 +182,9 @@ export function ProofPDF({ data }: { data: ProofData }) {
       textIndex++
       if (!text) return null
       return <TextBlock key={i} content={text} />
+    }
+    if (type === 'map' && data.mapImageUrl) {
+      return <MapBlock key={i} url={data.mapImageUrl} />
     }
     return null
   })

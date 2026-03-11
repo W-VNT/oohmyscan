@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/shared/Toast'
-import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer } from 'lucide-react'
+import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 import { pdf } from '@react-pdf/renderer'
 import { DymoQRPDF } from '@/lib/pdf/DymoQRPDF'
+import JSZip from 'jszip'
+import { saveAs } from 'file-saver'
 
 export function QRPage() {
   const { data: qrItems, isLoading } = useQRStock()
@@ -104,6 +106,38 @@ export function QRPage() {
     }
   }
 
+  async function handleExportZipPNG() {
+    const items = filtered.filter((i) => selected.has(i.id))
+    if (items.length === 0) {
+      toast('Sélectionnez au moins un QR code', 'error')
+      return
+    }
+    setExporting(true)
+    try {
+      const zip = new JSZip()
+      const appUrl = import.meta.env.VITE_APP_URL || 'https://oohmyscan.vercel.app'
+
+      for (const item of items) {
+        const dataUrl = await QRCodeLib.toDataURL(`${appUrl}/scan?id=${item.uuid_code}`, {
+          width: 600,
+          margin: 2,
+          color: { dark: '#000000', light: '#FFFFFF' },
+        })
+        // Extract base64 from data URL
+        const base64 = dataUrl.split(',')[1]
+        zip.file(`qr-${item.uuid_code.slice(0, 8)}.png`, base64, { base64: true })
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' })
+      saveAs(blob, `qr-codes-${items.length}.zip`)
+      toast(`ZIP exporté — ${items.length} QR code${items.length !== 1 ? 's' : ''}`)
+    } catch {
+      toast('Erreur lors de l\'export ZIP', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   function copyUUID(uuid: string) {
     navigator.clipboard.writeText(uuid)
     toast('UUID copié')
@@ -124,10 +158,16 @@ export function QRPage() {
         <h1 className="text-xl font-semibold">QR Codes</h1>
         <div className="flex gap-2">
           {selected.size > 0 && (
-            <Button variant="outline" onClick={handleExportDymo} disabled={exporting}>
-              {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Printer className="mr-1.5 size-4" />}
-              Dymo ({selected.size})
-            </Button>
+            <>
+              <Button variant="outline" onClick={handleExportDymo} disabled={exporting}>
+                {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Printer className="mr-1.5 size-4" />}
+                Dymo ({selected.size})
+              </Button>
+              <Button variant="outline" onClick={handleExportZipPNG} disabled={exporting}>
+                {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileArchive className="mr-1.5 size-4" />}
+                ZIP PNG ({selected.size})
+              </Button>
+            </>
           )}
           <Button onClick={() => setSheetOpen(true)}>
             <Plus className="mr-1.5 size-4" />

@@ -3,6 +3,7 @@ import { usePanels } from '@/hooks/usePanels'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useInvoices } from '@/hooks/admin/useInvoices'
 import { useClients } from '@/hooks/admin/useClients'
+import { useUsers, useOperatorStats } from '@/hooks/admin/useUsers'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,7 @@ import {
   TrendingUp,
   AlertTriangle,
   Receipt,
+  UserCheck,
 } from 'lucide-react'
 
 export function ReportsPage() {
@@ -23,6 +25,8 @@ export function ReportsPage() {
   const { data: campaigns, isLoading: campaignsLoading } = useCampaigns()
   const { data: invoices, isLoading: invoicesLoading } = useInvoices()
   const { data: clients } = useClients()
+  const { data: allUsers } = useUsers()
+  const { data: operatorStats } = useOperatorStats()
 
   // Period filter — defaults to current year
   const now = new Date()
@@ -452,6 +456,47 @@ export function ReportsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Operator stats */}
+      {operatorStats && operatorStats.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <UserCheck className="size-4" />
+              Stats par opérateur
+            </div>
+            <table className="mt-4 w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left">
+                  <th className="pb-2 font-medium text-muted-foreground">Opérateur</th>
+                  <th className="pb-2 text-right font-medium text-muted-foreground">Installations</th>
+                  <th className="pb-2 text-right font-medium text-muted-foreground">Photos</th>
+                  <th className="pb-2 text-right font-medium text-muted-foreground">Dernière activité</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {operatorStats
+                  .sort((a, b) => b.panel_count - a.panel_count)
+                  .map((stat) => {
+                    const user = allUsers?.find((u) => u.id === stat.user_id)
+                    return (
+                      <tr key={stat.user_id}>
+                        <td className="py-2 font-medium">{user?.full_name ?? 'Inconnu'}</td>
+                        <td className="py-2 text-right tabular-nums">{stat.panel_count}</td>
+                        <td className="py-2 text-right tabular-nums">{stat.photo_count}</td>
+                        <td className="py-2 text-right text-xs text-muted-foreground">
+                          {stat.last_activity
+                            ? new Date(stat.last_activity).toLocaleDateString('fr-FR')
+                            : '—'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

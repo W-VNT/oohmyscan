@@ -6,6 +6,7 @@ import { useClients } from '@/hooks/admin/useClients'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
+import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -191,12 +192,16 @@ export function InvoiceDetailPage() {
       let invoiceId = id!
 
       if (isNew) {
-        const prefix = settings?.invoice_prefix ?? 'F'
-        const nextNum = settings?.next_invoice_number ?? 1
-        const invoiceNumber = `${prefix}${String(nextNum).padStart(4, '0')}`
+        // Atomic numbering via SQL function
+        const { data: invoiceNumber, error: rpcError } = await supabase.rpc('get_next_invoice_number')
+        if (rpcError || !invoiceNumber) {
+          const prefix = settings?.invoice_prefix ?? 'F'
+          const nextNum = settings?.next_invoice_number ?? 1
+          var fallbackInvoiceNumber = `${prefix}-${new Date().getFullYear()}-${String(nextNum).padStart(3, '0')}`
+        }
 
         const result = await createInvoice.mutateAsync({
-          invoice_number: invoiceNumber,
+          invoice_number: invoiceNumber ?? fallbackInvoiceNumber!,
           client_id: clientId,
           campaign_id: campaignId || null,
           quote_id: quoteId || null,
@@ -282,7 +287,12 @@ export function InvoiceDetailPage() {
             tva_rate: l.tva_rate,
             total_ht: l.total_ht,
           }))}
-          company={settings}
+          company={{
+            ...settings,
+            logo_url: settings.logo_path
+              ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
+              : null,
+          }}
         />,
       ).toBlob()
       const url = URL.createObjectURL(blob)

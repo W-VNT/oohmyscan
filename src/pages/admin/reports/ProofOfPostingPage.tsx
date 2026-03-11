@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useCampaign } from '@/hooks/useCampaigns'
 import { supabase } from '@/lib/supabase'
@@ -23,7 +23,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { pdf } from '@react-pdf/renderer'
+import { pdf, PDFViewer } from '@react-pdf/renderer'
 import { ProofPDF, type ProofData } from '@/lib/pdf/ProofPDF'
 import {
   ArrowLeft,
@@ -32,7 +32,10 @@ import {
   Type,
   Table2,
   ImageIcon,
+  MapPin,
   FileDown,
+  Eye,
+  EyeOff,
   Loader2,
 } from 'lucide-react'
 
@@ -42,6 +45,7 @@ type ProofBlock =
   | { id: string; type: 'table' }
   | { id: string; type: 'photos'; selectedIds: Set<string> }
   | { id: string; type: 'text'; content: string }
+  | { id: string; type: 'map' }
 
 // Types for fetched data
 type PanelAssignment = {
@@ -56,6 +60,8 @@ type PanelAssignment = {
     reference: string
     name: string | null
     city: string | null
+    lat: number
+    lng: number
     status: string
   } | null
 }
@@ -74,7 +80,7 @@ function useCampaignPanels(campaignId: string | undefined) {
     queryFn: async (): Promise<PanelAssignment[]> => {
       const { data, error } = await supabase
         .from('panel_campaigns')
-        .select('*, panels(id, reference, name, city, status)')
+        .select('*, panels(id, reference, name, city, lat, lng, status)')
         .eq('campaign_id', campaignId!)
         .order('assigned_at', { ascending: false })
       if (error) throw error
@@ -103,6 +109,24 @@ function useCampaignPhotos(panelIds: string[]) {
 function getPhotoUrl(storagePath: string) {
   const { data } = supabase.storage.from('panel-photos').getPublicUrl(storagePath)
   return data.publicUrl
+}
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
+
+function getStaticMapUrl(panels: PanelAssignment[]) {
+  if (!MAPBOX_TOKEN) return null
+  const coords = panels
+    .filter((a) => a.panels?.lat && a.panels?.lng)
+    .map((a) => a.panels!)
+
+  if (coords.length === 0) return null
+
+  const markers = coords
+    .map((p) => `pin-s+2563EB(${p.lng},${p.lat})`)
+    .join(',')
+
+  // Auto-fit to markers
+  return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${markers}/auto/800x400@2x?padding=40&access_token=${MAPBOX_TOKEN}`
 }
 
 // Sortable block wrapper
@@ -176,6 +200,7 @@ function SortableBlock({
               onChange={(content) => onUpdate(block.id, { content } as Record<string, unknown>)}
             />
           )}
+          {block.type === 'map' && <MapBlock assignments={assignments} />}
         </CardContent>
       </Card>
     </div>
@@ -316,6 +341,64 @@ function TextBlock({ content, onChange }: { content: string; onChange: (v: strin
   )
 }
 
+function MapBlock({ assignments }: { assignments: PanelAssignment[] }) {
+  const mapUrl = getStaticMapUrl(assignments)
+
+  return (
+    <div>
+      <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Carte des panneaux
+      </p>
+      {mapUrl ? (
+        <img src={mapUrl} alt="Carte" className="w-full rounded-lg" />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {MAPBOX_TOKEN ? 'Aucun panneau avec coordonnées' : 'Token Mapbox manquant'}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// Build proof data for PDF
+function buildProofData(
+  campaign: { name: string; client: string; start_date: string; end_date: string },
+  blocks: ProofBlock[],
+  assignments: PanelAssignment[],
+  photos: CampaignPhoto[],
+): ProofData {
+  const photoBlocks = blocks.filter(
+    (b): b is ProofBlock & { type: 'photos' } => b.type === 'photos',
+  )
+  const allSelectedIds = new Set<string>()
+  for (const pb of photoBlocks) pb.selectedIds.forEach((id) => allSelectedIds.add(id))
+
+  const selectedPhotos = photos.filter((p) => allSelectedIds.has(p.id))
+  const photoUrls = selectedPhotos.map((p) => getPhotoUrl(p.storage_path))
+
+  const textBlocks = blocks
+    .filter((b): b is ProofBlock & { type: 'text' } => b.type === 'text')
+    .map((b) => b.content)
+    .filter((c) => c.trim())
+
+  return {
+    campaignName: campaign.name,
+    clientName: campaign.client,
+    startDate: campaign.start_date,
+    endDate: campaign.end_date,
+    panels: assignments.map((a) => ({
+      reference: a.panels?.reference ?? '—',
+      name: a.panels?.name ?? '',
+      city: a.panels?.city ?? '',
+      assignedAt: a.assigned_at,
+    })),
+    photoUrls,
+    texts: textBlocks,
+    mapImageUrl: getStaticMapUrl(assignments),
+    blockOrder: blocks.map((b) => b.type),
+  }
+}
+
 // Main page
 export function ProofOfPostingPage() {
   const { campaignId } = useParams<{ campaignId: string }>()
@@ -332,6 +415,7 @@ export function ProofOfPostingPage() {
     { id: 'photos', type: 'photos', selectedIds: new Set<string>() },
   ])
   const [exporting, setExporting] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   // Auto-select all photos once loaded
   const [autoSelected, setAutoSelected] = useState(false)
@@ -360,7 +444,7 @@ export function ProofOfPostingPage() {
     }
   }
 
-  function addBlock(type: 'text' | 'photos' | 'table') {
+  function addBlock(type: 'text' | 'photos' | 'table' | 'map') {
     const id = crypto.randomUUID()
     if (type === 'text') {
       setBlocks((prev) => [...prev, { id, type: 'text', content: '' }])
@@ -371,6 +455,8 @@ export function ProofOfPostingPage() {
       ])
     } else if (type === 'table') {
       setBlocks((prev) => [...prev, { id, type: 'table' }])
+    } else if (type === 'map') {
+      setBlocks((prev) => [...prev, { id, type: 'map' }])
     }
   }
 
@@ -384,46 +470,20 @@ export function ProofOfPostingPage() {
     )
   }, [])
 
+  const proofData = useMemo(() => {
+    if (!campaign) return null
+    return buildProofData(campaign, blocks, assignments, photos)
+  }, [campaign, blocks, assignments, photos])
+
   async function handleExport() {
-    if (!campaign) return
+    if (!proofData) return
     setExporting(true)
     try {
-      // Collect selected photo URLs
-      const photoBlocks = blocks.filter(
-        (b): b is ProofBlock & { type: 'photos' } => b.type === 'photos',
-      )
-      const allSelectedIds = new Set<string>()
-      for (const pb of photoBlocks) pb.selectedIds.forEach((id) => allSelectedIds.add(id))
-
-      const selectedPhotos = photos.filter((p) => allSelectedIds.has(p.id))
-      const photoUrls = selectedPhotos.map((p) => getPhotoUrl(p.storage_path))
-
-      const textBlocks = blocks
-        .filter((b): b is ProofBlock & { type: 'text' } => b.type === 'text')
-        .map((b) => b.content)
-        .filter((c) => c.trim())
-
-      const proofData: ProofData = {
-        campaignName: campaign.name,
-        clientName: campaign.client,
-        startDate: campaign.start_date,
-        endDate: campaign.end_date,
-        panels: assignments.map((a) => ({
-          reference: a.panels?.reference ?? '—',
-          name: a.panels?.name ?? '',
-          city: a.panels?.city ?? '',
-          assignedAt: a.assigned_at,
-        })),
-        photoUrls,
-        texts: textBlocks,
-        blockOrder: blocks.map((b) => b.type),
-      }
-
       const blob = await pdf(<ProofPDF data={proofData} />).toBlob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `proof-${campaign.name.replace(/\s+/g, '-')}.pdf`
+      a.download = `proof-${campaign!.name.replace(/\s+/g, '-')}.pdf`
       a.click()
       URL.revokeObjectURL(url)
       toast('PDF exporté')
@@ -450,7 +510,7 @@ export function ProofOfPostingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -465,47 +525,70 @@ export function ProofOfPostingPage() {
             <p className="text-sm text-muted-foreground">{campaign.name}</p>
           </div>
         </div>
-        <Button onClick={handleExport} disabled={exporting}>
-          {exporting ? (
-            <Loader2 className="mr-1.5 size-4 animate-spin" />
-          ) : (
-            <FileDown className="mr-1.5 size-4" />
-          )}
-          Exporter PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowPreview(!showPreview)}>
+            {showPreview ? <EyeOff className="mr-1.5 size-4" /> : <Eye className="mr-1.5 size-4" />}
+            {showPreview ? 'Masquer' : 'Preview'}
+          </Button>
+          <Button onClick={handleExport} disabled={exporting}>
+            {exporting ? (
+              <Loader2 className="mr-1.5 size-4 animate-spin" />
+            ) : (
+              <FileDown className="mr-1.5 size-4" />
+            )}
+            Exporter PDF
+          </Button>
+        </div>
       </div>
 
-      {/* Blocks */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-3">
-            {blocks.map((block) => (
-              <SortableBlock
-                key={block.id}
-                block={block}
-                onRemove={removeBlock}
-                onUpdate={updateBlock}
-                campaign={campaign}
-                assignments={assignments}
-                photos={photos}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      <div className={showPreview ? 'grid gap-6 lg:grid-cols-2' : ''}>
+        {/* Editor */}
+        <div className="space-y-6">
+          {/* Blocks */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {blocks.map((block) => (
+                  <SortableBlock
+                    key={block.id}
+                    block={block}
+                    onRemove={removeBlock}
+                    onUpdate={updateBlock}
+                    campaign={campaign}
+                    assignments={assignments}
+                    photos={photos}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
 
-      {/* Add block toolbar */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">Ajouter :</span>
-        <Button size="sm" variant="outline" onClick={() => addBlock('text')}>
-          <Type className="mr-1 size-3.5" /> Texte
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => addBlock('table')}>
-          <Table2 className="mr-1 size-3.5" /> Tableau
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => addBlock('photos')}>
-          <ImageIcon className="mr-1 size-3.5" /> Photos
-        </Button>
+          {/* Add block toolbar */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Ajouter :</span>
+            <Button size="sm" variant="outline" onClick={() => addBlock('text')}>
+              <Type className="mr-1 size-3.5" /> Texte
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => addBlock('table')}>
+              <Table2 className="mr-1 size-3.5" /> Tableau
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => addBlock('photos')}>
+              <ImageIcon className="mr-1 size-3.5" /> Photos
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => addBlock('map')}>
+              <MapPin className="mr-1 size-3.5" /> Carte
+            </Button>
+          </div>
+        </div>
+
+        {/* PDF Preview */}
+        {showPreview && proofData && (
+          <div className="sticky top-4 h-[calc(100vh-8rem)] overflow-hidden rounded-xl border border-border">
+            <PDFViewer width="100%" height="100%" showToolbar={false}>
+              <ProofPDF data={proofData} />
+            </PDFViewer>
+          </div>
+        )}
       </div>
     </div>
   )
