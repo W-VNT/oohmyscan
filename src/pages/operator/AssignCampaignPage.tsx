@@ -82,7 +82,7 @@ export function AssignCampaignPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
-        <button onClick={() => (step > 1 ? setStep((s) => (s - 1) as 1 | 2 | 3) : navigate(-1))}>
+        <button onClick={() => (step > 1 ? setStep((s) => (s - 1) as 1 | 2 | 3) : navigate(-1))} aria-label="Retour">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="text-lg font-semibold">Assigner une campagne</h1>

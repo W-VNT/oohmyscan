@@ -162,7 +162,7 @@ export function ScanPage() {
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
         {/* Top bar */}
         <div className="pointer-events-auto flex items-center gap-3 bg-gradient-to-b from-black/60 to-transparent p-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <button onClick={() => navigate(-1)} className="flex size-9 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm">
+          <button onClick={() => navigate(-1)} className="flex size-9 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm" aria-label="Fermer le scanner">
             <ArrowLeft className="size-5 text-white" />
           </button>
           <div className="flex-1">

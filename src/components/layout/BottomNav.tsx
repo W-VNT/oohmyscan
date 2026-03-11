@@ -20,7 +20,7 @@ function NavItem({ to, icon: Icon, label }: { to: string; icon: typeof LayoutDas
       to={to}
       className={({ isActive }) =>
         cn(
-          'flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium tracking-wide transition-colors',
+          'flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[44px] py-2 text-[10px] font-medium tracking-wide transition-colors',
           isActive ? 'text-foreground' : 'text-muted-foreground/70'
         )
       }
@@ -46,7 +46,8 @@ export function BottomNav() {
           <div className="flex flex-1 items-center justify-center">
             <button
               onClick={() => setSheetOpen(true)}
-              className="-mt-6 flex size-12 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-md transition-all active:scale-95 hover:shadow-lg"
+              aria-label="Scanner"
+              className="-mt-6 flex size-14 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-md transition-all active:scale-95 hover:shadow-lg"
             >
               <ScanLine className="size-5" strokeWidth={1.5} />
             </button>

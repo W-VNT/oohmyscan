@@ -83,6 +83,7 @@ export function PhotoCapture({
             type="button"
             onClick={handleRemove}
             className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white"
+            aria-label="Supprimer la photo"
           >
             <X className="h-4 w-4" />
           </button>

@@ -8,22 +8,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Plus, Megaphone, Camera, PanelTop, ChevronRight, MapPin, CheckCircle2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Plus, Megaphone, Camera, PanelTop, ChevronRight, MapPin, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-const PHOTO_TYPE_LABELS: Record<string, string> = {
-  installation: 'Installation',
-  check: 'Vérification',
-  campaign: 'Campagne',
-  damage: 'Dégât',
-}
-
-const PANEL_STATUS_LABELS: Record<string, string> = {
-  active: 'Actif',
-  vacant: 'Vacant',
-  maintenance: 'Maintenance',
-  missing: 'Manquant',
-}
+import { PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS } from '@/lib/constants'
+import type { PanelStatus, PhotoType } from '@/lib/constants'
 
 export function OperatorDashboardPage() {
   const { session, profile } = useAuth()
@@ -59,11 +48,11 @@ export function OperatorDashboardPage() {
     enabled: !!session,
   })
 
-  // Active campaigns with progress
+  // Active campaigns with progress — 3 queries total instead of 2N+1
   const { data: activeCampaigns } = useQuery({
     queryKey: ['my-active-campaigns', session?.user.id],
     queryFn: async () => {
-      // Get active campaigns
+      // 1. Get active campaigns
       const { data: campaigns, error: cErr } = await supabase
         .from('campaigns')
         .select('id, name, client, start_date, end_date')
@@ -71,28 +60,36 @@ export function OperatorDashboardPage() {
       if (cErr) throw cErr
       if (!campaigns?.length) return []
 
-      // For each campaign, get total assigned panels and how many this operator did
-      const results = await Promise.all(
-        campaigns.map(async (c) => {
-          const [totalRes, myRes] = await Promise.all([
-            supabase
-              .from('panel_campaigns')
-              .select('id', { count: 'exact', head: true })
-              .eq('campaign_id', c.id),
-            supabase
-              .from('panel_campaigns')
-              .select('id', { count: 'exact', head: true })
-              .eq('campaign_id', c.id)
-              .eq('assigned_by', session!.user.id),
-          ])
-          return {
-            ...c,
-            totalPanels: totalRes.count ?? 0,
-            myPanels: myRes.count ?? 0,
-          }
-        })
-      )
-      return results
+      const campaignIds = campaigns.map((c) => c.id)
+
+      // 2. Get ALL assignments for these campaigns (single query)
+      const [allAssignments, myAssignments] = await Promise.all([
+        supabase
+          .from('panel_campaigns')
+          .select('campaign_id')
+          .in('campaign_id', campaignIds),
+        supabase
+          .from('panel_campaigns')
+          .select('campaign_id')
+          .in('campaign_id', campaignIds)
+          .eq('assigned_by', session!.user.id),
+      ])
+
+      // 3. Count per campaign in memory
+      const totalCounts = new Map<string, number>()
+      const myCounts = new Map<string, number>()
+      for (const a of allAssignments.data ?? []) {
+        totalCounts.set(a.campaign_id, (totalCounts.get(a.campaign_id) ?? 0) + 1)
+      }
+      for (const a of myAssignments.data ?? []) {
+        myCounts.set(a.campaign_id, (myCounts.get(a.campaign_id) ?? 0) + 1)
+      }
+
+      return campaigns.map((c) => ({
+        ...c,
+        totalPanels: totalCounts.get(c.id) ?? 0,
+        myPanels: myCounts.get(c.id) ?? 0,
+      }))
     },
     enabled: !!session,
   })
@@ -117,8 +114,35 @@ export function OperatorDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <div className="space-y-5 p-4 pb-20">
+        <div className="space-y-1">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-6 w-40" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-24 rounded-xl" />
+        </div>
+        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-20 rounded-xl" />
+        <div className="grid grid-cols-3 gap-2">
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16 rounded-xl" />
+        </div>
+        <Skeleton className="h-px w-full" />
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-2 py-2">
+              <Skeleton className="size-7 rounded-md" />
+              <div className="flex-1 space-y-1">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+              <Skeleton className="h-3 w-12" />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -143,7 +167,7 @@ export function OperatorDashboardPage() {
         date: p.taken_at,
         panelRef: panel?.reference ?? '—',
         panelStatus: panel?.status,
-        detail: PHOTO_TYPE_LABELS[p.photo_type] ?? p.photo_type,
+        detail: PHOTO_TYPE_LABELS[p.photo_type as PhotoType] ?? p.photo_type,
       }
     }),
     ...(recentAssignments ?? []).map((a) => {
@@ -275,7 +299,7 @@ export function OperatorDashboardPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-[11px]">
-                    {PANEL_STATUS_LABELS[lastPanel.status] ?? lastPanel.status}
+                    {PANEL_STATUS_CONFIG[lastPanel.status as PanelStatus]?.label ?? lastPanel.status}
                   </Badge>
                   <ChevronRight className="size-4 text-muted-foreground/50" />
                 </div>
@@ -357,7 +381,7 @@ export function OperatorDashboardPage() {
                     <p className="truncate text-[13px] font-medium">{item.panelRef}</p>
                     {item.panelStatus && (
                       <Badge variant="outline" className="text-[10px] font-normal">
-                        {PANEL_STATUS_LABELS[item.panelStatus ?? ''] ?? item.panelStatus}
+                        {PANEL_STATUS_CONFIG[item.panelStatus as PanelStatus]?.label ?? item.panelStatus}
                       </Badge>
                     )}
                   </div>

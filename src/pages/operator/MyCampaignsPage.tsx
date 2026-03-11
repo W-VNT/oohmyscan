@@ -95,7 +95,7 @@ export function MyCampaignsPage() {
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)}>
+        <button onClick={() => navigate(-1)} aria-label="Retour">
           <ArrowLeft className="size-5" />
         </button>
         <h1 className="text-lg font-semibold">Mes campagnes</h1>

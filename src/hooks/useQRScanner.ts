@@ -70,25 +70,28 @@ export function useQRScanner({ containerId, onScan, active = true }: UseQRScanne
  * - Protocol: oohmyad://panel/{uuid}
  * - Raw UUID
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isValidUUID(value: string): boolean {
+  return UUID_RE.test(value)
+}
+
 export function extractPanelId(scannedValue: string): string | null {
   // Try URL format
   try {
     const url = new URL(scannedValue)
     const id = url.searchParams.get('id')
-    if (id) return id
+    if (id && isValidUUID(id)) return id
   } catch {
     // Not a URL
   }
 
   // Try protocol format
-  const protocolMatch = scannedValue.match(/oohmyad:\/\/panel\/(.+)/)
-  if (protocolMatch) return protocolMatch[1]
+  const protocolMatch = scannedValue.match(/oohmyad:\/\/panel\/([0-9a-f-]+)$/i)
+  if (protocolMatch && isValidUUID(protocolMatch[1])) return protocolMatch[1]
 
   // Try raw UUID
-  const uuidMatch = scannedValue.match(
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  )
-  if (uuidMatch) return uuidMatch[0]
+  if (isValidUUID(scannedValue.trim())) return scannedValue.trim()
 
   return null
 }

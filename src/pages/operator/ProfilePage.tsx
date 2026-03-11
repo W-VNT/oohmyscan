@@ -246,6 +246,7 @@ export function ProfilePage() {
         <button
           onClick={toggleTheme}
           className="flex size-9 items-center justify-center rounded-full border border-border transition-colors hover:bg-muted"
+          aria-label={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
         >
           {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
@@ -339,6 +340,7 @@ export function ProfilePage() {
                   setFullName(profile?.full_name ?? '')
                 }}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                aria-label={editingName ? 'Annuler la modification du nom' : 'Modifier le nom'}
               >
                 {editingName ? <X className="size-3" /> : <Pencil className="size-3" />}
               </button>
@@ -375,6 +377,7 @@ export function ProfilePage() {
                   setPhone(profile?.phone ?? '')
                 }}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                aria-label={editingPhone ? 'Annuler la modification du téléphone' : 'Modifier le téléphone'}
               >
                 {editingPhone ? <X className="size-3" /> : <Pencil className="size-3" />}
               </button>

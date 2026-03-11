@@ -20,9 +20,10 @@ export const useToast = create<ToastStore>((set) => ({
   add: (message, type = 'success') => {
     const id = Date.now().toString()
     set((s) => ({ toasts: [...s.toasts, { id, message, type }] }))
+    const duration = type === 'error' ? 5000 : 3000
     setTimeout(() => {
       set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
-    }, 3000)
+    }, duration)
   },
   remove: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }))
@@ -47,9 +48,9 @@ export function ToastContainer() {
 
 function ToastNotification({ toast: t, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
   useEffect(() => {
-    const timer = setTimeout(onDismiss, 3000)
+    const timer = setTimeout(onDismiss, t.type === 'error' ? 5000 : 3000)
     return () => clearTimeout(timer)
-  }, [onDismiss])
+  }, [onDismiss, t.type])
 
   return (
     <div

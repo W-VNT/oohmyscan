@@ -50,8 +50,9 @@ export function useAuth() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    setSession(null)
     setProfile(null)
+    await supabase.auth.signOut()
   }
 
   return {

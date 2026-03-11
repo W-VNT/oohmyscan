@@ -19,54 +19,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { supabase } from '@/lib/supabase'
 import { PANEL_FORMATS, PANEL_TYPES } from '@/lib/constants'
-
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
-
-interface PlaceSuggestion {
-  id: string
-  name: string
-  address: string
-  city: string
-  lat: number
-  lng: number
-}
-
-async function searchPlaces(
-  query: string,
-  lng: number,
-  lat: number,
-): Promise<PlaceSuggestion[]> {
-  if (!query.trim() || !MAPBOX_TOKEN) return []
-
-  const url = new URL(
-    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
-  )
-  url.searchParams.set('proximity', `${lng},${lat}`)
-  url.searchParams.set('types', 'poi,address')
-  url.searchParams.set('language', 'fr')
-  url.searchParams.set('limit', '5')
-  url.searchParams.set('access_token', MAPBOX_TOKEN)
-
-  const res = await fetch(url.toString())
-  if (!res.ok) return []
-
-  const data = await res.json()
-  return (data.features ?? []).map((f: Record<string, unknown>) => {
-    const ctx = (f.context as Array<{ id: string; text: string }>) ?? []
-    const cityCtx = ctx.find((c) => c.id.startsWith('place'))
-    const [fLng, fLat] = (f.center as [number, number]) ?? [lng, lat]
-    return {
-      id: f.id as string,
-      name: f.text as string,
-      address: (f.properties as Record<string, string>)?.address
-        ?? (f.place_name as string)?.split(',')[0]
-        ?? '',
-      city: cityCtx?.text ?? '',
-      lat: fLat,
-      lng: fLng,
-    }
-  })
-}
+import { searchPlaces, type PlaceSuggestion } from '@/lib/mapbox'
 
 type Step = 1 | 2 | 3
 
@@ -104,6 +57,13 @@ export function RegisterPanelPage() {
   useEffect(() => {
     requestPosition()
   }, [requestPosition])
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
 
   // Debounced search
   const handleQueryChange = useCallback(
@@ -203,6 +163,7 @@ export function RegisterPanelPage() {
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
         <button
           onClick={() => (step > 1 ? setStep((s) => (s - 1) as Step) : navigate(-1))}
+          aria-label="Retour"
         >
           <ArrowLeft className="size-5" />
         </button>

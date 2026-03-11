@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { usePanels } from '@/hooks/usePanels'
-import { Loader2, LocateFixed, Navigation, Eye, Search, X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import { Loader2, LocateFixed, Navigation, Eye, Search, X, MapPinOff } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import type { Panel } from '@/types'
-import Map, { Marker, Popup } from 'react-map-gl/mapbox'
+import Map, { Marker, Popup, Source, Layer } from 'react-map-gl/mapbox'
+import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox'
+import type { GeoJSONSource } from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
@@ -34,8 +38,16 @@ function openDirections(lat: number, lng: number) {
   }
 }
 
+function getPanelColor(panel: Panel, campaignIds: Set<string>): string {
+  const hasIssue = panel.status === 'maintenance' || panel.status === 'missing'
+  if (hasIssue) return '#f97316'
+  if (campaignIds.has(panel.id)) return '#ef4444'
+  return '#22c55e'
+}
+
 export function OperatorMapPage() {
   const { data: panels, isLoading } = usePanels()
+  const mapRef = useRef<MapRef>(null)
   const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null)
   const [viewState, setViewState] = useState({
     longitude: 2.3522,
@@ -46,6 +58,19 @@ export function OperatorMapPage() {
   const [locating, setLocating] = useState(true)
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+
+  // Campaign indicator — TanStack Query
+  const { data: panelCampaigns = new Set<string>() } = useQuery({
+    queryKey: ['active-campaign-panels'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('panel_campaigns')
+        .select('panel_id')
+        .is('unassigned_at', null)
+      return new Set((data ?? []).map((d) => d.panel_id))
+    },
+    staleTime: 5 * 60 * 1000,
+  })
 
   const flyToUser = useCallback(() => {
     if (!navigator.geolocation) return
@@ -58,13 +83,72 @@ export function OperatorMapPage() {
         setLocating(false)
       },
       () => setLocating(false),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     )
   }, [])
 
   useEffect(() => {
     flyToUser()
   }, [flyToUser])
+
+  // Build GeoJSON for clustering
+  const geojson = useMemo(() => {
+    if (!panels?.length) return null
+    return {
+      type: 'FeatureCollection' as const,
+      features: panels.map((p) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
+        properties: {
+          id: p.id,
+          color: getPanelColor(p, panelCampaigns),
+        },
+      })),
+    }
+  }, [panels, panelCampaigns])
+
+  // Lookup panel by id for click events
+  const panelMap = useMemo(() => {
+    const map = new globalThis.Map<string, Panel>()
+    for (const p of panels ?? []) map.set(p.id, p)
+    return map
+  }, [panels])
+
+  // Handle map click on interactive layers (clusters + points)
+  const handleMapClick = useCallback(
+    (e: MapMouseEvent) => {
+      const features = e.features
+      if (!features?.length) {
+        setSelectedPanel(null)
+        return
+      }
+
+      const feature = features[0]
+
+      // Cluster → zoom in
+      if (feature.properties?.cluster) {
+        const clusterId = feature.properties.cluster_id as number
+        const source = mapRef.current?.getSource('panels') as GeoJSONSource | undefined
+        if (!source) return
+
+        source.getClusterExpansionZoom(clusterId, (_err, zoom) => {
+          const coords = (feature.geometry as GeoJSON.Point).coordinates
+          mapRef.current?.easeTo({
+            center: [coords[0], coords[1]],
+            zoom: (zoom ?? 14) + 1,
+            duration: 500,
+          })
+        })
+        return
+      }
+
+      // Individual point → show popup
+      const panelId = feature.properties?.id as string
+      const panel = panelMap.get(panelId)
+      if (panel) setSelectedPanel(panel)
+    },
+    [panelMap],
+  )
 
   // Search results
   const searchResults = useMemo(() => {
@@ -76,7 +160,7 @@ export function OperatorMapPage() {
           p.reference.toLowerCase().includes(q) ||
           p.city?.toLowerCase().includes(q) ||
           p.name?.toLowerCase().includes(q) ||
-          p.address?.toLowerCase().includes(q)
+          p.address?.toLowerCase().includes(q),
       )
       .slice(0, 5)
   }, [panels, search])
@@ -94,23 +178,6 @@ export function OperatorMapPage() {
     return getDistance(userPos.lat, userPos.lng, selectedPanel.lat, selectedPanel.lng)
   }, [selectedPanel, userPos])
 
-  // Campaign indicator
-  const [panelCampaigns, setPanelCampaigns] = useState<Set<string>>(new Set())
-  useEffect(() => {
-    if (!panels?.length) return
-    import('@/lib/supabase').then(({ supabase }) => {
-      supabase
-        .from('panel_campaigns')
-        .select('panel_id')
-        .is('unassigned_at', null)
-        .then(({ data }) => {
-          if (data) {
-            setPanelCampaigns(new Set(data.map((d) => d.panel_id)))
-          }
-        })
-    })
-  }, [panels])
-
   if (!MAPBOX_TOKEN) {
     return (
       <div className="flex flex-col items-center justify-center p-6 text-center" style={{ height: 'calc(100vh - 4rem)' }}>
@@ -123,7 +190,7 @@ export function OperatorMapPage() {
   if (isLoading && locating) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -131,12 +198,14 @@ export function OperatorMapPage() {
   return (
     <div style={{ height: 'calc(100vh - 4rem)' }} className="relative">
       <Map
+        ref={mapRef}
         {...viewState}
         onMove={(evt: { viewState: typeof viewState }) => setViewState(evt.viewState)}
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle="mapbox://styles/mapbox/dark-v11"
         style={{ width: '100%', height: '100%' }}
-        onClick={() => setSelectedPanel(null)}
+        onClick={handleMapClick}
+        interactiveLayerIds={['clusters', 'unclustered-point']}
       >
         {/* User position */}
         {userPos && (
@@ -148,32 +217,67 @@ export function OperatorMapPage() {
           </Marker>
         )}
 
-        {/* Panel markers */}
-        {(panels ?? []).map((panel) => {
-          const hasCampaign = panelCampaigns.has(panel.id)
-          const hasIssue = panel.status === 'maintenance' || panel.status === 'missing'
-          // Vert = libre, Rouge = occupé, Orange = problème
-          const color = hasIssue ? '#f97316' : hasCampaign ? '#ef4444' : '#22c55e'
-          return (
-            <Marker
-              key={panel.id}
-              longitude={panel.lng}
-              latitude={panel.lat}
-              anchor="center"
-              onClick={(e: { originalEvent: MouseEvent }) => {
-                e.originalEvent.stopPropagation()
-                setSelectedPanel(panel)
+        {/* Clustered panel markers */}
+        {geojson && (
+          <Source
+            id="panels"
+            type="geojson"
+            data={geojson}
+            cluster
+            clusterMaxZoom={14}
+            clusterRadius={50}
+          >
+            {/* Cluster circles */}
+            <Layer
+              id="clusters"
+              type="circle"
+              filter={['has', 'point_count']}
+              paint={{
+                'circle-color': '#6366f1',
+                'circle-radius': [
+                  'step',
+                  ['get', 'point_count'],
+                  18,   // default radius
+                  10, 22, // 10+ points
+                  50, 28, // 50+ points
+                ],
+                'circle-stroke-width': 3,
+                'circle-stroke-color': 'rgba(99, 102, 241, 0.3)',
               }}
-            >
-              <div
-                className="size-4 cursor-pointer rounded-full border-2 border-white shadow-md"
-                style={{ backgroundColor: color }}
-              />
-            </Marker>
-          )
-        })}
+            />
 
-        {/* Enriched popup */}
+            {/* Cluster count label */}
+            <Layer
+              id="cluster-count"
+              type="symbol"
+              filter={['has', 'point_count']}
+              layout={{
+                'text-field': ['get', 'point_count_abbreviated'],
+                'text-size': 13,
+                'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+                'text-allow-overlap': true,
+              }}
+              paint={{
+                'text-color': '#ffffff',
+              }}
+            />
+
+            {/* Individual points */}
+            <Layer
+              id="unclustered-point"
+              type="circle"
+              filter={['!', ['has', 'point_count']]}
+              paint={{
+                'circle-color': ['get', 'color'],
+                'circle-radius': 7,
+                'circle-stroke-width': 2.5,
+                'circle-stroke-color': '#ffffff',
+              }}
+            />
+          </Source>
+        )}
+
+        {/* Dark popup */}
         {selectedPanel && (
           <Popup
             longitude={selectedPanel.lng}
@@ -183,82 +287,51 @@ export function OperatorMapPage() {
             closeButton={false}
             closeOnClick={false}
             offset={12}
+            className="ooh-popup"
           >
-            <div style={{ minWidth: 200, color: '#111' }} className="space-y-2.5 p-1">
+            <div className="min-w-[200px] space-y-2.5 p-3">
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <p style={{ color: '#111', fontSize: 14, fontWeight: 600 }}>{selectedPanel.reference}</p>
+                  <p className="text-[14px] font-semibold">{selectedPanel.reference}</p>
                   {(() => {
                     const hasIssue = selectedPanel.status === 'maintenance' || selectedPanel.status === 'missing'
                     const occupied = panelCampaigns.has(selectedPanel.id)
                     const label = hasIssue ? 'Problème' : occupied ? 'Occupé' : 'Libre'
-                    const bg = hasIssue ? '#fff7ed' : occupied ? '#fef2f2' : '#f0fdf4'
-                    const fg = hasIssue ? '#ea580c' : occupied ? '#dc2626' : '#16a34a'
+                    const cls = hasIssue
+                      ? 'bg-orange-500/15 text-orange-400'
+                      : occupied
+                        ? 'bg-red-500/15 text-red-400'
+                        : 'bg-green-500/15 text-green-400'
                     return (
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: fg,
-                        backgroundColor: bg,
-                        padding: '2px 8px',
-                        borderRadius: 9999,
-                      }}>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>
                         {label}
                       </span>
                     )
                   })()}
                 </div>
                 {(selectedPanel.name || selectedPanel.city) && (
-                  <p style={{ color: '#666', fontSize: 12, marginTop: 2 }}>
+                  <p className="mt-0.5 text-[12px] text-muted-foreground">
                     {selectedPanel.name}{selectedPanel.name && selectedPanel.city ? ' · ' : ''}{selectedPanel.city}
                   </p>
                 )}
                 {distanceToSelected !== null && (
-                  <p style={{ color: '#2563eb', fontSize: 11, fontWeight: 600, marginTop: 2 }}>
+                  <p className="mt-0.5 text-[11px] font-semibold text-blue-400">
                     à {formatDistance(distanceToSelected)}
                   </p>
                 )}
               </div>
 
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div className="flex gap-1.5">
                 <Link
                   to={`/panels/${selectedPanel.id}`}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 4,
-                    height: 30,
-                    fontSize: 11,
-                    fontWeight: 500,
-                    borderRadius: 6,
-                    border: '1px solid #e5e7eb',
-                    color: '#333',
-                    textDecoration: 'none',
-                    backgroundColor: '#fff',
-                  }}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md border border-border py-1.5 text-[11px] font-medium transition-colors hover:bg-muted"
                 >
                   <Eye className="size-3" />
                   Voir
                 </Link>
                 <button
                   onClick={() => openDirections(selectedPanel.lat, selectedPanel.lng)}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 4,
-                    height: 30,
-                    fontSize: 11,
-                    fontWeight: 500,
-                    borderRadius: 6,
-                    border: 'none',
-                    color: '#fff',
-                    backgroundColor: '#111',
-                    cursor: 'pointer',
-                  }}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md bg-foreground py-1.5 text-[11px] font-medium text-background transition-colors hover:bg-foreground/90"
                 >
                   <Navigation className="size-3" />
                   Itinéraire
@@ -282,7 +355,7 @@ export function OperatorMapPage() {
                 className="h-10 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0"
                 autoFocus
               />
-              <button onClick={() => { setShowSearch(false); setSearch('') }}>
+              <button onClick={() => { setShowSearch(false); setSearch('') }} aria-label="Fermer la recherche">
                 <X className="size-4 text-muted-foreground" />
               </button>
             </div>
@@ -296,14 +369,7 @@ export function OperatorMapPage() {
                   >
                     <div
                       className="size-2.5 shrink-0 rounded-full"
-                      style={{
-                        backgroundColor:
-                          panel.status === 'maintenance' || panel.status === 'missing'
-                            ? '#f97316'
-                            : panelCampaigns.has(panel.id)
-                              ? '#ef4444'
-                              : '#22c55e',
-                      }}
+                      style={{ backgroundColor: getPanelColor(panel, panelCampaigns) }}
                     />
                     <div className="min-w-0">
                       <p className="text-[13px] font-medium">{panel.reference}</p>
@@ -332,6 +398,17 @@ export function OperatorMapPage() {
         )}
       </div>
 
+      {/* Empty state */}
+      {!isLoading && (!panels || panels.length === 0) && (
+        <div className="absolute inset-x-0 top-1/3 flex flex-col items-center gap-2 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+            <MapPinOff className="size-5 text-muted-foreground" />
+          </div>
+          <p className="text-[13px] font-medium">Aucun panneau</p>
+          <p className="text-[11px] text-muted-foreground">Les panneaux apparaîtront ici une fois créés</p>
+        </div>
+      )}
+
       {/* Legend */}
       <div className="absolute bottom-6 left-3 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
         <div className="flex items-center gap-1.5">
@@ -352,7 +429,8 @@ export function OperatorMapPage() {
       <button
         onClick={flyToUser}
         disabled={locating}
-        className="absolute bottom-6 right-4 flex size-10 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
+        aria-label="Recentrer sur ma position"
+        className="absolute bottom-6 right-4 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
       >
         {locating ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />

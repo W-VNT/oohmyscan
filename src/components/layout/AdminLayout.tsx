@@ -36,7 +36,7 @@ export function AdminLayout() {
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-6">
           <h1 className="text-lg font-bold">OOHMYSCAN</h1>
-          <button onClick={toggleSidebar} className="lg:hidden">
+          <button onClick={toggleSidebar} className="lg:hidden" aria-label="Fermer le menu latéral">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -89,7 +89,7 @@ export function AdminLayout() {
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center gap-4 border-b border-border px-6 lg:px-8">
-          <button onClick={toggleSidebar} className="lg:hidden">
+          <button onClick={toggleSidebar} className="lg:hidden" aria-label="Ouvrir le menu">
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1" />

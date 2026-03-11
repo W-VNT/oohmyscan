@@ -3,21 +3,10 @@ import { Link } from 'react-router-dom'
 import { usePanels } from '@/hooks/usePanels'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Loader2, PanelTop, Search, MapPin, ChevronRight } from 'lucide-react'
-
-const STATUS_LABELS: Record<string, string> = {
-  active: 'Actif',
-  vacant: 'Vacant',
-  maintenance: 'Maintenance',
-  missing: 'Manquant',
-}
-
-const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
-  active: 'default',
-  vacant: 'secondary',
-  maintenance: 'outline',
-  missing: 'destructive',
-}
+import { Skeleton } from '@/components/ui/skeleton'
+import { PanelTop, Search, MapPin, ChevronRight } from 'lucide-react'
+import { PANEL_STATUS_CONFIG } from '@/lib/constants'
+import type { PanelStatus } from '@/lib/constants'
 
 export function OperatorPanelsPage() {
   const { data: panels, isLoading } = usePanels()
@@ -34,14 +23,6 @@ export function OperatorPanelsPage() {
         p.name?.toLowerCase().includes(q)
     )
   }, [panels, search])
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-4 p-4 pb-20">
@@ -61,36 +42,54 @@ export function OperatorPanelsPage() {
         />
       </div>
 
-      {!filtered.length ? (
+      {isLoading ? (
+        <div className="space-y-1">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-lg px-2 py-2.5">
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-12 rounded-full" />
+                </div>
+                <Skeleton className="h-3 w-32" />
+              </div>
+              <Skeleton className="size-4 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : !filtered.length ? (
         <div className="flex flex-col items-center py-16 text-muted-foreground">
           <PanelTop className="size-8" strokeWidth={1} />
           <p className="mt-3 text-sm">{search ? 'Aucun résultat' : 'Aucun panneau enregistré'}</p>
         </div>
       ) : (
         <div className="space-y-0.5">
-          {filtered.map((panel) => (
-            <Link
-              key={panel.id}
-              to={`/panels/${panel.id}`}
-              className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/50 active:bg-muted"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[13px] font-medium">{panel.reference}</p>
-                  <Badge variant={STATUS_VARIANTS[panel.status] ?? 'secondary'} className="text-[10px] font-normal">
-                    {STATUS_LABELS[panel.status] ?? panel.status}
-                  </Badge>
-                </div>
-                {(panel.city || panel.name) && (
-                  <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <MapPin className="size-3" />
-                    <span className="truncate">{panel.city || panel.name}</span>
+          {filtered.map((panel) => {
+            const cfg = PANEL_STATUS_CONFIG[panel.status as PanelStatus]
+            return (
+              <Link
+                key={panel.id}
+                to={`/panels/${panel.id}`}
+                className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/50 active:bg-muted"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[13px] font-medium">{panel.reference}</p>
+                    <Badge variant={cfg?.variant ?? 'secondary'} className="text-[10px] font-normal">
+                      {cfg?.label ?? panel.status}
+                    </Badge>
                   </div>
-                )}
-              </div>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
-            </Link>
-          ))}
+                  {(panel.city || panel.name) && (
+                    <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <MapPin className="size-3" />
+                      <span className="truncate">{panel.city || panel.name}</span>
+                    </div>
+                  )}
+                </div>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>
