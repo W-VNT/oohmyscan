@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Loader2, ScanLine } from 'lucide-react'
@@ -24,7 +25,18 @@ export function LoginPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      navigate('/')
+      // Fetch profile to determine redirect destination
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+        navigate(profile?.role === 'admin' ? '/admin' : '/dashboard')
+      } else {
+        navigate('/dashboard')
+      }
     }
   }
 

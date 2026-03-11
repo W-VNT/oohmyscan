@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Building2,
+  Smartphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -104,12 +105,19 @@ export function AdminLayout() {
           ))}
         </nav>
 
-        {/* User + logout */}
+        {/* User + actions */}
         <div className="border-t border-border px-3 py-3">
           <div className="mb-2 px-2.5">
             <p className="truncate text-[13px] font-medium">{profile?.full_name}</p>
             <p className="text-[11px] text-muted-foreground">Administrateur</p>
           </div>
+          <NavLink
+            to="/dashboard"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Smartphone className="size-4" />
+            Mode terrain
+          </NavLink>
           <button
             onClick={signOut}
             className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
