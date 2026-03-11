@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Keyboard, AlertTriangle, ArrowLeft, Plus, Megaphone, Eye, RotateCcw } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Plus, Megaphone, Eye, RotateCcw } from 'lucide-react'
 import { QRScanner } from '@/components/qr/QRScanner'
 import { extractPanelId } from '@/hooks/useQRScanner'
 import { usePanelByQrCode } from '@/hooks/usePanels'
@@ -21,8 +21,6 @@ export function ScanPage() {
   const mode: ScanMode = (searchParams.get('mode') as ScanMode) || 'install'
 
   const [scannedId, setScannedId] = useState<string | null>(null)
-  const [manualInput, setManualInput] = useState(false)
-  const [manualRef, setManualRef] = useState('')
   const [scanError, setScanError] = useState<string | null>(null)
   const [alert, setAlert] = useState<AlertState | null>(null)
   const [checkingCampaign, setCheckingCampaign] = useState(false)
@@ -140,16 +138,9 @@ export function ScanPage() {
     }
   }, [])
 
-  function handleManualSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (manualRef.trim()) {
-      setScannedId(manualRef.trim())
-    }
-  }
-
   const isInstall = mode === 'install'
 
-  const showCamera = !manualInput && !alert
+  const showCamera = !alert
 
   return (
     <div className="fixed inset-0 z-[60] bg-black">
@@ -247,44 +238,12 @@ export function ScanPage() {
           </div>
         )}
 
-        {/* Bottom controls */}
+        {/* Bottom hint */}
         {!alert && (
-          <div className="pointer-events-auto mt-auto bg-gradient-to-t from-black/60 to-transparent p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            {manualInput ? (
-              <form onSubmit={handleManualSubmit} className="space-y-3">
-                <input
-                  type="text"
-                  value={manualRef}
-                  onChange={(e) => setManualRef(e.target.value)}
-                  placeholder="UUID ou référence du panneau"
-                  className="flex h-11 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/50 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-                  autoFocus
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    className="flex-1 inline-flex h-11 items-center justify-center rounded-xl bg-white px-4 text-sm font-medium text-black"
-                  >
-                    Rechercher
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setManualInput(false)}
-                    className="inline-flex h-11 items-center justify-center rounded-xl bg-white/10 px-4 text-sm font-medium text-white backdrop-blur-sm"
-                  >
-                    Annuler
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <button
-                onClick={() => setManualInput(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3.5 text-sm text-white/80 backdrop-blur-sm transition-colors"
-              >
-                <Keyboard className="size-4" />
-                Saisie manuelle
-              </button>
-            )}
+          <div className="pointer-events-none mt-auto bg-gradient-to-t from-black/60 to-transparent p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <p className="text-center text-[13px] text-white/60">
+              Placez le QR code dans le cadre
+            </p>
           </div>
         )}
       </div>
