@@ -291,7 +291,7 @@ export function OperatorMapPage() {
             <div className="min-w-[200px] space-y-2.5 p-3">
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[14px] font-semibold">{selectedPanel.reference}</p>
+                  <p className="text-[14px] font-semibold">{selectedPanel.name || selectedPanel.reference}</p>
                   {(() => {
                     const hasIssue = selectedPanel.status === 'maintenance' || selectedPanel.status === 'missing'
                     const occupied = panelCampaigns.has(selectedPanel.id)
@@ -371,7 +371,7 @@ export function OperatorMapPage() {
                       style={{ backgroundColor: getPanelColor(panel, panelCampaigns) }}
                     />
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium">{panel.reference}</p>
+                      <p className="text-[13px] font-medium">{panel.name || panel.reference}</p>
                       {(panel.city || panel.name) && (
                         <p className="truncate text-[11px] text-muted-foreground">{panel.city || panel.name}</p>
                       )}
@@ -409,7 +409,7 @@ export function OperatorMapPage() {
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-20 left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="absolute left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 0.75rem)' }}>
         <div className="flex items-center gap-1">
           <CircleCheck className="size-3 text-green-500" />
           <span className="text-[11px]">Libre</span>
@@ -429,8 +429,8 @@ export function OperatorMapPage() {
         onClick={flyToUser}
         disabled={locating}
         aria-label="Recentrer sur ma position"
-        className="absolute bottom-20 right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
-        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+        className="absolute right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
+        style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 0.75rem)' }}
       >
         {locating ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />

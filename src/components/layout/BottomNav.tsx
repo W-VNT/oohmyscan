@@ -42,8 +42,8 @@ export function BottomNav() {
       {isAdmin && (
         <NavLink
           to="/admin"
-          className="fixed bottom-20 right-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-[11px] font-medium text-muted-foreground shadow-lg transition-all active:scale-95 hover:bg-muted hover:text-foreground"
-          style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+          className="fixed right-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-[11px] font-medium text-muted-foreground shadow-lg transition-all active:scale-95 hover:bg-muted hover:text-foreground"
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 0.75rem)' }}
         >
           <Monitor className="size-3.5" />
           Back-office
