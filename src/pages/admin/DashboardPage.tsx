@@ -204,9 +204,9 @@ export function DashboardPage() {
                     className="flex items-center justify-between py-2.5 transition-colors hover:bg-muted/50"
                   >
                     <div>
-                      <p className="text-sm font-medium">{panel.reference}</p>
+                      <p className="text-sm font-medium">{panel.name || panel.reference}</p>
                       <p className="text-xs text-muted-foreground">
-                        {panel.name || panel.city || '—'}
+                        {panel.city || panel.address || '—'}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
