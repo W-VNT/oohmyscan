@@ -417,7 +417,7 @@ export function ReportsPage() {
               {panelStats!.unchecked.slice(0, 20).map((panel) => (
                 <div key={panel.id} className="flex items-center justify-between py-2">
                   <div>
-                    <span className="text-sm font-medium">{panel.reference}</span>
+                    <span className="text-sm font-medium">{panel.name || panel.reference}</span>
                     <span className="ml-2 text-xs text-muted-foreground">{panel.city || '—'}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">

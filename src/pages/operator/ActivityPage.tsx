@@ -13,7 +13,7 @@ export function ActivityPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('panel_photos')
-        .select('*, panels(reference, status)')
+        .select('*, panels(reference, name, status)')
         .eq('taken_by', session!.user.id)
         .order('taken_at', { ascending: false })
         .limit(20)
@@ -28,7 +28,7 @@ export function ActivityPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('panel_campaigns')
-        .select('*, panels(reference), campaigns(name, client)')
+        .select('*, panels(reference, name), campaigns(name, client)')
         .eq('assigned_by', session!.user.id)
         .order('assigned_at', { ascending: false })
         .limit(20)
@@ -60,24 +60,24 @@ export function ActivityPage() {
 
   const activities: ActivityItem[] = [
     ...(recentPhotos ?? []).map((p) => {
-      const panel = (p as Record<string, unknown>).panels as { reference: string; status: string } | null
+      const panel = (p as Record<string, unknown>).panels as { reference: string; name?: string; status: string } | null
       return {
         id: p.id,
         type: 'photo' as const,
         date: p.taken_at,
-        panelRef: panel?.reference ?? '—',
+        panelRef: panel?.name || panel?.reference || '—',
         panelStatus: panel?.status,
         detail: p.photo_type === 'installation' ? 'Installation' : p.photo_type === 'check' ? 'Vérification' : p.photo_type === 'campaign' ? 'Campagne' : 'Dégât',
       }
     }),
     ...(recentAssignments ?? []).map((a) => {
-      const panel = (a as Record<string, unknown>).panels as { reference: string } | null
+      const panel = (a as Record<string, unknown>).panels as { reference: string; name?: string } | null
       const campaign = (a as Record<string, unknown>).campaigns as { name: string; client: string } | null
       return {
         id: a.id,
         type: 'assignment' as const,
         date: a.assigned_at,
-        panelRef: panel?.reference ?? '—',
+        panelRef: panel?.name || panel?.reference || '—',
         detail: campaign?.name ?? '—',
       }
     }),
