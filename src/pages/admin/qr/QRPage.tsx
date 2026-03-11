@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/shared/Toast'
-import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy } from 'lucide-react'
+import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer } from 'lucide-react'
+import QRCodeLib from 'qrcode'
+import { pdf } from '@react-pdf/renderer'
+import { DymoQRPDF } from '@/lib/pdf/DymoQRPDF'
 
 export function QRPage() {
   const { data: qrItems, isLoading } = useQRStock()
@@ -17,6 +20,8 @@ export function QRPage() {
   const [filter, setFilter] = useState<'all' | 'available' | 'assigned'>('all')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [generateCount, setGenerateCount] = useState(14)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [exporting, setExporting] = useState(false)
 
   const filtered = useMemo(() => {
     if (!qrItems) return []
@@ -48,6 +53,57 @@ export function QRPage() {
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === filtered.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(filtered.map((i) => i.id)))
+    }
+  }
+
+  async function handleExportDymo() {
+    const items = filtered.filter((i) => selected.has(i.id))
+    if (items.length === 0) {
+      toast('Sélectionnez au moins un QR code', 'error')
+      return
+    }
+    setExporting(true)
+    try {
+      const appUrl = import.meta.env.VITE_APP_URL || 'https://oohmyscan.vercel.app'
+      const labels = await Promise.all(
+        items.map(async (item) => {
+          const qrDataUrl = await QRCodeLib.toDataURL(`${appUrl}/scan?id=${item.uuid_code}`, {
+            width: 300,
+            margin: 1,
+            color: { dark: '#000000', light: '#FFFFFF' },
+          })
+          return { qrDataUrl }
+        }),
+      )
+      const blob = await pdf(<DymoQRPDF labels={labels} />).toBlob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `qr-dymo-${items.length}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast(`PDF généré — ${items.length} étiquette${items.length !== 1 ? 's' : ''}`)
+    } catch {
+      toast('Erreur lors de la génération du PDF', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   function copyUUID(uuid: string) {
     navigator.clipboard.writeText(uuid)
     toast('UUID copié')
@@ -66,10 +122,18 @@ export function QRPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">QR Codes</h1>
-        <Button onClick={() => setSheetOpen(true)}>
-          <Plus className="mr-1.5 size-4" />
-          Générer
-        </Button>
+        <div className="flex gap-2">
+          {selected.size > 0 && (
+            <Button variant="outline" onClick={handleExportDymo} disabled={exporting}>
+              {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Printer className="mr-1.5 size-4" />}
+              Dymo ({selected.size})
+            </Button>
+          )}
+          <Button onClick={() => setSheetOpen(true)}>
+            <Plus className="mr-1.5 size-4" />
+            Générer
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -144,6 +208,14 @@ export function QRPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left">
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && selected.size === filtered.length}
+                      onChange={toggleSelectAll}
+                      className="size-3.5 rounded border-border"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">UUID</th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">Statut</th>
                   <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Panneau</th>
@@ -154,7 +226,7 @@ export function QRPage() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                       <QrCode className="mx-auto mb-2 size-8" />
                       {search || filter !== 'all' ? 'Aucun QR code trouvé' : 'Aucun QR code généré'}
                     </td>
@@ -162,6 +234,14 @@ export function QRPage() {
                 ) : (
                   filtered.map((item) => (
                     <tr key={item.id} className="transition-colors hover:bg-muted/50">
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(item.id)}
+                          onChange={() => toggleSelect(item.id)}
+                          className="size-3.5 rounded border-border"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                           {item.uuid_code.slice(0, 8)}...{item.uuid_code.slice(-4)}
@@ -220,7 +300,7 @@ export function QRPage() {
                 className="text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                14 = 1 page Avery L7163, 28 = 2 pages, etc.
+                1 QR = 1 étiquette Dymo 450 (36 x 89 mm)
               </p>
             </div>
 
@@ -232,8 +312,8 @@ export function QRPage() {
                   <span className="font-medium tabular-nums">{generateCount}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Pages Avery L7163</span>
-                  <span className="font-medium tabular-nums">{Math.ceil(generateCount / 14)}</span>
+                  <span className="text-muted-foreground">Étiquettes Dymo</span>
+                  <span className="font-medium tabular-nums">{generateCount}</span>
                 </div>
               </div>
             </div>
