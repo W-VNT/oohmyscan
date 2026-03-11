@@ -141,10 +141,13 @@ export function OperatorMapPage() {
         return
       }
 
-      // Individual point → show popup
+      // Individual point → center map + show popup
       const panelId = feature.properties?.id as string
       const panel = panelMap.get(panelId)
-      if (panel) setSelectedPanel(panel)
+      if (panel) {
+        setViewState((v) => ({ ...v, latitude: panel.lat, longitude: panel.lng }))
+        setSelectedPanel(panel)
+      }
     },
     [panelMap],
   )
