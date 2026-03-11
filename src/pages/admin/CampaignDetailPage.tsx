@@ -4,7 +4,7 @@ import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, PanelTop } from 'lucide-react'
+import { ArrowLeft, PanelTop, FileText } from 'lucide-react'
 import type { PanelStatus } from '@/lib/constants'
 import type { CampaignStatus } from '@/lib/constants'
 
@@ -188,6 +188,15 @@ export function CampaignDetailPage() {
                 >
                   Annuler la campagne
                 </button>
+              )}
+              {(campaign.status === 'active' || campaign.status === 'completed') && (
+                <Link
+                  to={`/admin/reports/${id}`}
+                  className="flex w-full items-center justify-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                >
+                  <FileText className="size-4" />
+                  Proof of Posting
+                </Link>
               )}
             </div>
           </div>

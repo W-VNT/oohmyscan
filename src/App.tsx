@@ -42,6 +42,7 @@ const UsersPage = lazy(() => import('@/pages/admin/users/UsersPage').then((m) =>
 const QuoteDetailPage = lazy(() => import('@/pages/admin/quotes/QuoteDetailPage').then((m) => ({ default: m.QuoteDetailPage })))
 const InvoiceDetailPage = lazy(() => import('@/pages/admin/invoices/InvoiceDetailPage').then((m) => ({ default: m.InvoiceDetailPage })))
 const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })))
+const ProofOfPostingPage = lazy(() => import('@/pages/admin/reports/ProofOfPostingPage').then((m) => ({ default: m.ProofOfPostingPage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
 const queryClient = new QueryClient({
@@ -96,6 +97,7 @@ export default function App() {
                   <Route path="qr" element={<QRPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="reports" element={<ReportsPage />} />
+                  <Route path="reports/:campaignId" element={<ProofOfPostingPage />} />
                   <Route path="settings" element={<SettingsPage />} />
                 </Route>
               </Route>
