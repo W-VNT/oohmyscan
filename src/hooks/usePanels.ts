@@ -1,6 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Panel, InsertTables, UpdateTables } from '@/types'
+
+const PAGE_SIZE = 30
 
 export function usePanels() {
   return useQuery({
@@ -12,6 +14,33 @@ export function usePanels() {
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
+    },
+  })
+}
+
+export function useInfinitePanels(search: string) {
+  return useInfiniteQuery({
+    queryKey: ['panels-infinite', search],
+    queryFn: async ({ pageParam = 0 }): Promise<Panel[]> => {
+      let query = supabase
+        .from('panels')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(pageParam, pageParam + PAGE_SIZE - 1)
+
+      if (search.trim()) {
+        const q = `%${search.trim()}%`
+        query = query.or(`reference.ilike.${q},city.ilike.${q},name.ilike.${q}`)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+      return data
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (lastPage.length < PAGE_SIZE) return undefined
+      return allPages.length * PAGE_SIZE
     },
   })
 }

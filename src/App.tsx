@@ -34,7 +34,15 @@ const PanelsPage = lazy(() => import('@/pages/admin/PanelsPage').then((m) => ({ 
 const PanelDetailPage = lazy(() => import('@/pages/admin/PanelDetailPage').then((m) => ({ default: m.PanelDetailPage })))
 const CampaignsPage = lazy(() => import('@/pages/admin/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
 const CampaignDetailPage = lazy(() => import('@/pages/admin/CampaignDetailPage').then((m) => ({ default: m.CampaignDetailPage })))
+const ClientsPage = lazy(() => import('@/pages/admin/clients/ClientsPage').then((m) => ({ default: m.ClientsPage })))
+const QuotesPage = lazy(() => import('@/pages/admin/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })))
+const InvoicesPage = lazy(() => import('@/pages/admin/invoices/InvoicesPage').then((m) => ({ default: m.InvoicesPage })))
+const QRPage = lazy(() => import('@/pages/admin/qr/QRPage').then((m) => ({ default: m.QRPage })))
+const UsersPage = lazy(() => import('@/pages/admin/users/UsersPage').then((m) => ({ default: m.UsersPage })))
+const QuoteDetailPage = lazy(() => import('@/pages/admin/quotes/QuoteDetailPage').then((m) => ({ default: m.QuoteDetailPage })))
+const InvoiceDetailPage = lazy(() => import('@/pages/admin/invoices/InvoiceDetailPage').then((m) => ({ default: m.InvoiceDetailPage })))
 const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })))
+const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,7 +88,15 @@ export default function App() {
                   <Route path="panels/:id" element={<PanelDetailPage />} />
                   <Route path="campaigns" element={<CampaignsPage />} />
                   <Route path="campaigns/:id" element={<CampaignDetailPage />} />
+                  <Route path="clients" element={<ClientsPage />} />
+                  <Route path="quotes" element={<QuotesPage />} />
+                  <Route path="quotes/:id" element={<QuoteDetailPage />} />
+                  <Route path="invoices" element={<InvoicesPage />} />
+                  <Route path="invoices/:id" element={<InvoiceDetailPage />} />
+                  <Route path="qr" element={<QRPage />} />
+                  <Route path="users" element={<UsersPage />} />
                   <Route path="reports" element={<ReportsPage />} />
+                  <Route path="settings" element={<SettingsPage />} />
                 </Route>
               </Route>
 

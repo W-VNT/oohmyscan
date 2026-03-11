@@ -26,6 +26,7 @@ import {
   Calendar,
   Phone,
   AlertTriangle,
+  Trash2,
 } from 'lucide-react'
 
 
@@ -217,6 +218,31 @@ export function OperatorPanelDetailPage() {
     } finally {
       setUploadingPhoto(false)
       cancelPhotoPreview()
+    }
+  }
+
+  // Photo viewer + deletion
+  const [viewingPhoto, setViewingPhoto] = useState<{ id: string; url: string; type: string; date: string | null } | null>(null)
+  const [deletingPhoto, setDeletingPhoto] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  async function handleDeletePhoto() {
+    if (!viewingPhoto || !id) return
+    setDeletingPhoto(true)
+    try {
+      const photo = photos?.find((p) => p.id === viewingPhoto.id)
+      if (photo) {
+        await supabase.storage.from('panel-photos').remove([photo.storage_path])
+        await supabase.from('panel_photos').delete().eq('id', photo.id)
+      }
+      queryClient.invalidateQueries({ queryKey: ['panel-photos', id] })
+      toast('Photo supprimée')
+      setViewingPhoto(null)
+    } catch {
+      toast('Erreur lors de la suppression', 'error')
+    } finally {
+      setDeletingPhoto(false)
+      setConfirmDelete(false)
     }
   }
 
@@ -612,7 +638,17 @@ export function OperatorPanelDetailPage() {
               {photos.map((photo) => {
                 const url = photoUrls?.[photo.id]
                 return (
-                  <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg bg-muted">
+                  <button
+                    key={photo.id}
+                    type="button"
+                    onClick={() => url && setViewingPhoto({
+                      id: photo.id,
+                      url,
+                      type: PHOTO_TYPE_LABELS[photo.photo_type as PhotoType] ?? photo.photo_type,
+                      date: photo.taken_at,
+                    })}
+                    className="group relative aspect-square overflow-hidden rounded-lg bg-muted text-left"
+                  >
                     {url ? (
                       <img src={url} alt="" className="size-full object-cover" />
                     ) : (
@@ -633,7 +669,7 @@ export function OperatorPanelDetailPage() {
                         </p>
                       )}
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>
@@ -702,7 +738,7 @@ export function OperatorPanelDetailPage() {
         </div>
       </div>
 
-      {/* Photo preview overlay */}
+      {/* Photo preview overlay (new upload) */}
       {photoPreview && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4">
           <img
@@ -732,6 +768,84 @@ export function OperatorPanelDetailPage() {
               )}
               Valider
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Photo viewer overlay (existing photo) */}
+      {viewingPhoto && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/95 p-4 pt-[env(safe-area-inset-top)]">
+          {/* Close button */}
+          <div className="flex justify-end pb-2">
+            <button
+              onClick={() => { setViewingPhoto(null); setConfirmDelete(false) }}
+              className="flex size-11 items-center justify-center rounded-full bg-white/10"
+              aria-label="Fermer"
+            >
+              <X className="size-5 text-white" />
+            </button>
+          </div>
+
+          {/* Photo */}
+          <div className="flex flex-1 items-center justify-center">
+            <img
+              src={viewingPhoto.url}
+              alt=""
+              className="max-h-full max-w-full rounded-lg object-contain"
+            />
+          </div>
+
+          {/* Info + actions */}
+          <div className="pb-[env(safe-area-inset-bottom)] pt-4">
+            <div className="mb-4 text-center">
+              <p className="text-[13px] font-medium text-white">{viewingPhoto.type}</p>
+              {viewingPhoto.date && (
+                <p className="text-[12px] text-white/60">
+                  {new Date(viewingPhoto.date).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              )}
+            </div>
+
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-500/15 py-3 text-[14px] font-medium text-red-400 transition-colors active:bg-red-500/25"
+              >
+                <Trash2 className="size-4" />
+                Supprimer cette photo
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-center text-[13px] text-white/70">Confirmer la suppression ?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={deletingPhoto}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/20 py-3 text-[14px] font-medium text-white transition-colors active:bg-white/10"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleDeletePhoto}
+                    disabled={deletingPhoto}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-red-500 py-3 text-[14px] font-medium text-white transition-colors active:bg-red-600"
+                  >
+                    {deletingPhoto ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

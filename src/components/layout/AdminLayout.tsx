@@ -4,21 +4,53 @@ import {
   MapPin,
   PanelTop,
   Megaphone,
+  Users,
+  FileText,
+  Receipt,
+  QrCode,
   BarChart3,
+  Settings,
   LogOut,
   Menu,
   X,
+  Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/app.store'
 
-const sidebarItems = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
-  { to: '/admin/map', icon: MapPin, label: 'Carte' },
-  { to: '/admin/panels', icon: PanelTop, label: 'Panneaux' },
-  { to: '/admin/campaigns', icon: Megaphone, label: 'Campagnes' },
-  { to: '/admin/reports', icon: BarChart3, label: 'Rapports' },
+const navSections = [
+  {
+    items: [
+      { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
+      { to: '/admin/map', icon: MapPin, label: 'Carte' },
+    ],
+  },
+  {
+    items: [
+      { to: '/admin/panels', icon: PanelTop, label: 'Panneaux' },
+      { to: '/admin/campaigns', icon: Megaphone, label: 'Campagnes' },
+      { to: '/admin/clients', icon: Building2, label: 'Clients' },
+    ],
+  },
+  {
+    items: [
+      { to: '/admin/quotes', icon: FileText, label: 'Devis' },
+      { to: '/admin/invoices', icon: Receipt, label: 'Factures' },
+    ],
+  },
+  {
+    items: [
+      { to: '/admin/qr', icon: QrCode, label: 'QR Codes' },
+      { to: '/admin/users', icon: Users, label: 'Utilisateurs' },
+      { to: '/admin/reports', icon: BarChart3, label: 'Rapports' },
+    ],
+  },
+  {
+    items: [
+      { to: '/admin/settings', icon: Settings, label: 'Paramètres' },
+    ],
+  },
 ]
 
 export function AdminLayout() {
@@ -30,49 +62,59 @@ export function AdminLayout() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-card transition-transform lg:static lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-card transition-transform lg:static lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-border px-6">
-          <h1 className="text-lg font-bold">OOHMYSCAN</h1>
-          <button onClick={toggleSidebar} className="lg:hidden" aria-label="Fermer le menu latéral">
-            <X className="h-5 w-5" />
+        {/* Logo */}
+        <div className="flex h-14 items-center justify-between border-b border-border px-5">
+          <span className="text-[15px] font-bold tracking-tight">OOHMYSCAN</span>
+          <button onClick={toggleSidebar} className="lg:hidden" aria-label="Fermer">
+            <X className="size-5" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 p-4">
-          {sidebarItems.map(({ to, icon: Icon, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={() => useAppStore.setState({ sidebarOpen: false })}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                )
-              }
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </NavLink>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-3 py-3">
+          {navSections.map((section, sIdx) => (
+            <div key={sIdx}>
+              {sIdx > 0 && <div className="my-2 border-t border-border" />}
+              <div className="space-y-0.5">
+                {section.items.map(({ to, icon: Icon, label, end }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={end}
+                    onClick={() => useAppStore.setState({ sidebarOpen: false })}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )
+                    }
+                  >
+                    <Icon className="size-4" />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
-        <div className="border-t border-border p-4">
-          <div className="mb-3 text-sm">
-            <p className="font-medium">{profile?.full_name}</p>
-            <p className="text-muted-foreground">Admin</p>
+        {/* User + logout */}
+        <div className="border-t border-border px-3 py-3">
+          <div className="mb-2 px-2.5">
+            <p className="truncate text-[13px] font-medium">{profile?.full_name}</p>
+            <p className="text-[11px] text-muted-foreground">Administrateur</p>
           </div>
           <button
             onClick={signOut}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="size-4" />
             Déconnexion
           </button>
         </div>
@@ -88,13 +130,13 @@ export function AdminLayout() {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center gap-4 border-b border-border px-6 lg:px-8">
-          <button onClick={toggleSidebar} className="lg:hidden" aria-label="Ouvrir le menu">
-            <Menu className="h-5 w-5" />
+        <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border px-6">
+          <button onClick={toggleSidebar} className="lg:hidden" aria-label="Menu">
+            <Menu className="size-5" />
           </button>
           <div className="flex-1" />
         </header>
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>
       </div>

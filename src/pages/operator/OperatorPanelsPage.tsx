@@ -1,34 +1,62 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { usePanels } from '@/hooks/usePanels'
+import { useInfinitePanels } from '@/hooks/usePanels'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PanelTop, Search, MapPin, ChevronRight } from 'lucide-react'
+import { PanelTop, Search, MapPin, ChevronRight, Loader2 } from 'lucide-react'
 import { PANEL_STATUS_CONFIG } from '@/lib/constants'
 import type { PanelStatus } from '@/lib/constants'
 
 export function OperatorPanelsPage() {
-  const { data: panels, isLoading } = usePanels()
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  const filtered = useMemo(() => {
-    if (!panels) return []
-    if (!search.trim()) return panels
-    const q = search.toLowerCase()
-    return panels.filter(
-      (p) =>
-        p.reference.toLowerCase().includes(q) ||
-        p.city?.toLowerCase().includes(q) ||
-        p.name?.toLowerCase().includes(q)
-    )
-  }, [panels, search])
+  // Debounce search to avoid spamming Supabase
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfinitePanels(debouncedSearch)
+
+  const panels = data?.pages.flat() ?? []
+  const totalCount = panels.length + (hasNextPage ? '+' : '')
+
+  // Infinite scroll observer
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const [entry] = entries
+      if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage()
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage]
+  )
+
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect()
+    observerRef.current = new IntersectionObserver(handleObserver, {
+      rootMargin: '200px',
+    })
+    if (sentinelRef.current) observerRef.current.observe(sentinelRef.current)
+    return () => observerRef.current?.disconnect()
+  }, [handleObserver])
 
   return (
     <div className="space-y-4 p-4 pb-20">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold tracking-tight">Panneaux</h1>
-        <span className="text-xs text-muted-foreground">{panels?.length ?? 0} points</span>
+        <span className="text-xs text-muted-foreground">{totalCount} points</span>
       </div>
 
       {/* Search */}
@@ -38,7 +66,7 @@ export function OperatorPanelsPage() {
           placeholder="Rechercher un point..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-8 text-[13px]"
+          className="pl-8 text-base"
         />
       </div>
 
@@ -57,14 +85,14 @@ export function OperatorPanelsPage() {
             </div>
           ))}
         </div>
-      ) : !filtered.length ? (
+      ) : !panels.length ? (
         <div className="flex flex-col items-center py-16 text-muted-foreground">
           <PanelTop className="size-8" strokeWidth={1} />
           <p className="mt-3 text-sm">{search ? 'Aucun résultat' : 'Aucun panneau enregistré'}</p>
         </div>
       ) : (
         <div className="space-y-0.5">
-          {filtered.map((panel) => {
+          {panels.map((panel) => {
             const cfg = PANEL_STATUS_CONFIG[panel.status as PanelStatus]
             return (
               <Link
@@ -90,6 +118,13 @@ export function OperatorPanelsPage() {
               </Link>
             )
           })}
+
+          {/* Infinite scroll sentinel */}
+          <div ref={sentinelRef} className="py-4 text-center">
+            {isFetchingNextPage && (
+              <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -1,13 +1,39 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { usePanels } from '@/hooks/usePanels'
 import { useCampaigns } from '@/hooks/useCampaigns'
+import { useInvoices } from '@/hooks/admin/useInvoices'
+import { useClients } from '@/hooks/admin/useClients'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { Download, Loader2, PanelTop, Megaphone, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import {
+  Download,
+  Loader2,
+  PanelTop,
+  Megaphone,
+  TrendingUp,
+  AlertTriangle,
+  Receipt,
+} from 'lucide-react'
+
 export function ReportsPage() {
   const { data: panels, isLoading: panelsLoading } = usePanels()
   const { data: campaigns, isLoading: campaignsLoading } = useCampaigns()
+  const { data: invoices, isLoading: invoicesLoading } = useInvoices()
+  const { data: clients } = useClients()
 
-  const stats = useMemo(() => {
+  // Period filter — defaults to current year
+  const now = new Date()
+  const [startDate, setStartDate] = useState(`${now.getFullYear()}-01-01`)
+  const [endDate, setEndDate] = useState(now.toISOString().split('T')[0])
+
+  const start = new Date(startDate)
+  const end = new Date(endDate + 'T23:59:59')
+
+  // Panel stats
+  const panelStats = useMemo(() => {
     if (!panels) return null
     const total = panels.length
     const byStatus = {
@@ -18,7 +44,6 @@ export function ReportsPage() {
     }
     const occupationRate = total > 0 ? ((byStatus.active / total) * 100).toFixed(1) : '0'
 
-    // Panels not checked in 30+ days
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     const unchecked = panels.filter((p) => {
@@ -26,7 +51,6 @@ export function ReportsPage() {
       return new Date(p.last_checked_at) < thirtyDaysAgo
     })
 
-    // By city
     const byCity: Record<string, { total: number; active: number }> = {}
     panels.forEach((p) => {
       const city = p.city || 'Non renseigné'
@@ -35,7 +59,6 @@ export function ReportsPage() {
       if (p.status === 'active') byCity[city].active++
     })
 
-    // By format
     const byFormat: Record<string, number> = {}
     panels.forEach((p) => {
       const format = p.format || 'Non renseigné'
@@ -45,6 +68,7 @@ export function ReportsPage() {
     return { total, byStatus, occupationRate, unchecked, byCity, byFormat }
   }, [panels])
 
+  // Campaign stats
   const campaignStats = useMemo(() => {
     if (!campaigns) return null
     return {
@@ -54,6 +78,53 @@ export function ReportsPage() {
       draft: campaigns.filter((c) => c.status === 'draft').length,
     }
   }, [campaigns])
+
+  // Financial stats (filtered by period)
+  const financialStats = useMemo(() => {
+    if (!invoices) return null
+
+    const periodInvoices = invoices.filter((i) => {
+      const d = new Date(i.issued_at)
+      return d >= start && d <= end
+    })
+
+    const paidInPeriod = periodInvoices.filter((i) => i.status === 'paid')
+    const totalPaid = paidInPeriod.reduce((s, i) => s + i.total_ttc, 0)
+    const totalPending = periodInvoices
+      .filter((i) => i.status === 'sent' || i.status === 'overdue')
+      .reduce((s, i) => s + i.total_ttc, 0)
+
+    // CA by month
+    const byMonth: Record<string, number> = {}
+    paidInPeriod.forEach((inv) => {
+      const d = new Date(inv.paid_at ?? inv.issued_at)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      byMonth[key] = (byMonth[key] ?? 0) + inv.total_ttc
+    })
+
+    // CA by client
+    const byClient: Record<string, { name: string; total: number; count: number }> = {}
+    paidInPeriod.forEach((inv) => {
+      const client = clients?.find((c) => c.id === inv.client_id)
+      const name = client?.company_name ?? inv.clients?.company_name ?? 'Inconnu'
+      if (!byClient[inv.client_id]) byClient[inv.client_id] = { name, total: 0, count: 0 }
+      byClient[inv.client_id].total += inv.total_ttc
+      byClient[inv.client_id].count++
+    })
+
+    return { totalPaid, totalPending, byMonth, byClient, paidCount: paidInPeriod.length }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices, clients, startDate, endDate])
+
+  function formatCurrency(amount: number) {
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount)
+  }
+
+  function formatMonth(key: string) {
+    const [y, m] = key.split('-')
+    const date = new Date(parseInt(y), parseInt(m) - 1)
+    return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  }
 
   function exportCSV() {
     if (!panels) return
@@ -74,170 +145,313 @@ export function ReportsPage() {
     URL.revokeObjectURL(url)
   }
 
-  if (panelsLoading || campaignsLoading) {
+  if (panelsLoading || campaignsLoading || invoicesLoading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Rapports</h2>
-        <button
-          onClick={exportCSV}
-          className="inline-flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
-        >
-          <Download className="h-4 w-4" />
+        <h1 className="text-xl font-semibold">Rapports</h1>
+        <Button variant="outline" onClick={exportCSV}>
+          <Download className="mr-1.5 size-4" />
           Export CSV
-        </button>
+        </Button>
       </div>
+
+      {/* Period filter */}
+      <Card>
+        <CardContent className="flex flex-wrap items-end gap-4 pt-6">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Début</label>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-40 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Fin</label>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-40 text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            {[
+              { label: 'Ce mois', fn: () => { setStartDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`); setEndDate(now.toISOString().split('T')[0]) } },
+              { label: 'Cette année', fn: () => { setStartDate(`${now.getFullYear()}-01-01`); setEndDate(now.toISOString().split('T')[0]) } },
+              { label: 'Tout', fn: () => { setStartDate('2020-01-01'); setEndDate(now.toISOString().split('T')[0]) } },
+            ].map((preset) => (
+              <Button key={preset.label} variant="outline" size="sm" onClick={preset.fn}>
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPICard icon={PanelTop} label="Total panneaux" value={String(stats?.total ?? 0)} />
-        <KPICard icon={TrendingUp} label="Taux d'occupation" value={`${stats?.occupationRate ?? 0}%`} color="text-green-600" />
-        <KPICard icon={Megaphone} label="Campagnes actives" value={String(campaignStats?.active ?? 0)} color="text-blue-600" />
-        <KPICard icon={AlertTriangle} label="Non vérifiés (30j)" value={String(stats?.unchecked?.length ?? 0)} color={(stats?.unchecked?.length ?? 0) > 0 ? 'text-orange-600' : undefined} />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">Total panneaux</p>
+              <PanelTop className="size-4 text-muted-foreground" />
+            </div>
+            <p className="mt-1 text-2xl font-bold tabular-nums">{panelStats?.total ?? 0}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">Taux d'occupation</p>
+              <TrendingUp className="size-4 text-green-600" />
+            </div>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-green-600">{panelStats?.occupationRate ?? 0}%</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">Campagnes actives</p>
+              <Megaphone className="size-4 text-blue-600" />
+            </div>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-blue-600">{campaignStats?.active ?? 0}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">Non vérifiés (30j)</p>
+              <AlertTriangle className={`size-4 ${(panelStats?.unchecked?.length ?? 0) > 0 ? 'text-orange-600' : 'text-muted-foreground'}`} />
+            </div>
+            <p className={`mt-1 text-2xl font-bold tabular-nums ${(panelStats?.unchecked?.length ?? 0) > 0 ? 'text-orange-600' : ''}`}>
+              {panelStats?.unchecked?.length ?? 0}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Status distribution */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="font-semibold">Répartition par statut</h3>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {(
-            [
-              { status: 'active', label: 'Actifs', color: 'bg-green-500' },
-              { status: 'vacant', label: 'Vacants', color: 'bg-gray-400' },
-              { status: 'maintenance', label: 'Maintenance', color: 'bg-orange-500' },
-              { status: 'missing', label: 'Manquants', color: 'bg-red-500' },
-            ] as const
-          ).map(({ status, color }) => {
-            const count = stats?.byStatus[status] ?? 0
-            const pct = stats?.total ? ((count / stats.total) * 100).toFixed(0) : '0'
-            return (
-              <div key={status} className="rounded-lg border border-border p-4">
-                <StatusBadge status={status} />
-                <div className="mt-3 flex items-end justify-between">
-                  <span className="text-2xl font-bold">{count}</span>
-                  <span className="text-sm text-muted-foreground">{pct}%</span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      {/* Financial section */}
+      <Card>
+        <CardContent className="space-y-6 pt-6">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Receipt className="size-4" />
+            Chiffre d'affaires (période sélectionnée)
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border border-border p-4">
+              <p className="text-xs text-muted-foreground">CA encaissé</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-green-600">
+                {formatCurrency(financialStats?.totalPaid ?? 0)}
+              </p>
+              <p className="text-xs text-muted-foreground">{financialStats?.paidCount ?? 0} factures</p>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <p className="text-xs text-muted-foreground">En attente</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-orange-500">
+                {formatCurrency(financialStats?.totalPending ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border p-4">
+              <p className="text-xs text-muted-foreground">Total période</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">
+                {formatCurrency((financialStats?.totalPaid ?? 0) + (financialStats?.totalPending ?? 0))}
+              </p>
+            </div>
+          </div>
+
+          {/* CA by month */}
+          {financialStats?.byMonth && Object.keys(financialStats.byMonth).length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">CA par mois</p>
+                <div className="space-y-2">
+                  {Object.entries(financialStats.byMonth)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([month, amount]) => {
+                      const maxAmount = Math.max(...Object.values(financialStats.byMonth))
+                      const pct = maxAmount > 0 ? (amount / maxAmount) * 100 : 0
+                      return (
+                        <div key={month} className="flex items-center gap-3">
+                          <span className="w-32 text-sm capitalize text-muted-foreground">{formatMonth(month)}</span>
+                          <div className="flex-1">
+                            <div className="h-5 overflow-hidden rounded bg-muted">
+                              <div
+                                className="flex h-full items-center rounded bg-green-500/20 px-2"
+                                style={{ width: `${Math.max(pct, 5)}%` }}
+                              >
+                                <span className="text-xs font-medium tabular-nums">{formatCurrency(amount)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
                 </div>
               </div>
-            )
-          })}
-        </div>
-      </div>
+            </>
+          )}
+
+          {/* CA by client */}
+          {financialStats?.byClient && Object.keys(financialStats.byClient).length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">CA par client</p>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="pb-2 font-medium text-muted-foreground">Client</th>
+                      <th className="pb-2 text-right font-medium text-muted-foreground">Factures</th>
+                      <th className="pb-2 text-right font-medium text-muted-foreground">CA TTC</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {Object.values(financialStats.byClient)
+                      .sort((a, b) => b.total - a.total)
+                      .map((row) => (
+                        <tr key={row.name}>
+                          <td className="py-2 font-medium">{row.name}</td>
+                          <td className="py-2 text-right tabular-nums text-muted-foreground">{row.count}</td>
+                          <td className="py-2 text-right font-medium tabular-nums">{formatCurrency(row.total)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Status distribution */}
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-sm font-semibold">Répartition par statut</h3>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {(
+              [
+                { status: 'active', color: 'bg-green-500' },
+                { status: 'vacant', color: 'bg-gray-400' },
+                { status: 'maintenance', color: 'bg-orange-500' },
+                { status: 'missing', color: 'bg-red-500' },
+              ] as const
+            ).map(({ status, color }) => {
+              const count = panelStats?.byStatus[status] ?? 0
+              const pct = panelStats?.total ? ((count / panelStats.total) * 100).toFixed(0) : '0'
+              return (
+                <div key={status} className="rounded-lg border border-border p-4">
+                  <StatusBadge status={status} />
+                  <div className="mt-3 flex items-end justify-between">
+                    <span className="text-2xl font-bold tabular-nums">{count}</span>
+                    <span className="text-sm text-muted-foreground">{pct}%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* By city */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="font-semibold">Par ville</h3>
-        {stats?.byCity && Object.keys(stats.byCity).length > 0 ? (
-          <div className="mt-4 overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-sm">
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-sm font-semibold">Panneaux par ville</h3>
+          {panelStats?.byCity && Object.keys(panelStats.byCity).length > 0 ? (
+            <table className="mt-4 w-full text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="px-4 py-2 text-left font-medium">Ville</th>
-                  <th className="px-4 py-2 text-right font-medium">Total</th>
-                  <th className="px-4 py-2 text-right font-medium">Actifs</th>
-                  <th className="px-4 py-2 text-right font-medium">Occupation</th>
+                <tr className="border-b border-border text-left">
+                  <th className="pb-2 font-medium text-muted-foreground">Ville</th>
+                  <th className="pb-2 text-right font-medium text-muted-foreground">Total</th>
+                  <th className="pb-2 text-right font-medium text-muted-foreground">Actifs</th>
+                  <th className="pb-2 text-right font-medium text-muted-foreground">Occupation</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {Object.entries(stats.byCity)
+              <tbody className="divide-y divide-border/50">
+                {Object.entries(panelStats.byCity)
                   .sort(([, a], [, b]) => b.total - a.total)
                   .map(([city, data]) => (
                     <tr key={city}>
-                      <td className="px-4 py-2 font-medium">{city}</td>
-                      <td className="px-4 py-2 text-right">{data.total}</td>
-                      <td className="px-4 py-2 text-right">{data.active}</td>
-                      <td className="px-4 py-2 text-right">
+                      <td className="py-2 font-medium">{city}</td>
+                      <td className="py-2 text-right tabular-nums">{data.total}</td>
+                      <td className="py-2 text-right tabular-nums">{data.active}</td>
+                      <td className="py-2 text-right tabular-nums">
                         {data.total > 0 ? ((data.active / data.total) * 100).toFixed(0) : 0}%
                       </td>
                     </tr>
                   ))}
               </tbody>
             </table>
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-muted-foreground">Aucune donnée</p>
-        )}
-      </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">Aucune donnée</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Unchecked panels */}
-      {(stats?.unchecked?.length ?? 0) > 0 && (
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="font-semibold text-orange-600">
-            Panneaux non vérifiés depuis 30+ jours ({stats!.unchecked.length})
-          </h3>
-          <div className="mt-4 divide-y divide-border">
-            {stats!.unchecked.slice(0, 20).map((panel) => (
-              <div key={panel.id} className="flex items-center justify-between py-2">
-                <div>
-                  <span className="text-sm font-medium">{panel.reference}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {panel.city || '—'}
+      {(panelStats?.unchecked?.length ?? 0) > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="text-sm font-semibold text-orange-600">
+              Panneaux non vérifiés depuis 30+ jours ({panelStats!.unchecked.length})
+            </h3>
+            <div className="mt-4 divide-y divide-border/50">
+              {panelStats!.unchecked.slice(0, 20).map((panel) => (
+                <div key={panel.id} className="flex items-center justify-between py-2">
+                  <div>
+                    <span className="text-sm font-medium">{panel.reference}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{panel.city || '—'}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {panel.last_checked_at
+                      ? `Dernier check: ${new Date(panel.last_checked_at).toLocaleDateString('fr-FR')}`
+                      : 'Jamais vérifié'}
                   </span>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {panel.last_checked_at
-                    ? `Dernier check: ${new Date(panel.last_checked_at).toLocaleDateString('fr-FR')}`
-                    : 'Jamais vérifié'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+              {panelStats!.unchecked.length > 20 && (
+                <p className="py-2 text-xs text-muted-foreground">
+                  +{panelStats!.unchecked.length - 20} autres...
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Campaign stats */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="font-semibold">Campagnes</h3>
-        <div className="mt-4 grid gap-4 sm:grid-cols-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold">{campaignStats?.total ?? 0}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-sm font-semibold">Campagnes</h3>
+          <div className="mt-4 grid gap-4 sm:grid-cols-4">
+            {[
+              { label: 'Total', value: campaignStats?.total ?? 0 },
+              { label: 'Actives', value: campaignStats?.active ?? 0, color: 'text-green-600' },
+              { label: 'Terminées', value: campaignStats?.completed ?? 0, color: 'text-blue-600' },
+              { label: 'Brouillons', value: campaignStats?.draft ?? 0, color: 'text-muted-foreground' },
+            ].map((item) => (
+              <div key={item.label} className="text-center">
+                <p className={`text-2xl font-bold tabular-nums ${item.color ?? ''}`}>{item.value}</p>
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+              </div>
+            ))}
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">{campaignStats?.active ?? 0}</p>
-            <p className="text-xs text-muted-foreground">Actives</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-600">{campaignStats?.completed ?? 0}</p>
-            <p className="text-xs text-muted-foreground">Terminées</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-gray-500">{campaignStats?.draft ?? 0}</p>
-            <p className="text-xs text-muted-foreground">Brouillons</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function KPICard({
-  icon: Icon,
-  label,
-  value,
-  color,
-}: {
-  icon: typeof PanelTop
-  label: string
-  value: string
-  color?: string
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <Icon className={`h-5 w-5 ${color ?? 'text-muted-foreground'}`} />
-      </div>
-      <p className={`mt-2 text-3xl font-bold ${color ?? ''}`}>{value}</p>
+        </CardContent>
+      </Card>
     </div>
   )
 }
