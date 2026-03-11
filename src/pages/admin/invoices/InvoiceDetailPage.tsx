@@ -12,7 +12,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail } from 'lucide-react'
+import { pdf } from '@react-pdf/renderer'
+import { InvoicePDF } from '@/lib/pdf/InvoicePDF'
+import { useClient } from '@/hooks/admin/useClients'
 
 type EditableLine = Omit<InvoiceLine, 'id' | 'invoice_id'> & { _key: string }
 
@@ -64,6 +67,8 @@ export function InvoiceDetailPage() {
   const [dueAt, setDueAt] = useState('')
   const [lines, setLines] = useState<EditableLine[]>([newLine(0)])
   const [saving, setSaving] = useState(false)
+
+  const { data: clientData } = useClient(clientId || undefined)
 
   // Init from existing invoice
   useEffect(() => {
@@ -258,6 +263,49 @@ export function InvoiceDetailPage() {
     )
   }
 
+  async function handleDownloadPDF() {
+    if (!invoice || !clientData || !settings) {
+      toast('Données manquantes pour le PDF', 'error')
+      return
+    }
+    try {
+      const blob = await pdf(
+        <InvoicePDF
+          invoice={invoice}
+          quoteNumber={sourceQuote?.quote_number}
+          client={clientData}
+          lines={lines.filter((l) => l.description.trim()).map((l) => ({
+            description: l.description,
+            quantity: l.quantity,
+            unit: l.unit,
+            unit_price: l.unit_price,
+            tva_rate: l.tva_rate,
+            total_ht: l.total_ht,
+          }))}
+          company={settings}
+        />,
+      ).toBlob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${invoice.invoice_number}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast('Erreur lors de la génération du PDF', 'error')
+    }
+  }
+
+  function handleMailto() {
+    if (!invoice || !clientData || !settings) return
+    const subject = encodeURIComponent(`Facture ${invoice.invoice_number}`)
+    const body = encodeURIComponent(
+      `Bonjour,\n\nVeuillez trouver ci-joint la facture ${invoice.invoice_number} d'un montant de ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(totals.totalTtc)} TTC.\n\nÉchéance : ${new Date(invoice.due_at).toLocaleDateString('fr-FR')}\n\n${settings.iban ? `Règlement par virement :\nIBAN : ${settings.iban}${settings.bic ? `\nBIC : ${settings.bic}` : ''}\n\n` : ''}Cordialement,\n${settings.company_name ?? 'OOHMYAD'}`,
+    )
+    const to = clientData.contact_email ? encodeURIComponent(clientData.contact_email) : ''
+    window.open(`mailto:${to}?subject=${subject}&body=${body}`)
+  }
+
   const activeClients = clients?.filter((c) => c.is_active) ?? []
   const activeServices = services?.filter((s) => s.is_active) ?? []
 
@@ -277,9 +325,19 @@ export function InvoiceDetailPage() {
           )}
         </div>
         {!isNew && invoice && (
-          <Badge variant={statusConfig[invoice.status]?.variant ?? 'secondary'}>
-            {statusConfig[invoice.status]?.label ?? invoice.status}
-          </Badge>
+          <>
+            <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
+              <Download className="mr-1.5 size-3.5" /> PDF
+            </Button>
+            {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+              <Button size="sm" variant="outline" onClick={handleMailto}>
+                <Mail className="mr-1.5 size-3.5" /> Relancer
+              </Button>
+            )}
+            <Badge variant={statusConfig[invoice.status]?.variant ?? 'secondary'}>
+              {statusConfig[invoice.status]?.label ?? invoice.status}
+            </Badge>
+          </>
         )}
       </div>
 

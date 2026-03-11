@@ -11,7 +11,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download } from 'lucide-react'
+import { pdf } from '@react-pdf/renderer'
+import { QuotePDF } from '@/lib/pdf/QuotePDF'
+import { useClient } from '@/hooks/admin/useClients'
 
 type EditableLine = Omit<QuoteLine, 'id' | 'quote_id'> & { _key: string }
 
@@ -58,6 +61,8 @@ export function QuoteDetailPage() {
   const [validUntil, setValidUntil] = useState('')
   const [lines, setLines] = useState<EditableLine[]>([newLine(0)])
   const [saving, setSaving] = useState(false)
+
+  const { data: clientData } = useClient(clientId || undefined)
 
   // Init form from existing quote
   useEffect(() => {
@@ -227,6 +232,38 @@ export function QuoteDetailPage() {
     )
   }
 
+  async function handleDownloadPDF() {
+    if (!quote || !clientData || !settings) {
+      toast('Données manquantes pour le PDF', 'error')
+      return
+    }
+    try {
+      const blob = await pdf(
+        <QuotePDF
+          quote={quote}
+          client={clientData}
+          lines={lines.filter((l) => l.description.trim()).map((l) => ({
+            description: l.description,
+            quantity: l.quantity,
+            unit: l.unit,
+            unit_price: l.unit_price,
+            tva_rate: l.tva_rate,
+            total_ht: l.total_ht,
+          }))}
+          company={settings}
+        />,
+      ).toBlob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${quote.quote_number}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast('Erreur lors de la génération du PDF', 'error')
+    }
+  }
+
   const activeClients = clients?.filter((c) => c.is_active) ?? []
   const activeServices = services?.filter((s) => s.is_active) ?? []
 
@@ -243,9 +280,14 @@ export function QuoteDetailPage() {
           </h1>
         </div>
         {!isNew && quote && (
-          <Badge variant={statusConfig[quote.status]?.variant ?? 'secondary'}>
-            {statusConfig[quote.status]?.label ?? quote.status}
-          </Badge>
+          <>
+            <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
+              <Download className="mr-1.5 size-3.5" /> PDF
+            </Button>
+            <Badge variant={statusConfig[quote.status]?.variant ?? 'secondary'}>
+              {statusConfig[quote.status]?.label ?? quote.status}
+            </Badge>
+          </>
         )}
       </div>
 
