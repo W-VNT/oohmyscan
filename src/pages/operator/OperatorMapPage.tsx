@@ -352,7 +352,7 @@ export function OperatorMapPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher un point..."
-                className="h-10 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0"
+                className="h-10 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
                 autoFocus
               />
               <button onClick={() => { setShowSearch(false); setSearch('') }} aria-label="Fermer la recherche">

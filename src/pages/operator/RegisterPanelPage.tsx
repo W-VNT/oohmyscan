@@ -19,7 +19,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { supabase } from '@/lib/supabase'
 import { PANEL_FORMATS, PANEL_TYPES } from '@/lib/constants'
-import { searchPlaces, type PlaceSuggestion } from '@/lib/mapbox'
+import { searchPlaces, nearbyPlaces, type PlaceSuggestion } from '@/lib/mapbox'
 
 type Step = 1 | 2 | 3
 
@@ -57,6 +57,20 @@ export function RegisterPanelPage() {
   useEffect(() => {
     requestPosition()
   }, [requestPosition])
+
+  // Fetch nearby POIs as soon as GPS is acquired
+  const nearbyFetchedRef = useRef(false)
+  useEffect(() => {
+    if (!lat || !lng || nearbyFetchedRef.current || selectedPlace) return
+    nearbyFetchedRef.current = true
+    setSearching(true)
+    nearbyPlaces(lng, lat).then((results) => {
+      if (results.length && !selectedPlace && !placeQuery.trim()) {
+        setSuggestions(results)
+      }
+      setSearching(false)
+    })
+  }, [lat, lng, selectedPlace, placeQuery])
 
   // Cleanup debounce on unmount
   useEffect(() => {
