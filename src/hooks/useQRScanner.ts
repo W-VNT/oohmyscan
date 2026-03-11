@@ -1,72 +1,66 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 
 interface UseQRScannerOptions {
+  containerId: string
   onScan: (decodedText: string) => void
   active?: boolean
 }
 
-export function useQRScanner({ onScan, active = true }: UseQRScannerOptions) {
-  const scannerRef = useRef<Html5Qrcode | null>(null)
+export function useQRScanner({ containerId, onScan, active = true }: UseQRScannerOptions) {
   const [error, setError] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
   const onScanRef = useRef(onScan)
   onScanRef.current = onScan
 
-  const start = useCallback(async (elementId: string) => {
-    if (scannerRef.current) return
-
-    try {
-      const scanner = new Html5Qrcode(elementId)
-      scannerRef.current = scanner
-
-      await scanner.start(
-        { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
-        (decodedText) => {
-          if (navigator.vibrate) navigator.vibrate(200)
-          onScanRef.current(decodedText)
-        },
-        () => {
-          // Ignore scan failures (no QR found in frame)
-        }
-      )
-      setScanning(true)
-      setError(null)
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Impossible d\'accéder à la caméra'
-      setError(message)
-      setScanning(false)
-    }
-  }, [])
-
-  const stop = useCallback(async () => {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop()
-        scannerRef.current.clear()
-      } catch {
-        // Scanner may already be stopped
-      }
-      scannerRef.current = null
-      setScanning(false)
-    }
-  }, [])
-
   useEffect(() => {
-    if (!active) {
-      stop()
-    }
-    return () => {
-      stop()
-    }
-  }, [active, stop])
+    if (!active) return
 
-  return { start, stop, scanning, error }
+    let cancelled = false
+    let scanner: Html5Qrcode | null = null
+
+    async function init() {
+      // Wait for DOM element
+      await new Promise((r) => setTimeout(r, 200))
+      if (cancelled) return
+
+      try {
+        scanner = new Html5Qrcode(containerId)
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            if (navigator.vibrate) navigator.vibrate(200)
+            onScanRef.current(decodedText)
+          },
+          () => {}
+        )
+        if (cancelled) {
+          // StrictMode cleanup happened during start
+          try { await scanner.stop(); scanner.clear() } catch {}
+          return
+        }
+        setScanning(true)
+        setError(null)
+      } catch (err) {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : "Impossible d'accéder à la caméra")
+        setScanning(false)
+      }
+    }
+
+    init()
+
+    return () => {
+      cancelled = true
+      setScanning(false)
+      if (scanner) {
+        scanner.stop().then(() => scanner!.clear()).catch(() => {})
+      }
+    }
+  }, [active, containerId])
+
+  return { scanning, error }
 }
 
 /**

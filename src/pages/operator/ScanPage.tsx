@@ -149,144 +149,145 @@ export function ScanPage() {
 
   const isInstall = mode === 'install'
 
+  const showCamera = !manualInput && !alert
+
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col bg-background">
-      {/* Header */}
-      <div className="flex items-center gap-3 p-4">
-        <button onClick={() => navigate(-1)}>
-          <ArrowLeft className="size-5" />
-        </button>
-        <div>
-          <h1 className="text-lg font-semibold">
-            {isInstall ? 'Installer un point' : 'Diffuser une campagne'}
-          </h1>
-          <p className="text-[12px] text-muted-foreground">
-            {isInstall
-              ? 'Scannez le QR du nouveau panneau'
-              : 'Scannez le QR du panneau existant'}
-          </p>
-        </div>
-      </div>
-
-      {/* Mode badge */}
-      <div className="px-4 pb-3">
-        <div className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium ${
-          isInstall
-            ? 'bg-blue-500/10 text-blue-600'
-            : 'bg-emerald-500/10 text-emerald-600'
-        }`}>
-          {isInstall ? <Plus className="size-3" /> : <Megaphone className="size-3" />}
-          {isInstall ? 'Mode installation' : 'Mode diffusion'}
-        </div>
-      </div>
-
-      {/* Scanner */}
-      {!manualInput && !alert && (
-        <div className="px-4">
-          <QRScanner onScan={handleScan} active={!scannedId} />
-        </div>
+    <div className="fixed inset-0 z-50 bg-black">
+      {/* Fullscreen camera */}
+      {showCamera && (
+        <QRScanner onScan={handleScan} active={!scannedId} fullscreen />
       )}
 
-      {/* Loading state */}
-      {(isFetching || checkingCampaign) && (
-        <div className="mt-4 text-center text-sm text-muted-foreground">
-          Vérification du panneau...
-        </div>
-      )}
-
-      {/* Scan error */}
-      {scanError && (
-        <div className="mx-4 mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive-foreground">
-          {scanError}
-        </div>
-      )}
-
-      {/* Alert / validation warning */}
-      {alert && (
-        <div className="mx-4 mt-4 space-y-3">
-          <div className={`rounded-xl border p-4 ${
-            alert.type === 'warning'
-              ? 'border-orange-200 bg-orange-50 dark:border-orange-500/20 dark:bg-orange-500/10'
-              : 'border-blue-200 bg-blue-50 dark:border-blue-500/20 dark:bg-blue-500/10'
+      {/* Overlay UI */}
+      <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
+        {/* Top bar */}
+        <div className="pointer-events-auto flex items-center gap-3 bg-gradient-to-b from-black/60 to-transparent p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+          <button onClick={() => navigate(-1)} className="flex size-9 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm">
+            <ArrowLeft className="size-5 text-white" />
+          </button>
+          <div className="flex-1">
+            <h1 className="text-[15px] font-semibold text-white">
+              {isInstall ? 'Installer un point' : 'Diffuser une campagne'}
+            </h1>
+          </div>
+          <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium backdrop-blur-sm ${
+            isInstall
+              ? 'bg-blue-500/20 text-blue-300'
+              : 'bg-emerald-500/20 text-emerald-300'
           }`}>
-            <div className="flex items-start gap-3">
-              <AlertTriangle className={`mt-0.5 size-5 shrink-0 ${
-                alert.type === 'warning' ? 'text-orange-500' : 'text-blue-500'
-              }`} />
-              <div>
-                <p className={`text-[14px] font-semibold ${
-                  alert.type === 'warning' ? 'text-orange-900 dark:text-orange-200' : 'text-blue-900 dark:text-blue-200'
-                }`}>
-                  {alert.title}
-                </p>
-                <p className={`mt-1 text-[13px] ${
-                  alert.type === 'warning' ? 'text-orange-700 dark:text-orange-300' : 'text-blue-700 dark:text-blue-300'
-                }`}>
-                  {alert.message}
-                </p>
-              </div>
+            {isInstall ? <Plus className="size-3" /> : <Megaphone className="size-3" />}
+            {isInstall ? 'Installation' : 'Diffusion'}
+          </div>
+        </div>
+
+        {/* Center viewfinder */}
+        {showCamera && (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="pointer-events-none relative size-64">
+              {/* Corner brackets */}
+              <div className="absolute left-0 top-0 h-8 w-8 rounded-tl-2xl border-l-[3px] border-t-[3px] border-white/80" />
+              <div className="absolute right-0 top-0 h-8 w-8 rounded-tr-2xl border-r-[3px] border-t-[3px] border-white/80" />
+              <div className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-2xl border-b-[3px] border-l-[3px] border-white/80" />
+              <div className="absolute bottom-0 right-0 h-8 w-8 rounded-br-2xl border-b-[3px] border-r-[3px] border-white/80" />
+              {/* Scan line */}
+              <div className="absolute inset-x-4 top-1/2 h-0.5 -translate-y-1/2 bg-white/40" />
             </div>
           </div>
+        )}
 
-          <div className="flex gap-2">
-            {alert.actions.map((action) => (
-              <button
-                key={action.label}
-                onClick={action.onClick}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-[13px] font-medium transition-colors ${
-                  action.primary
-                    ? 'bg-foreground text-background'
-                    : 'border border-border bg-background text-foreground'
-                }`}
-              >
-                <action.icon className="size-3.5" />
-                {action.label}
-              </button>
-            ))}
+        {/* Loading state */}
+        {(isFetching || checkingCampaign) && (
+          <div className="pointer-events-auto mx-4 mb-4 rounded-xl bg-black/60 p-4 text-center text-sm text-white backdrop-blur-sm">
+            Vérification du panneau...
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Manual input fallback */}
-      {!alert && (
-        <div className="mt-auto p-4">
-          {manualInput ? (
-            <form onSubmit={handleManualSubmit} className="space-y-3">
-              <input
-                type="text"
-                value={manualRef}
-                onChange={(e) => setManualRef(e.target.value)}
-                placeholder="UUID ou référence du panneau"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="flex-1 inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-                >
-                  Rechercher
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setManualInput(false)}
-                  className="inline-flex h-10 items-center justify-center rounded-md border border-input px-4 text-sm font-medium"
-                >
-                  Annuler
-                </button>
+        {/* Scan error */}
+        {scanError && (
+          <div className="pointer-events-auto mx-4 mb-4 rounded-xl bg-red-500/20 p-3 text-sm text-red-200 backdrop-blur-sm">
+            {scanError}
+          </div>
+        )}
+
+        {/* Alert / validation warning */}
+        {alert && (
+          <div className="pointer-events-auto mx-4 mt-auto mb-[max(1rem,env(safe-area-inset-bottom))] space-y-3">
+            <div className={`rounded-xl border p-4 backdrop-blur-md ${
+              alert.type === 'warning'
+                ? 'border-orange-400/30 bg-orange-950/80 text-orange-100'
+                : 'border-blue-400/30 bg-blue-950/80 text-blue-100'
+            }`}>
+              <div className="flex items-start gap-3">
+                <AlertTriangle className={`mt-0.5 size-5 shrink-0 ${
+                  alert.type === 'warning' ? 'text-orange-400' : 'text-blue-400'
+                }`} />
+                <div>
+                  <p className="text-[14px] font-semibold">{alert.title}</p>
+                  <p className="mt-1 text-[13px] opacity-80">{alert.message}</p>
+                </div>
               </div>
-            </form>
-          ) : (
-            <button
-              onClick={() => setManualInput(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-md border border-input px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent"
-            >
-              <Keyboard className="h-4 w-4" />
-              Saisie manuelle
-            </button>
-          )}
-        </div>
-      )}
+            </div>
+
+            <div className="flex gap-2">
+              {alert.actions.map((action) => (
+                <button
+                  key={action.label}
+                  onClick={action.onClick}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-3.5 text-[13px] font-medium transition-colors ${
+                    action.primary
+                      ? 'bg-white text-black'
+                      : 'bg-white/10 text-white backdrop-blur-sm'
+                  }`}
+                >
+                  <action.icon className="size-3.5" />
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bottom controls */}
+        {!alert && (
+          <div className="pointer-events-auto mt-auto bg-gradient-to-t from-black/60 to-transparent p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {manualInput ? (
+              <form onSubmit={handleManualSubmit} className="space-y-3">
+                <input
+                  type="text"
+                  value={manualRef}
+                  onChange={(e) => setManualRef(e.target.value)}
+                  placeholder="UUID ou référence du panneau"
+                  className="flex h-11 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/50 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="flex-1 inline-flex h-11 items-center justify-center rounded-xl bg-white px-4 text-sm font-medium text-black"
+                  >
+                    Rechercher
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setManualInput(false)}
+                    className="inline-flex h-11 items-center justify-center rounded-xl bg-white/10 px-4 text-sm font-medium text-white backdrop-blur-sm"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                onClick={() => setManualInput(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3.5 text-sm text-white/80 backdrop-blur-sm transition-colors"
+              >
+                <Keyboard className="size-4" />
+                Saisie manuelle
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -134,3 +134,19 @@
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 }
+
+/* Fullscreen QR scanner — override html5-qrcode inline styles */
+#qr-reader {
+  border: none !important;
+}
+#qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  position: absolute !important;
+  inset: 0 !important;
+}
+#qr-reader img[alt="Info icon"],
+#qr-reader div[style*="text-align"] {
+  display: none !important;
+}

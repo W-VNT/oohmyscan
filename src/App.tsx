@@ -9,6 +9,8 @@ import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { ToastContainer } from '@/components/shared/Toast'
+import { PWAUpdatePrompt } from '@/components/shared/PWAUpdatePrompt'
+import { InstallBanner } from '@/components/shared/InstallBanner'
 
 // Lazy loaded pages
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
@@ -87,6 +89,8 @@ export default function App() {
             </Routes>
           </Suspense>
           <ToastContainer />
+          <PWAUpdatePrompt />
+          <InstallBanner />
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>
