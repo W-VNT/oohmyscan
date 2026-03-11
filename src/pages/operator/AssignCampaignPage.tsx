@@ -77,7 +77,7 @@ export function AssignCampaignPage() {
         .eq('id', panelId)
 
       toast('Campagne assignée avec succès')
-      navigate('/scan', { replace: true })
+      navigate(`/panels/${panelId}`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de l\'assignation')
     } finally {

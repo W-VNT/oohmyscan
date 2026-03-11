@@ -9,6 +9,7 @@ import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { ToastContainer } from '@/components/shared/Toast'
+import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { PWAUpdatePrompt } from '@/components/shared/PWAUpdatePrompt'
 import { InstallBanner } from '@/components/shared/InstallBanner'
 
@@ -59,6 +60,7 @@ export default function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
+          <ScrollToTop />
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
               {/* Public */}
