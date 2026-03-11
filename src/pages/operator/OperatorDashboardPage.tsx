@@ -23,7 +23,7 @@ export function OperatorDashboardPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('panel_photos')
-        .select('*, panels(reference, status, city)')
+        .select('*, panels(reference, name, status, city)')
         .eq('taken_by', session!.user.id)
         .order('taken_at', { ascending: false })
         .limit(10)
@@ -38,7 +38,7 @@ export function OperatorDashboardPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('panel_campaigns')
-        .select('*, panels(reference), campaigns(name, client)')
+        .select('*, panels(reference, name), campaigns(name, client)')
         .eq('assigned_by', session!.user.id)
         .order('assigned_at', { ascending: false })
         .limit(10)
@@ -159,26 +159,26 @@ export function OperatorDashboardPage() {
 
   const activities: ActivityItem[] = [
     ...(recentPhotos ?? []).map((p) => {
-      const panel = (p as Record<string, unknown>).panels as { reference: string; status: string; city: string } | null
+      const panel = (p as Record<string, unknown>).panels as { reference: string; name: string | null; status: string; city: string } | null
       return {
         id: p.id,
         panelId: p.panel_id,
         type: 'photo' as const,
         date: p.taken_at,
-        panelRef: panel?.reference ?? '—',
+        panelRef: panel?.name || panel?.reference || '—',
         panelStatus: panel?.status,
         detail: PHOTO_TYPE_LABELS[p.photo_type as PhotoType] ?? p.photo_type,
       }
     }),
     ...(recentAssignments ?? []).map((a) => {
-      const panel = (a as Record<string, unknown>).panels as { reference: string } | null
+      const panel = (a as Record<string, unknown>).panels as { reference: string; name: string | null } | null
       const campaign = (a as Record<string, unknown>).campaigns as { name: string; client: string } | null
       return {
         id: a.id,
         panelId: a.panel_id,
         type: 'assignment' as const,
         date: a.assigned_at,
-        panelRef: panel?.reference ?? '—',
+        panelRef: panel?.name || panel?.reference || '—',
         detail: campaign?.name ?? '—',
       }
     }),
@@ -289,7 +289,7 @@ export function OperatorDashboardPage() {
               </p>
               <div className="mt-2 flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-sm font-medium">{lastPanel.reference}</p>
+                  <p className="text-sm font-medium">{lastPanel.name || lastPanel.reference}</p>
                   {(lastPanel.city || lastPanel.address) && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <MapPin className="size-3" />

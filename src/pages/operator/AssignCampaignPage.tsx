@@ -58,6 +58,15 @@ export function AssignCampaignPage() {
         validated_at: new Date().toISOString(),
       })
 
+      // Also save the validation photo as a panel_photo so it appears in the panel's photo gallery
+      await supabase.from('panel_photos').insert({
+        panel_id: panelId,
+        storage_path: photoPath,
+        photo_type: 'campaign',
+        taken_by: session?.user?.id,
+        taken_at: new Date().toISOString(),
+      })
+
       await supabase
         .from('panels')
         .update({

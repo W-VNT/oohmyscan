@@ -152,7 +152,7 @@ export function ScanPage() {
   const showCamera = !manualInput && !alert
 
   return (
-    <div className="fixed inset-0 z-50 bg-black">
+    <div className="fixed inset-0 z-[60] bg-black">
       {/* Fullscreen camera */}
       {showCamera && (
         <QRScanner onScan={handleScan} active={!scannedId} fullscreen />

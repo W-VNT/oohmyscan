@@ -240,7 +240,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="space-y-4 p-4 pb-20">
+    <div className="flex min-h-[calc(100dvh-4rem-env(safe-area-inset-top))] flex-col space-y-4 p-4 pb-20">
       {/* Header with theme toggle */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold tracking-tight">Profil</h1>
@@ -469,6 +469,9 @@ export function ProfilePage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Spacer to push logout to bottom */}
+      <div className="flex-1" />
 
       <Separator />
 

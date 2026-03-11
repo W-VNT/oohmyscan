@@ -409,7 +409,7 @@ export function OperatorMapPage() {
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-3 left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
+      <div className="absolute bottom-20 left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
         <div className="flex items-center gap-1">
           <CircleCheck className="size-3 text-green-500" />
           <span className="text-[11px]">Libre</span>
@@ -429,7 +429,7 @@ export function OperatorMapPage() {
         onClick={flyToUser}
         disabled={locating}
         aria-label="Recentrer sur ma position"
-        className="absolute bottom-3 right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
+        className="absolute bottom-20 right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
       >
         {locating ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />
