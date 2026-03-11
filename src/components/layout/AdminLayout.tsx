@@ -59,11 +59,11 @@ export function AdminLayout() {
   const { sidebarOpen, toggleSidebar } = useAppStore()
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background pt-[env(safe-area-inset-top)]">
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-card transition-transform lg:static lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-card pt-[env(safe-area-inset-top)] transition-transform lg:static lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -106,7 +106,7 @@ export function AdminLayout() {
         </nav>
 
         {/* User + actions */}
-        <div className="border-t border-border px-3 py-3">
+        <div className="border-t border-border px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="mb-2 px-2.5">
             <p className="truncate text-[13px] font-medium">{profile?.full_name}</p>
             <p className="text-[11px] text-muted-foreground">Administrateur</p>
