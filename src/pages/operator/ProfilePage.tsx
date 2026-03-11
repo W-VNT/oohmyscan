@@ -479,8 +479,6 @@ export function ProfilePage() {
         <LogOut className="size-4" />
         Se déconnecter
       </Button>
-
-      <p className="text-center text-[11px] text-muted-foreground">OOHMYSCAN</p>
     </div>
   )
 }

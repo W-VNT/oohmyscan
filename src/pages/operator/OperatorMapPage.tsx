@@ -408,8 +408,8 @@ export function OperatorMapPage() {
         </div>
       )}
 
-      {/* Legend */}
-      <div className="absolute left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 0.75rem)' }}>
+      {/* Legend + recenter — fixed above bottom nav */}
+      <div className="fixed left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 0.75rem)' }}>
         <div className="flex items-center gap-1">
           <CircleCheck className="size-3 text-green-500" />
           <span className="text-[11px]">Libre</span>
@@ -424,12 +424,11 @@ export function OperatorMapPage() {
         </div>
       </div>
 
-      {/* Re-center button */}
       <button
         onClick={flyToUser}
         disabled={locating}
         aria-label="Recentrer sur ma position"
-        className="absolute right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
+        className="fixed right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
         style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 0.75rem)' }}
       >
         {locating ? (
