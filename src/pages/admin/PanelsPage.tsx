@@ -164,7 +164,7 @@ export function PanelsPage() {
                         to={`/admin/panels/${panel.id}`}
                         className="font-medium text-primary hover:underline"
                       >
-                        {panel.reference}
+                        {panel.name || panel.reference}
                       </Link>
                       <p className="text-xs text-muted-foreground sm:hidden">{panel.city || '—'}</p>
                     </td>

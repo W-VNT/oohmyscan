@@ -68,6 +68,11 @@ export function RegisterPanelPage() {
     requestPosition()
   }, [requestPosition])
 
+  // Scroll to top on step change
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [step])
+
   // Fetch nearby POIs as soon as GPS is acquired
   const nearbyFetchedRef = useRef(false)
   useEffect(() => {

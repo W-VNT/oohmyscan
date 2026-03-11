@@ -78,11 +78,11 @@ export function PanelDetailPage() {
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-bold">{panel.reference}</h2>
+              <h2 className="text-2xl font-bold">{panel.name || panel.reference}</h2>
               <StatusBadge status={panel.status as PanelStatus} />
             </div>
             <p className="mt-1 text-muted-foreground">
-              {panel.name || 'Sans nom'}
+              {panel.city || panel.address || panel.reference}
             </p>
           </div>
         </div>
