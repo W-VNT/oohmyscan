@@ -27,6 +27,8 @@ import {
   Phone,
   AlertTriangle,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 
 
@@ -249,22 +251,26 @@ export function OperatorPanelDetailPage() {
   }
 
   // Photo viewer + deletion
-  const [viewingPhoto, setViewingPhoto] = useState<{ id: string; url: string; type: string; date: string | null } | null>(null)
+  const [viewingIndex, setViewingIndex] = useState<number | null>(null)
   const [deletingPhoto, setDeletingPhoto] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const touchStartX = useRef<number | null>(null)
 
-  async function handleDeletePhoto() {
-    if (!viewingPhoto || !id) return
+  async function handleDeletePhoto(photoId: string) {
+    if (!id) return
     setDeletingPhoto(true)
     try {
-      const photo = photos?.find((p) => p.id === viewingPhoto.id)
+      const photo = photos?.find((p) => p.id === photoId)
       if (photo) {
         await supabase.storage.from('panel-photos').remove([photo.storage_path])
         await supabase.from('panel_photos').delete().eq('id', photo.id)
       }
       queryClient.invalidateQueries({ queryKey: ['panel-photos', id] })
       toast('Photo supprimée')
-      setViewingPhoto(null)
+      // Adjust index after deletion
+      const visibleCount = getVisiblePhotos().length - 1
+      if (visibleCount <= 0) setViewingIndex(null)
+      else if (viewingIndex !== null && viewingIndex >= visibleCount) setViewingIndex(visibleCount - 1)
     } catch {
       toast('Erreur lors de la suppression', 'error')
     } finally {
@@ -358,6 +364,12 @@ export function OperatorPanelDetailPage() {
   const heroPhoto = photos?.[0] ? photoUrls?.[photos[0].id] : null
   const hasCampaign = assignments && assignments.length > 0
 
+  function getVisiblePhotos() {
+    if (!photos || !panel) return []
+    const isActive = panel.status === 'active'
+    return isActive ? photos : photos.filter((p) => p.photo_type !== 'campaign')
+  }
+
   return (
     <div className="bg-background pb-20">
       {/* Header */}
@@ -366,7 +378,7 @@ export function OperatorPanelDetailPage() {
           <button onClick={() => navigate(-1)} aria-label="Retour">
             <ArrowLeft className="size-5" />
           </button>
-          <h1 className="text-[15px] font-semibold">{panel.reference}</h1>
+          <h1 className="text-[15px] font-semibold">{panel.name || panel.reference}</h1>
         </div>
         <div className="flex items-center gap-1.5">
           <div className={`size-2 rounded-full ${status.color}`} />
@@ -666,11 +678,8 @@ export function OperatorPanelDetailPage() {
         )}
 
         {/* Photos grid — hide campaign photos when panel is vacant */}
-        {photos && photos.length > 0 && (() => {
-          const isActive = panel.status === 'active'
-          const visiblePhotos = isActive
-            ? photos
-            : photos.filter((p) => p.photo_type !== 'campaign')
+        {(() => {
+          const visiblePhotos = getVisiblePhotos()
           if (!visiblePhotos.length) return null
           return (
           <div>
@@ -678,18 +687,13 @@ export function OperatorPanelDetailPage() {
               Photos ({visiblePhotos.length})
             </p>
             <div className="mt-2 grid grid-cols-3 gap-1.5">
-              {visiblePhotos.map((photo) => {
+              {visiblePhotos.map((photo, idx) => {
                 const url = photoUrls?.[photo.id]
                 return (
                   <button
                     key={photo.id}
                     type="button"
-                    onClick={() => url && setViewingPhoto({
-                      id: photo.id,
-                      url,
-                      type: PHOTO_TYPE_LABELS[photo.photo_type as PhotoType] ?? photo.photo_type,
-                      date: photo.taken_at,
-                    })}
+                    onClick={() => url && setViewingIndex(idx)}
                     className="group relative aspect-square overflow-hidden rounded-lg bg-muted text-left"
                   >
                     {url ? (
@@ -782,36 +786,93 @@ export function OperatorPanelDetailPage() {
         </div>
       </div>
 
-      {/* Photo viewer overlay (existing photo) */}
-      {viewingPhoto && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/95 p-4 pt-[env(safe-area-inset-top)]">
-          {/* Close button */}
-          <div className="flex justify-end pb-2">
+      {/* Fullscreen photo viewer with swipe */}
+      {viewingIndex !== null && (() => {
+        const visiblePhotos = getVisiblePhotos()
+        const currentPhoto = visiblePhotos[viewingIndex]
+        if (!currentPhoto) return null
+        const currentUrl = photoUrls?.[currentPhoto.id]
+        const currentType = PHOTO_TYPE_LABELS[currentPhoto.photo_type as PhotoType] ?? currentPhoto.photo_type
+        const total = visiblePhotos.length
+
+        function goNext() {
+          setViewingIndex((i) => i !== null && i < total - 1 ? i + 1 : i)
+          setConfirmDelete(false)
+        }
+        function goPrev() {
+          setViewingIndex((i) => i !== null && i > 0 ? i - 1 : i)
+          setConfirmDelete(false)
+        }
+
+        return (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col bg-black"
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
+          onTouchEnd={(e) => {
+            if (touchStartX.current === null) return
+            const dx = e.changedTouches[0].clientX - touchStartX.current
+            touchStartX.current = null
+            if (Math.abs(dx) > 60) {
+              if (dx < 0) goNext()
+              else goPrev()
+            }
+          }}
+        >
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-2">
+            <p className="text-[13px] font-medium text-white/70 tabular-nums">
+              {viewingIndex + 1} / {total}
+            </p>
             <button
-              onClick={() => { setViewingPhoto(null); setConfirmDelete(false) }}
-              className="flex size-11 items-center justify-center rounded-full bg-white/10"
+              onClick={() => { setViewingIndex(null); setConfirmDelete(false) }}
+              className="flex size-10 items-center justify-center rounded-full bg-white/10"
               aria-label="Fermer"
             >
               <X className="size-5 text-white" />
             </button>
           </div>
 
-          {/* Photo */}
-          <div className="flex flex-1 items-center justify-center">
-            <img
-              src={viewingPhoto.url}
-              alt=""
-              className="max-h-full max-w-full rounded-lg object-contain"
-            />
+          {/* Photo + nav arrows */}
+          <div className="relative flex flex-1 items-center justify-center px-2">
+            {currentUrl ? (
+              <img
+                key={currentPhoto.id}
+                src={currentUrl}
+                alt=""
+                className="max-h-full max-w-full rounded-lg object-contain"
+              />
+            ) : (
+              <Loader2 className="size-8 animate-spin text-white/40" />
+            )}
+
+            {/* Desktop arrows (hidden on touch) */}
+            {viewingIndex > 0 && (
+              <button
+                onClick={goPrev}
+                className="absolute left-2 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-2 sm:flex"
+                aria-label="Photo précédente"
+              >
+                <ChevronLeft className="size-5 text-white" />
+              </button>
+            )}
+            {viewingIndex < total - 1 && (
+              <button
+                onClick={goNext}
+                className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-2 sm:flex"
+                aria-label="Photo suivante"
+              >
+                <ChevronRight className="size-5 text-white" />
+              </button>
+            )}
           </div>
 
           {/* Info + actions */}
-          <div className="pb-[env(safe-area-inset-bottom)] pt-4">
-            <div className="mb-4 text-center">
-              <p className="text-[13px] font-medium text-white">{viewingPhoto.type}</p>
-              {viewingPhoto.date && (
+          <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+            <div className="mb-3 text-center">
+              <p className="text-[13px] font-medium text-white">{currentType}</p>
+              {currentPhoto.taken_at && (
                 <p className="text-[12px] text-white/60">
-                  {new Date(viewingPhoto.date).toLocaleDateString('fr-FR', {
+                  {new Date(currentPhoto.taken_at).toLocaleDateString('fr-FR', {
                     day: 'numeric',
                     month: 'long',
                     year: 'numeric',
@@ -821,6 +882,19 @@ export function OperatorPanelDetailPage() {
                 </p>
               )}
             </div>
+
+            {/* Dots indicator */}
+            {total > 1 && (
+              <div className="mb-3 flex justify-center gap-1.5">
+                {visiblePhotos.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setViewingIndex(i); setConfirmDelete(false) }}
+                    className={`size-1.5 rounded-full transition-colors ${i === viewingIndex ? 'bg-white' : 'bg-white/30'}`}
+                  />
+                ))}
+              </div>
+            )}
 
             {!confirmDelete ? (
               <button
@@ -842,7 +916,7 @@ export function OperatorPanelDetailPage() {
                     Annuler
                   </button>
                   <button
-                    onClick={handleDeletePhoto}
+                    onClick={() => handleDeletePhoto(currentPhoto.id)}
                     disabled={deletingPhoto}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-red-500 py-3 text-[14px] font-medium text-white transition-colors active:bg-red-600"
                   >
@@ -858,7 +932,8 @@ export function OperatorPanelDetailPage() {
             )}
           </div>
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
