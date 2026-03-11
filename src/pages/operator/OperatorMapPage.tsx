@@ -4,7 +4,6 @@ import { usePanels } from '@/hooks/usePanels'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Loader2, LocateFixed, Navigation, Eye, Search, X, MapPinOff } from 'lucide-react'
-import { Input } from '@/components/ui/input'
 import type { Panel } from '@/types'
 import Map, { Marker, Popup, Source, Layer } from 'react-map-gl/mapbox'
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox'
@@ -343,16 +342,16 @@ export function OperatorMapPage() {
       </Map>
 
       {/* Floating search bar */}
-      <div className="absolute left-3 right-3 top-[max(0.75rem,env(safe-area-inset-top))]">
+      <div className="absolute left-3 right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10">
         {showSearch ? (
           <div className="rounded-xl border border-border bg-background/95 shadow-lg backdrop-blur">
             <div className="flex items-center gap-2 px-3">
               <Search className="size-4 shrink-0 text-muted-foreground" />
-              <Input
+              <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher un point..."
-                className="h-10 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
+                className="h-10 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
                 autoFocus
               />
               <button onClick={() => { setShowSearch(false); setSearch('') }} aria-label="Fermer la recherche">
@@ -410,7 +409,7 @@ export function OperatorMapPage() {
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-6 left-3 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
+      <div className="absolute bottom-6 left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
         <div className="flex items-center gap-1.5">
           <div className="size-2.5 rounded-full bg-green-500" />
           <span className="text-[11px]">Libre</span>
@@ -430,7 +429,7 @@ export function OperatorMapPage() {
         onClick={flyToUser}
         disabled={locating}
         aria-label="Recentrer sur ma position"
-        className="absolute bottom-6 right-4 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
+        className="absolute bottom-6 right-4 z-10 flex size-11 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors hover:bg-muted"
       >
         {locating ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />

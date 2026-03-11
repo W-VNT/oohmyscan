@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/shared/Toast'
 import { PANEL_FORMATS, PANEL_TYPES, PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS } from '@/lib/constants'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
-import { searchPlaces, type PlaceSuggestion } from '@/lib/mapbox'
+import { searchPlaces, type PlaceSuggestion } from '@/lib/google-places'
 import imageCompression from 'browser-image-compression'
 import {
   ArrowLeft,
@@ -462,7 +462,7 @@ export function OperatorPanelDetailPage() {
 
         {/* Edit form */}
         {editing && (
-          <Card>
+          <Card className="overflow-visible">
             <CardContent className="space-y-3">
               <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                 Modifier les informations

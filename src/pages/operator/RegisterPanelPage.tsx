@@ -19,7 +19,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { supabase } from '@/lib/supabase'
 import { PANEL_FORMATS, PANEL_TYPES } from '@/lib/constants'
-import { searchPlaces, nearbyPlaces, type PlaceSuggestion } from '@/lib/mapbox'
+import { searchPlaces, nearbyPlaces, type PlaceSuggestion } from '@/lib/google-places'
 
 type Step = 1 | 2 | 3
 
