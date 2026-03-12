@@ -15,6 +15,7 @@ import {
   X,
   Building2,
   Smartphone,
+  SearchCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -30,6 +31,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/invoices': 'Factures',
   '/admin/qr': 'QR Codes',
   '/admin/users': 'Utilisateurs',
+  '/admin/potential': 'Potentiel',
   '/admin/reports': 'Rapports',
   '/admin/settings': 'Paramètres',
 }
@@ -46,6 +48,11 @@ const navSections = [
       { to: '/admin/panels', icon: PanelTop, label: 'Panneaux' },
       { to: '/admin/campaigns', icon: Megaphone, label: 'Campagnes' },
       { to: '/admin/clients', icon: Building2, label: 'Clients' },
+    ],
+  },
+  {
+    items: [
+      { to: '/admin/potential', icon: SearchCheck, label: 'Potentiel' },
     ],
   },
   {
@@ -79,6 +86,7 @@ export function AdminLayout() {
     pathname.startsWith('/admin/campaigns/') ? 'Détail campagne' :
     pathname.startsWith('/admin/quotes/') ? 'Détail devis' :
     pathname.startsWith('/admin/invoices/') ? 'Détail facture' :
+    pathname.startsWith('/admin/potential/') ? 'Demande de potentiel' :
     pathname.startsWith('/admin/reports/') ? 'Justificatif de pose' :
     ''
   )

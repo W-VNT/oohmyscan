@@ -76,3 +76,14 @@ export const PHOTO_TYPE_LABELS: Record<PhotoType, string> = {
   campaign: 'Campagne',
   damage: 'Dégât',
 }
+
+export const POTENTIAL_STATUSES = ['draft', 'sent'] as const
+export type PotentialStatus = (typeof POTENTIAL_STATUSES)[number]
+
+export const POTENTIAL_STATUS_CONFIG: Record<PotentialStatus, {
+  label: string
+  variant: 'default' | 'secondary'
+}> = {
+  draft: { label: 'Brouillon', variant: 'secondary' },
+  sent: { label: 'Envoyé', variant: 'default' },
+}

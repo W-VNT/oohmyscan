@@ -341,6 +341,8 @@ export interface Database {
           next_quote_number: number
           next_invoice_number: number
           legal_mentions: string | null
+          potential_prefix: string
+          next_potential_number: number
         }
         Insert: {
           id?: string
@@ -360,6 +362,8 @@ export interface Database {
           next_quote_number?: number
           next_invoice_number?: number
           legal_mentions?: string | null
+          potential_prefix?: string
+          next_potential_number?: number
         }
         Update: {
           id?: string
@@ -379,6 +383,8 @@ export interface Database {
           next_quote_number?: number
           next_invoice_number?: number
           legal_mentions?: string | null
+          potential_prefix?: string
+          next_potential_number?: number
         }
         Relationships: []
       }
@@ -619,6 +625,57 @@ export interface Database {
         }
         Relationships: []
       }
+      potential_requests: {
+        Row: {
+          id: string
+          reference: string
+          prospect_name: string
+          city: string
+          radius_km: number
+          lat: number | null
+          lng: number | null
+          existing_panels_count: number
+          potential_spots_count: number
+          existing_panel_ids: string[]
+          potential_spots: unknown
+          status: 'draft' | 'sent'
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reference: string
+          prospect_name: string
+          city: string
+          radius_km?: number
+          lat?: number | null
+          lng?: number | null
+          existing_panels_count?: number
+          potential_spots_count?: number
+          existing_panel_ids?: string[]
+          potential_spots?: unknown
+          status?: 'draft' | 'sent'
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          reference?: string
+          prospect_name?: string
+          city?: string
+          radius_km?: number
+          lat?: number | null
+          lng?: number | null
+          existing_panels_count?: number
+          potential_spots_count?: number
+          existing_panel_ids?: string[]
+          potential_spots?: unknown
+          status?: 'draft' | 'sent'
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -629,6 +686,10 @@ export interface Database {
         Returns: string
       }
       get_next_invoice_number: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      get_next_potential_number: {
         Args: Record<string, never>
         Returns: string
       }

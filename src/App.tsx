@@ -42,6 +42,8 @@ const QRPage = lazy(() => import('@/pages/admin/qr/QRPage').then((m) => ({ defau
 const UsersPage = lazy(() => import('@/pages/admin/users/UsersPage').then((m) => ({ default: m.UsersPage })))
 const QuoteDetailPage = lazy(() => import('@/pages/admin/quotes/QuoteDetailPage').then((m) => ({ default: m.QuoteDetailPage })))
 const InvoiceDetailPage = lazy(() => import('@/pages/admin/invoices/InvoiceDetailPage').then((m) => ({ default: m.InvoiceDetailPage })))
+const PotentialPage = lazy(() => import('@/pages/admin/potential/PotentialPage').then((m) => ({ default: m.PotentialPage })))
+const PotentialNewPage = lazy(() => import('@/pages/admin/potential/PotentialNewPage').then((m) => ({ default: m.PotentialNewPage })))
 const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 const ProofOfPostingPage = lazy(() => import('@/pages/admin/reports/ProofOfPostingPage').then((m) => ({ default: m.ProofOfPostingPage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
@@ -96,6 +98,9 @@ export default function App() {
                   <Route path="quotes/:id" element={<QuoteDetailPage />} />
                   <Route path="invoices" element={<InvoicesPage />} />
                   <Route path="invoices/:id" element={<InvoiceDetailPage />} />
+                  <Route path="potential" element={<PotentialPage />} />
+                  <Route path="potential/new" element={<PotentialNewPage />} />
+                  <Route path="potential/:id" element={<PotentialNewPage />} />
                   <Route path="qr" element={<QRPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="reports" element={<ReportsPage />} />
