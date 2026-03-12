@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuote, useQuoteLines, useCreateQuote, useUpdateQuote, useSaveQuoteLines, type QuoteLine } from '@/hooks/admin/useQuotes'
-import { useClients } from '@/hooks/admin/useClients'
+import { useClients, useClient } from '@/hooks/admin/useClients'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
@@ -12,20 +12,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download, Copy, Ban } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
+import { saveAs } from 'file-saver'
 import { QuotePDF } from '@/lib/pdf/QuotePDF'
-import { useClient } from '@/hooks/admin/useClients'
+import { QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
 
 type EditableLine = Omit<QuoteLine, 'id' | 'quote_id'> & { _key: string }
-
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  draft: { label: 'Brouillon', variant: 'secondary' },
-  sent: { label: 'Envoyé', variant: 'default' },
-  accepted: { label: 'Accepté', variant: 'default' },
-  rejected: { label: 'Refusé', variant: 'destructive' },
-  cancelled: { label: 'Annulé', variant: 'outline' },
-}
 
 function newLine(sortOrder: number): EditableLine {
   return {
@@ -65,6 +58,9 @@ export function QuoteDetailPage() {
 
   const { data: clientData } = useClient(clientId || undefined)
 
+  // Is the form read-only? (not draft = locked)
+  const isLocked = !isNew && !!quote && quote.status !== 'draft'
+
   // Init form from existing quote
   useEffect(() => {
     if (quote) {
@@ -91,6 +87,7 @@ export function QuoteDetailPage() {
   }, [isNew, validUntil])
 
   function updateLine(key: string, field: keyof EditableLine, value: string | number) {
+    if (isLocked) return
     setLines((prev) =>
       prev.map((l) => {
         if (l._key !== key) return l
@@ -104,10 +101,12 @@ export function QuoteDetailPage() {
   }
 
   function addLine() {
+    if (isLocked) return
     setLines((prev) => [...prev, newLine(prev.length)])
   }
 
   function addFromCatalog(serviceId: string) {
+    if (isLocked) return
     const service = services?.find((s) => s.id === serviceId)
     if (!service) return
     setLines((prev) => [
@@ -125,13 +124,23 @@ export function QuoteDetailPage() {
     ])
   }
 
+  function duplicateLine(key: string) {
+    if (isLocked) return
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => l._key === key)
+      if (idx === -1) return prev
+      const clone = { ...prev[idx], _key: crypto.randomUUID(), sort_order: prev.length }
+      return [...prev.slice(0, idx + 1), clone, ...prev.slice(idx + 1)]
+    })
+  }
+
   function removeLine(key: string) {
+    if (isLocked) return
     setLines((prev) => prev.filter((l) => l._key !== key))
   }
 
   const totals = useMemo(() => {
     const totalHt = lines.reduce((sum, l) => sum + l.total_ht, 0)
-    // Group TVA by rate
     const tvaByRate: Record<number, number> = {}
     for (const l of lines) {
       const tva = l.total_ht * (l.tva_rate / 100)
@@ -151,6 +160,7 @@ export function QuoteDetailPage() {
   }
 
   async function handleSave() {
+    if (isLocked) return
     if (!clientId) {
       toast('Veuillez sélectionner un client', 'error')
       return
@@ -167,15 +177,18 @@ export function QuoteDetailPage() {
       if (isNew) {
         // Atomic numbering via SQL function
         const { data: quoteNumber, error: rpcError } = await supabase.rpc('get_next_quote_number')
+        let finalNumber: string
         if (rpcError || !quoteNumber) {
           // Fallback to client-side numbering
           const prefix = settings?.quote_prefix ?? 'D'
           const nextNum = settings?.next_quote_number ?? 1
-          var fallbackNumber = `${prefix}-${new Date().getFullYear()}-${String(nextNum).padStart(3, '0')}`
+          finalNumber = `${prefix}-${new Date().getFullYear()}-${String(nextNum).padStart(3, '0')}`
+        } else {
+          finalNumber = quoteNumber
         }
 
         const result = await createQuote.mutateAsync({
-          quote_number: quoteNumber ?? fallbackNumber!,
+          quote_number: finalNumber,
           client_id: clientId,
           campaign_id: campaignId || null,
           status: 'draft',
@@ -220,22 +233,14 @@ export function QuoteDetailPage() {
     }
   }
 
-  async function handleStatusChange(newStatus: 'sent' | 'accepted' | 'rejected' | 'cancelled') {
+  async function handleStatusChange(newStatus: QuoteStatus) {
     if (!id || isNew) return
     try {
       await updateQuote.mutateAsync({ id, status: newStatus })
-      toast(`Devis marqué comme "${statusConfig[newStatus].label}"`)
+      toast(`Devis marqué comme "${QUOTE_STATUS_CONFIG[newStatus].label}"`)
     } catch {
       toast('Erreur', 'error')
     }
-  }
-
-  if (!isNew && (quoteLoading || linesLoading)) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    )
   }
 
   async function handleDownloadPDF() {
@@ -264,15 +269,18 @@ export function QuoteDetailPage() {
           }}
         />,
       ).toBlob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${quote.quote_number}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      saveAs(blob, `${quote.quote_number}.pdf`)
     } catch {
       toast('Erreur lors de la génération du PDF', 'error')
     }
+  }
+
+  if (!isNew && (quoteLoading || linesLoading)) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   const activeClients = clients?.filter((c) => c.is_active) ?? []
@@ -295,18 +303,28 @@ export function QuoteDetailPage() {
             <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
               <Download className="mr-1.5 size-3.5" /> PDF
             </Button>
-            <Badge variant={statusConfig[quote.status]?.variant ?? 'secondary'}>
-              {statusConfig[quote.status]?.label ?? quote.status}
+            <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'}>
+              {QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.label ?? quote.status}
             </Badge>
           </>
         )}
       </div>
+
+      {/* Locked banner */}
+      {isLocked && (
+        <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-600">
+          Ce devis est en statut "{QUOTE_STATUS_CONFIG[quote!.status as QuoteStatus]?.label}" et ne peut plus être modifié.
+        </div>
+      )}
 
       {/* Status actions */}
       {!isNew && quote?.status === 'draft' && (
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => handleStatusChange('sent')}>
             <Send className="mr-1.5 size-3.5" /> Marquer envoyé
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
+            <Ban className="mr-1.5 size-3.5" /> Annuler
           </Button>
         </div>
       )}
@@ -317,6 +335,9 @@ export function QuoteDetailPage() {
           </Button>
           <Button size="sm" variant="destructive" onClick={() => handleStatusChange('rejected')}>
             <X className="mr-1.5 size-3.5" /> Refuser
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
+            <Ban className="mr-1.5 size-3.5" /> Annuler
           </Button>
         </div>
       )}
@@ -336,7 +357,8 @@ export function QuoteDetailPage() {
             <select
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+              disabled={isLocked}
+              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
               <option value="">Sélectionner...</option>
               {activeClients.map((c) => (
@@ -349,7 +371,8 @@ export function QuoteDetailPage() {
             <select
               value={campaignId}
               onChange={(e) => setCampaignId(e.target.value)}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+              disabled={isLocked}
+              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
               <option value="">Aucune</option>
               {campaigns?.map((c) => (
@@ -363,16 +386,19 @@ export function QuoteDetailPage() {
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
+              disabled={isLocked}
               className="text-sm"
             />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Notes</label>
-            <Input
+            <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              disabled={isLocked}
               placeholder="Notes..."
-              className="text-sm"
+              rows={2}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50"
             />
           </div>
         </CardContent>
@@ -383,32 +409,34 @@ export function QuoteDetailPage() {
         <CardContent className="space-y-4 pt-6">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Lignes du devis</p>
-            <div className="flex gap-2">
-              {activeServices.length > 0 && (
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) addFromCatalog(e.target.value)
-                    e.target.value = ''
-                  }}
-                  className="h-7 rounded-md border border-input bg-background px-2 text-xs"
-                >
-                  <option value="">
-                    Depuis catalogue...
-                  </option>
-                  {activeServices.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.default_unit_price}€)
+            {!isLocked && (
+              <div className="flex gap-2">
+                {activeServices.length > 0 && (
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) addFromCatalog(e.target.value)
+                      e.target.value = ''
+                    }}
+                    className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+                  >
+                    <option value="">
+                      Depuis catalogue...
                     </option>
-                  ))}
-                </select>
-              )}
-              <Button size="sm" variant="outline" onClick={addLine}>
-                <Plus className="mr-1 size-3.5" /> Ligne
-              </Button>
-            </div>
+                    {activeServices.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.default_unit_price}€)
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <Button size="sm" variant="outline" onClick={addLine}>
+                  <Plus className="mr-1 size-3.5" /> Ligne
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Table header */}
+          {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -419,7 +447,7 @@ export function QuoteDetailPage() {
                   <th className="w-28 px-2 py-2 font-medium text-muted-foreground">PU HT</th>
                   <th className="w-24 px-2 py-2 font-medium text-muted-foreground">TVA %</th>
                   <th className="w-28 px-2 py-2 text-right font-medium text-muted-foreground">Total HT</th>
-                  <th className="w-10" />
+                  {!isLocked && <th className="w-16" />}
                 </tr>
               </thead>
               <tbody>
@@ -430,6 +458,7 @@ export function QuoteDetailPage() {
                         value={line.description}
                         onChange={(e) => updateLine(line._key, 'description', e.target.value)}
                         placeholder="Description..."
+                        disabled={isLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -440,6 +469,7 @@ export function QuoteDetailPage() {
                         step="0.01"
                         value={line.quantity}
                         onChange={(e) => updateLine(line._key, 'quantity', parseFloat(e.target.value) || 0)}
+                        disabled={isLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -447,6 +477,7 @@ export function QuoteDetailPage() {
                       <Input
                         value={line.unit}
                         onChange={(e) => updateLine(line._key, 'unit', e.target.value)}
+                        disabled={isLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -457,6 +488,7 @@ export function QuoteDetailPage() {
                         step="0.01"
                         value={line.unit_price}
                         onChange={(e) => updateLine(line._key, 'unit_price', parseFloat(e.target.value) || 0)}
+                        disabled={isLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -464,7 +496,8 @@ export function QuoteDetailPage() {
                       <select
                         value={line.tva_rate}
                         onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))}
-                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        disabled={isLocked}
+                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
                       >
                         <option value={0}>0%</option>
                         <option value={5.5}>5,5%</option>
@@ -475,19 +508,31 @@ export function QuoteDetailPage() {
                     <td className="px-2 py-1.5 text-right font-medium tabular-nums">
                       {formatCurrency(line.total_ht)}
                     </td>
-                    <td className="px-2 py-1.5">
-                      <button
-                        onClick={() => removeLine(line._key)}
-                        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </td>
+                    {!isLocked && (
+                      <td className="px-2 py-1.5">
+                        <div className="flex gap-0.5">
+                          <button
+                            onClick={() => duplicateLine(line._key)}
+                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Dupliquer"
+                          >
+                            <Copy className="size-3.5" />
+                          </button>
+                          <button
+                            onClick={() => removeLine(line._key)}
+                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {lines.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-2 py-8 text-center text-muted-foreground">
+                    <td colSpan={isLocked ? 6 : 7} className="px-2 py-8 text-center text-muted-foreground">
                       <Package className="mx-auto mb-2 size-6" />
                       <p className="text-xs">Ajoutez des lignes au devis</p>
                     </td>
@@ -523,15 +568,17 @@ export function QuoteDetailPage() {
       </Card>
 
       {/* Save */}
-      <div className="flex gap-3">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
-          {isNew ? 'Créer le devis' : 'Enregistrer'}
-        </Button>
-        <Button variant="outline" onClick={() => navigate('/admin/quotes')}>
-          Annuler
-        </Button>
-      </div>
+      {!isLocked && (
+        <div className="flex gap-3">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+            {isNew ? 'Créer le devis' : 'Enregistrer'}
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/admin/quotes')}>
+            Annuler
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

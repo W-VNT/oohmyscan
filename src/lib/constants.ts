@@ -42,6 +42,20 @@ export const CAMPAIGN_STATUS_CONFIG: Record<CampaignStatus, {
   cancelled: { label: 'Annulée', className: 'bg-red-500/15 text-red-600' },
 }
 
+export const QUOTE_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'cancelled'] as const
+export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
+
+export const QUOTE_STATUS_CONFIG: Record<QuoteStatus, {
+  label: string
+  variant: 'default' | 'secondary' | 'destructive' | 'outline'
+}> = {
+  draft: { label: 'Brouillon', variant: 'secondary' },
+  sent: { label: 'Envoyé', variant: 'default' },
+  accepted: { label: 'Accepté', variant: 'default' },
+  rejected: { label: 'Refusé', variant: 'destructive' },
+  cancelled: { label: 'Annulé', variant: 'outline' },
+}
+
 export const PHOTO_TYPE_LABELS: Record<PhotoType, string> = {
   installation: 'Installation',
   check: 'Vérification',
