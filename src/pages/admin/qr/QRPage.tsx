@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useQRStock, useQRStockStats, useGenerateQRCodes } from '@/hooks/admin/useQRStock'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -6,12 +7,22 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/shared/Toast'
-import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive } from 'lucide-react'
+import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive, ArrowUpDown, X } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 import { pdf } from '@react-pdf/renderer'
 import { DymoQRPDF } from '@/lib/pdf/DymoQRPDF'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
+
+type SortOption = 'newest' | 'oldest' | 'uuid' | 'status'
+type FilterOption = 'all' | 'available' | 'assigned'
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'newest', label: 'Plus récents' },
+  { value: 'oldest', label: 'Plus anciens' },
+  { value: 'uuid', label: 'UUID' },
+  { value: 'status', label: 'Statut' },
+]
 
 export function QRPage() {
   const { data: qrItems, isLoading } = useQRStock()
@@ -19,27 +30,59 @@ export function QRPage() {
   const generateQR = useGenerateQRCodes()
 
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'all' | 'available' | 'assigned'>('all')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [filter, setFilter] = useState<FilterOption>('all')
+  const [sort, setSort] = useState<SortOption>('newest')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [generateCount, setGenerateCount] = useState(14)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [exporting, setExporting] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  // Debounce search
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value)
+    }, 300)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [])
+
+  // Reset selection when filter changes
+  useEffect(() => {
+    setSelected(new Set())
+  }, [filter, debouncedSearch])
 
   const filtered = useMemo(() => {
     if (!qrItems) return []
     let result = qrItems
     if (filter === 'available') result = result.filter((q) => !q.is_assigned)
     if (filter === 'assigned') result = result.filter((q) => q.is_assigned)
-    if (search.trim()) {
-      const q = search.toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter(
         (item) =>
           item.uuid_code.toLowerCase().includes(q) ||
           item.panels?.reference?.toLowerCase().includes(q),
       )
     }
+
+    result = [...result].sort((a, b) => {
+      switch (sort) {
+        case 'newest': return new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime()
+        case 'oldest': return new Date(a.generated_at).getTime() - new Date(b.generated_at).getTime()
+        case 'uuid': return a.uuid_code.localeCompare(b.uuid_code)
+        case 'status': return Number(a.is_assigned) - Number(b.is_assigned)
+        default: return 0
+      }
+    })
+
     return result
-  }, [qrItems, search, filter])
+  }, [qrItems, debouncedSearch, filter, sort])
 
   async function handleGenerate() {
     if (generateCount < 1 || generateCount > 500) {
@@ -70,6 +113,10 @@ export function QRPage() {
     } else {
       setSelected(new Set(filtered.map((i) => i.id)))
     }
+  }
+
+  function clearSelection() {
+    setSelected(new Set())
   }
 
   async function handleExportDymo() {
@@ -119,7 +166,6 @@ export function QRPage() {
           margin: 2,
           color: { dark: '#000000', light: '#FFFFFF' },
         })
-        // Extract base64 from data URL
         const base64 = dataUrl.split(',')[1]
         zip.file(`qr-${item.uuid_code.slice(0, 8)}.png`, base64, { base64: true })
       }
@@ -155,6 +201,10 @@ export function QRPage() {
         <div className="flex gap-2">
           {selected.size > 0 && (
             <>
+              <Button variant="ghost" size="sm" onClick={clearSelection}>
+                <X className="mr-1 size-3.5" />
+                {selected.size} sélectionné{selected.size !== 1 ? 's' : ''}
+              </Button>
               <Button variant="outline" onClick={handleExportDymo} disabled={exporting}>
                 {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Printer className="mr-1.5 size-4" />}
                 Dymo ({selected.size})
@@ -210,12 +260,12 @@ export function QRPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative max-w-sm flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher UUID ou panneau..."
             className="pl-9 text-sm"
           />
@@ -231,9 +281,21 @@ export function QRPage() {
                   : 'text-muted-foreground hover:bg-muted'
               }`}
             >
-              {f === 'all' ? 'Tous' : f === 'available' ? 'Disponibles' : 'Assignés'}
+              {f === 'all' ? `Tous (${qrItems?.length ?? 0})` : f === 'available' ? `Disponibles (${stats?.available ?? 0})` : `Assignés (${stats?.assigned ?? 0})`}
             </button>
           ))}
+        </div>
+        <div className="relative">
+          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOption)}
+            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -264,7 +326,7 @@ export function QRPage() {
                   <tr>
                     <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                       <QrCode className="mx-auto mb-2 size-8" />
-                      {search || filter !== 'all' ? 'Aucun QR code trouvé' : 'Aucun QR code généré'}
+                      {debouncedSearch || filter !== 'all' ? 'Aucun QR code trouvé' : 'Aucun QR code généré'}
                     </td>
                   </tr>
                 ) : (
@@ -288,8 +350,18 @@ export function QRPage() {
                           {item.is_assigned ? 'Assigné' : 'Disponible'}
                         </Badge>
                       </td>
-                      <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                        {item.panels?.reference ?? '—'}
+                      <td className="hidden px-4 py-3 md:table-cell">
+                        {item.panels?.reference ? (
+                          <Link
+                            to={`/admin/panels/${item.panel_id}`}
+                            className="text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {item.panels.reference}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                         {new Date(item.generated_at).toLocaleDateString('fr-FR')}
@@ -314,7 +386,7 @@ export function QRPage() {
 
       <p className="text-xs text-muted-foreground">
         {filtered.length} QR code{filtered.length !== 1 ? 's' : ''}
-        {(search || filter !== 'all') && ` sur ${qrItems?.length ?? 0}`}
+        {(debouncedSearch || filter !== 'all') && ` sur ${qrItems?.length ?? 0}`}
       </p>
 
       {/* Generate Sheet */}
@@ -341,15 +413,19 @@ export function QRPage() {
             </div>
 
             <div className="rounded-lg border border-border bg-muted/50 p-4">
-              <p className="text-xs font-medium">Récapitulatif</p>
+              <p className="text-xs font-medium">Stock actuel</p>
               <div className="mt-2 space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">QR à générer</span>
-                  <span className="font-medium tabular-nums">{generateCount}</span>
+                  <span className="text-muted-foreground">Disponibles</span>
+                  <span className="font-medium tabular-nums">{stats?.available ?? 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Étiquettes Dymo</span>
-                  <span className="font-medium tabular-nums">{generateCount}</span>
+                  <span className="text-muted-foreground">Assignés</span>
+                  <span className="font-medium tabular-nums">{stats?.assigned ?? 0}</span>
+                </div>
+                <div className="flex justify-between border-t border-border pt-1">
+                  <span className="text-muted-foreground">Après génération</span>
+                  <span className="font-medium tabular-nums text-primary">{(stats?.available ?? 0) + generateCount}</span>
                 </div>
               </div>
             </div>
