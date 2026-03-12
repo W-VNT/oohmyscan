@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { usePanels } from '@/hooks/usePanels'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useInvoices } from '@/hooks/admin/useInvoices'
@@ -9,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { saveAs } from 'file-saver'
 import {
   Download,
   Loader2,
@@ -18,9 +20,27 @@ import {
   AlertTriangle,
   Receipt,
   UserCheck,
+  ExternalLink,
 } from 'lucide-react'
 
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount)
+}
+
+function formatMonth(key: string) {
+  const [y, m] = key.split('-')
+  const date = new Date(parseInt(y), parseInt(m) - 1)
+  return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+}
+
+function getQuarterStart(date: Date): string {
+  const q = Math.floor(date.getMonth() / 3)
+  const month = String(q * 3 + 1).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-01`
+}
+
 export function ReportsPage() {
+  const navigate = useNavigate()
   const { data: panels, isLoading: panelsLoading } = usePanels()
   const { data: campaigns, isLoading: campaignsLoading } = useCampaigns()
   const { data: invoices, isLoading: invoicesLoading } = useInvoices()
@@ -28,13 +48,13 @@ export function ReportsPage() {
   const { data: allUsers } = useUsers()
   const { data: operatorStats } = useOperatorStats()
 
-  // Period filter — defaults to current year
-  const now = new Date()
-  const [startDate, setStartDate] = useState(`${now.getFullYear()}-01-01`)
-  const [endDate, setEndDate] = useState(now.toISOString().split('T')[0])
+  const nowRef = useRef(new Date())
+  const now = nowRef.current
+  const todayStr = now.toISOString().split('T')[0]
 
-  const start = new Date(startDate)
-  const end = new Date(endDate + 'T23:59:59')
+  // Period filter — defaults to current year
+  const [startDate, setStartDate] = useState(`${now.getFullYear()}-01-01`)
+  const [endDate, setEndDate] = useState(todayStr)
 
   // Panel stats
   const panelStats = useMemo(() => {
@@ -87,6 +107,9 @@ export function ReportsPage() {
   const financialStats = useMemo(() => {
     if (!invoices) return null
 
+    const start = new Date(startDate)
+    const end = new Date(endDate + 'T23:59:59')
+
     const periodInvoices = invoices.filter((i) => {
       const d = new Date(i.issued_at)
       return d >= start && d <= end
@@ -107,30 +130,19 @@ export function ReportsPage() {
     })
 
     // CA by client
-    const byClient: Record<string, { name: string; total: number; count: number }> = {}
+    const byClient: Record<string, { id: string; name: string; total: number; count: number }> = {}
     paidInPeriod.forEach((inv) => {
       const client = clients?.find((c) => c.id === inv.client_id)
       const name = client?.company_name ?? inv.clients?.company_name ?? 'Inconnu'
-      if (!byClient[inv.client_id]) byClient[inv.client_id] = { name, total: 0, count: 0 }
+      if (!byClient[inv.client_id]) byClient[inv.client_id] = { id: inv.client_id, name, total: 0, count: 0 }
       byClient[inv.client_id].total += inv.total_ttc
       byClient[inv.client_id].count++
     })
 
     return { totalPaid, totalPending, byMonth, byClient, paidCount: paidInPeriod.length }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoices, clients, startDate, endDate])
 
-  function formatCurrency(amount: number) {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount)
-  }
-
-  function formatMonth(key: string) {
-    const [y, m] = key.split('-')
-    const date = new Date(parseInt(y), parseInt(m) - 1)
-    return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-  }
-
-  function exportCSV() {
+  function exportPanelsCSV() {
     if (!panels) return
     const headers = ['reference', 'name', 'status', 'city', 'format', 'type', 'lat', 'lng', 'installed_at', 'last_checked_at']
     const rows = panels.map((p) =>
@@ -141,12 +153,31 @@ export function ReportsPage() {
     )
     const csv = [headers.join(','), ...rows.map((r) => r.map((v) => `"${v}"`).join(','))].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `oohmyscan-panneaux-${new Date().toISOString().split('T')[0]}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
+    saveAs(blob, `oohmyscan-panneaux-${todayStr}.csv`)
+  }
+
+  function exportFinancialCSV() {
+    if (!invoices) return
+    const start = new Date(startDate)
+    const end = new Date(endDate + 'T23:59:59')
+    const periodInvoices = invoices.filter((i) => {
+      const d = new Date(i.issued_at)
+      return d >= start && d <= end
+    })
+    const headers = ['invoice_number', 'client', 'status', 'issued_at', 'due_at', 'total_ht', 'total_tva', 'total_ttc']
+    const rows = periodInvoices.map((inv) => [
+      inv.invoice_number,
+      inv.clients?.company_name ?? '',
+      inv.status,
+      inv.issued_at,
+      inv.due_at,
+      String(inv.total_ht),
+      String(inv.total_tva),
+      String(inv.total_ttc),
+    ])
+    const csv = [headers.join(','), ...rows.map((r) => r.map((v) => `"${v}"`).join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    saveAs(blob, `oohmyscan-factures-${startDate}-${endDate}.csv`)
   }
 
   if (panelsLoading || campaignsLoading || invoicesLoading) {
@@ -161,10 +192,16 @@ export function ReportsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Rapports</h1>
-        <Button variant="outline" onClick={exportCSV}>
-          <Download className="mr-1.5 size-4" />
-          Export CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportPanelsCSV}>
+            <Download className="mr-1.5 size-4" />
+            Export panneaux
+          </Button>
+          <Button variant="outline" onClick={exportFinancialCSV}>
+            <Download className="mr-1.5 size-4" />
+            Export factures
+          </Button>
+        </div>
       </div>
 
       {/* Period filter */}
@@ -190,9 +227,10 @@ export function ReportsPage() {
           </div>
           <div className="flex gap-2">
             {[
-              { label: 'Ce mois', fn: () => { setStartDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`); setEndDate(now.toISOString().split('T')[0]) } },
-              { label: 'Cette année', fn: () => { setStartDate(`${now.getFullYear()}-01-01`); setEndDate(now.toISOString().split('T')[0]) } },
-              { label: 'Tout', fn: () => { setStartDate('2020-01-01'); setEndDate(now.toISOString().split('T')[0]) } },
+              { label: 'Ce mois', fn: () => { setStartDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`); setEndDate(todayStr) } },
+              { label: 'Ce trimestre', fn: () => { setStartDate(getQuarterStart(now)); setEndDate(todayStr) } },
+              { label: 'Cette année', fn: () => { setStartDate(`${now.getFullYear()}-01-01`); setEndDate(todayStr) } },
+              { label: 'Tout', fn: () => { setStartDate('2020-01-01'); setEndDate(todayStr) } },
             ].map((preset) => (
               <Button key={preset.label} variant="outline" size="sm" onClick={preset.fn}>
                 {preset.label}
@@ -275,16 +313,16 @@ export function ReportsPage() {
           </div>
 
           {/* CA by month */}
-          {financialStats?.byMonth && Object.keys(financialStats.byMonth).length > 0 && (
-            <>
-              <Separator />
-              <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">CA par mois</p>
-                <div className="space-y-2">
-                  {Object.entries(financialStats.byMonth)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([month, amount]) => {
-                      const maxAmount = Math.max(...Object.values(financialStats.byMonth))
+          {financialStats?.byMonth && Object.keys(financialStats.byMonth).length > 0 && (() => {
+            const entries = Object.entries(financialStats.byMonth).sort(([a], [b]) => a.localeCompare(b))
+            const maxAmount = Math.max(...Object.values(financialStats.byMonth))
+            return (
+              <>
+                <Separator />
+                <div>
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">CA par mois</p>
+                  <div className="space-y-2">
+                    {entries.map(([month, amount]) => {
                       const pct = maxAmount > 0 ? (amount / maxAmount) * 100 : 0
                       return (
                         <div key={month} className="flex items-center gap-3">
@@ -302,10 +340,11 @@ export function ReportsPage() {
                         </div>
                       )
                     })}
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )
+          })()}
 
           {/* CA by client */}
           {financialStats?.byClient && Object.keys(financialStats.byClient).length > 0 && (
@@ -322,10 +361,10 @@ export function ReportsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {Object.values(financialStats.byClient)
-                      .sort((a, b) => b.total - a.total)
-                      .map((row) => (
-                        <tr key={row.name}>
+                    {Object.entries(financialStats.byClient)
+                      .sort(([, a], [, b]) => b.total - a.total)
+                      .map(([clientId, row]) => (
+                        <tr key={clientId}>
                           <td className="py-2 font-medium">{row.name}</td>
                           <td className="py-2 text-right tabular-nums text-muted-foreground">{row.count}</td>
                           <td className="py-2 text-right font-medium tabular-nums">{formatCurrency(row.total)}</td>
@@ -342,7 +381,7 @@ export function ReportsPage() {
       {/* Status distribution */}
       <Card>
         <CardContent className="pt-6">
-          <h3 className="text-sm font-semibold">Répartition par statut</h3>
+          <h3 className="text-sm font-semibold">Répartition par statut <span className="font-normal text-muted-foreground">(toutes périodes)</span></h3>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {(
               [
@@ -371,10 +410,43 @@ export function ReportsPage() {
         </CardContent>
       </Card>
 
+      {/* By format */}
+      {panelStats?.byFormat && Object.keys(panelStats.byFormat).length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="text-sm font-semibold">Panneaux par format <span className="font-normal text-muted-foreground">(toutes périodes)</span></h3>
+            <div className="mt-4 space-y-2">
+              {(() => {
+                const entries = Object.entries(panelStats.byFormat).sort(([, a], [, b]) => b - a)
+                const maxVal = Math.max(...entries.map(([, v]) => v))
+                return entries.map(([format, count]) => {
+                  const pct = maxVal > 0 ? (count / maxVal) * 100 : 0
+                  return (
+                    <div key={format} className="flex items-center gap-3">
+                      <span className="w-28 text-sm text-muted-foreground">{format}</span>
+                      <div className="flex-1">
+                        <div className="h-5 overflow-hidden rounded bg-muted">
+                          <div
+                            className="flex h-full items-center rounded bg-blue-500/20 px-2"
+                            style={{ width: `${Math.max(pct, 5)}%` }}
+                          >
+                            <span className="text-xs font-medium tabular-nums">{count}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* By city */}
       <Card>
         <CardContent className="pt-6">
-          <h3 className="text-sm font-semibold">Panneaux par ville</h3>
+          <h3 className="text-sm font-semibold">Panneaux par ville <span className="font-normal text-muted-foreground">(toutes périodes)</span></h3>
           {panelStats?.byCity && Object.keys(panelStats.byCity).length > 0 ? (
             <table className="mt-4 w-full text-sm">
               <thead>
@@ -415,10 +487,15 @@ export function ReportsPage() {
             </h3>
             <div className="mt-4 divide-y divide-border/50">
               {panelStats!.unchecked.slice(0, 20).map((panel) => (
-                <div key={panel.id} className="flex items-center justify-between py-2">
-                  <div>
+                <div
+                  key={panel.id}
+                  onClick={() => navigate(`/admin/panels/${panel.id}`)}
+                  className="flex cursor-pointer items-center justify-between py-2 transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <ExternalLink className="size-3 text-muted-foreground" />
                     <span className="text-sm font-medium">{panel.name || panel.reference}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">{panel.city || '—'}</span>
+                    <span className="text-xs text-muted-foreground">{panel.city || '—'}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {panel.last_checked_at
@@ -440,7 +517,7 @@ export function ReportsPage() {
       {/* Campaign stats */}
       <Card>
         <CardContent className="pt-6">
-          <h3 className="text-sm font-semibold">Campagnes</h3>
+          <h3 className="text-sm font-semibold">Campagnes <span className="font-normal text-muted-foreground">(toutes périodes)</span></h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-4">
             {[
               { label: 'Total', value: campaignStats?.total ?? 0 },
@@ -463,7 +540,7 @@ export function ReportsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <UserCheck className="size-4" />
-              Stats par opérateur
+              Stats par opérateur <span className="font-normal text-muted-foreground">(toutes périodes)</span>
             </div>
             <table className="mt-4 w-full text-sm">
               <thead>
