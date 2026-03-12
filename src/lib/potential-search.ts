@@ -45,6 +45,41 @@ export interface GeocodedCity {
   formattedName: string
 }
 
+export interface CitySuggestion {
+  name: string
+  placeId: string
+}
+
+/** Autocomplete city names using Places Autocomplete API */
+export async function autocompleteCities(input: string): Promise<CitySuggestion[]> {
+  if (!API_KEY || input.trim().length < 2) return []
+  const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': API_KEY,
+    },
+    body: JSON.stringify({
+      input,
+      includedPrimaryTypes: ['locality', 'administrative_area_level_1', 'postal_code'],
+      includedRegionCodes: ['fr'],
+      languageCode: 'fr',
+    }),
+  })
+  if (!res.ok) return []
+  const data = await res.json()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data.suggestions ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((s: any) => s.placePrediction)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((s: any) => ({
+      name: s.placePrediction.text?.text ?? '',
+      placeId: s.placePrediction.placeId ?? '',
+    }))
+    .slice(0, 5)
+}
+
 /** Geocode a city name to GPS coordinates using Places Text Search (no separate Geocoding API needed) */
 export async function geocodeCity(city: string): Promise<GeocodedCity | null> {
   if (!API_KEY) return null

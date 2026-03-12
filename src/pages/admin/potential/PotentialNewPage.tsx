@@ -16,9 +16,11 @@ import {
   searchPotentialSpots,
   filterCoveredSpots,
   getDistanceMeters,
+  autocompleteCities,
   SUPPORT_TYPES,
   type PotentialSpot,
   type SupportType,
+  type CitySuggestion,
 } from '@/lib/potential-search'
 import { PotentialPDF } from '@/lib/pdf/PotentialPDF'
 import { pdf } from '@react-pdf/renderer'
@@ -67,6 +69,9 @@ export function PotentialNewPage() {
   // Form state
   const [prospectName, setProspectName] = useState('')
   const [city, setCity] = useState('')
+  const [citySuggestions, setCitySuggestions] = useState<CitySuggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const cityDebounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const [radiusKm, setRadiusKm] = useState(10)
   const [supportType, setSupportType] = useState<SupportType>('all')
 
@@ -110,6 +115,31 @@ export function PotentialNewPage() {
       )
     }
   }, [existingRequest, allPanels])
+
+  const handleCityChange = useCallback((value: string) => {
+    setCity(value)
+    if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current)
+    if (value.trim().length < 2) {
+      setCitySuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+    cityDebounceRef.current = setTimeout(async () => {
+      const suggestions = await autocompleteCities(value)
+      setCitySuggestions(suggestions)
+      setShowSuggestions(suggestions.length > 0)
+    }, 300)
+  }, [])
+
+  const handleCitySelect = useCallback((suggestion: CitySuggestion) => {
+    setCity(suggestion.name)
+    setCitySuggestions([])
+    setShowSuggestions(false)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current) }
+  }, [])
 
   const canAnalyze = prospectName.trim() && city.trim()
 
@@ -319,14 +349,31 @@ export function PotentialNewPage() {
                 className="text-sm"
               />
             </div>
-            <div className="space-y-1">
+            <div className="relative space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Ville *</label>
               <Input
                 value={city}
-                onChange={(e) => setCity(e.target.value)}
+                onChange={(e) => handleCityChange(e.target.value)}
+                onFocus={() => citySuggestions.length > 0 && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 placeholder="Lyon, Marseille..."
                 className="text-sm"
+                autoComplete="off"
               />
+              {showSuggestions && citySuggestions.length > 0 && (
+                <div className="absolute top-full z-50 mt-1 w-full rounded-md border border-border bg-background shadow-lg">
+                  {citySuggestions.map((s) => (
+                    <button
+                      key={s.placeId}
+                      type="button"
+                      onMouseDown={() => handleCitySelect(s)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 first:rounded-t-md last:rounded-b-md"
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Type de support</label>
