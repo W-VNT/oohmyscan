@@ -1,17 +1,51 @@
-import { useState } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useCampaigns, useCreateCampaign } from '@/hooks/useCampaigns'
+import type { CampaignWithClient } from '@/hooks/useCampaigns'
 import { useClients } from '@/hooks/admin/useClients'
 import { useAuth } from '@/hooks/useAuth'
-import { Loader2, Plus, X, Megaphone } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import { Loader2, Plus, X, Megaphone, Search, Filter, ArrowUpDown } from 'lucide-react'
 import { toast } from '@/components/shared/Toast'
-import type { CampaignStatus } from '@/lib/constants'
+import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_CONFIG, type CampaignStatus } from '@/lib/constants'
 
-const statusLabels: Record<CampaignStatus, { label: string; className: string }> = {
-  draft: { label: 'Brouillon', className: 'bg-gray-500/15 text-gray-500' },
-  active: { label: 'Active', className: 'bg-green-500/15 text-green-600' },
-  completed: { label: 'Terminée', className: 'bg-blue-500/15 text-blue-600' },
-  cancelled: { label: 'Annulée', className: 'bg-red-500/15 text-red-600' },
+type SortOption = 'newest' | 'oldest' | 'name' | 'start_date' | 'end_date'
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'newest', label: 'Plus récentes' },
+  { value: 'oldest', label: 'Plus anciennes' },
+  { value: 'name', label: 'Nom A-Z' },
+  { value: 'start_date', label: 'Date début' },
+  { value: 'end_date', label: 'Date fin' },
+]
+
+function getTimeIndicator(campaign: CampaignWithClient): string | null {
+  const now = new Date()
+  const start = new Date(campaign.start_date)
+  const end = new Date(campaign.end_date)
+  const msDay = 86400000
+
+  if (campaign.status === 'draft') {
+    const daysToStart = Math.ceil((start.getTime() - now.getTime()) / msDay)
+    if (daysToStart > 0) return `Début dans ${daysToStart}j`
+    return null
+  }
+
+  if (campaign.status === 'active') {
+    const daysLeft = Math.ceil((end.getTime() - now.getTime()) / msDay)
+    if (daysLeft <= 0) return 'Dépasse la date fin'
+    if (daysLeft <= 7) return `J-${daysLeft}`
+    return 'En cours'
+  }
+
+  if (campaign.status === 'completed') {
+    const daysSince = Math.floor((now.getTime() - end.getTime()) / msDay)
+    if (daysSince <= 0) return 'Terminée aujourd\'hui'
+    return `Terminée depuis ${daysSince}j`
+  }
+
+  return null
 }
 
 export function CampaignsPage() {
@@ -28,10 +62,93 @@ export function CampaignsPage() {
     end_date: '',
   })
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'all'>('all')
+  const [sort, setSort] = useState<SortOption>('newest')
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  // Panel counts per campaign
+  const { data: panelCounts = new Map<string, number>() } = useQuery({
+    queryKey: ['campaign-panel-counts'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('panel_campaigns')
+        .select('campaign_id')
+        .is('unassigned_at', null)
+      const counts = new Map<string, number>()
+      for (const row of data ?? []) {
+        counts.set(row.campaign_id, (counts.get(row.campaign_id) ?? 0) + 1)
+      }
+      return counts
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Debounce search
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value)
+    }, 300)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [])
+
+  // Status counts
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const c of campaigns ?? []) {
+      counts[c.status] = (counts[c.status] || 0) + 1
+    }
+    return counts
+  }, [campaigns])
+
+  // Filter + search + sort
+  const filtered = useMemo(() => {
+    if (!campaigns) return []
+    let result = campaigns
+
+    if (statusFilter !== 'all') {
+      result = result.filter((c) => c.status === statusFilter)
+    }
+
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
+      result = result.filter((c) => {
+        const clientName = c.clients?.company_name ?? c.client
+        return (
+          c.name.toLowerCase().includes(q) ||
+          clientName?.toLowerCase().includes(q)
+        )
+      })
+    }
+
+    result = [...result].sort((a, b) => {
+      switch (sort) {
+        case 'newest': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        case 'oldest': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        case 'name': return a.name.localeCompare(b.name, 'fr')
+        case 'start_date': return new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+        case 'end_date': return new Date(a.end_date).getTime() - new Date(b.end_date).getTime()
+        default: return 0
+      }
+    })
+
+    return result
+  }, [campaigns, statusFilter, debouncedSearch, sort])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (form.end_date && form.start_date && form.end_date < form.start_date) {
+      setError('La date de fin doit être après la date de début')
+      return
+    }
 
     const selectedClient = clients?.find((c) => c.id === form.client_id)
 
@@ -57,7 +174,12 @@ export function CampaignsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Campagnes</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">Campagnes</h2>
+          <span className="text-sm text-muted-foreground">
+            {filtered.length}{statusFilter !== 'all' || debouncedSearch ? ` / ${campaigns?.length ?? 0}` : ''} campagne{(campaigns?.length ?? 0) !== 1 ? 's' : ''}
+          </span>
+        </div>
         <button
           onClick={() => setShowForm(!showForm)}
           className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
@@ -115,6 +237,7 @@ export function CampaignsPage() {
                 type="date"
                 required
                 value={form.end_date}
+                min={form.start_date || undefined}
                 onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               />
@@ -131,7 +254,9 @@ export function CampaignsPage() {
             />
           </div>
           {error && (
-            <p className="text-sm text-destructive-foreground">{error}</p>
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
           )}
           <button
             type="submit"
@@ -144,21 +269,66 @@ export function CampaignsPage() {
         </form>
       )}
 
+      {/* Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Rechercher par nom ou client..."
+            className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <div className="relative">
+          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as CampaignStatus | 'all')}
+            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="all">Tous les statuts ({campaigns?.length ?? 0})</option>
+            {CAMPAIGN_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {CAMPAIGN_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="relative">
+          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOption)}
+            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* List */}
       {isLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : !campaigns?.length ? (
+      ) : !filtered.length ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
           <Megaphone className="h-12 w-12" />
-          <p className="mt-4">Aucune campagne</p>
+          <p className="mt-4">
+            {debouncedSearch || statusFilter !== 'all' ? 'Aucune campagne trouvée' : 'Aucune campagne'}
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {campaigns.map((campaign) => {
-            const status = statusLabels[campaign.status as CampaignStatus]
+          {filtered.map((campaign) => {
+            const status = CAMPAIGN_STATUS_CONFIG[campaign.status as CampaignStatus]
             const clientName = campaign.clients?.company_name ?? campaign.client
+            const timeIndicator = getTimeIndicator(campaign)
+            const panelCount = panelCounts.get(campaign.id) ?? 0
             return (
               <Link
                 key={campaign.id}
@@ -167,15 +337,33 @@ export function CampaignsPage() {
               >
                 <div className="flex items-start justify-between">
                   <h3 className="font-semibold">{campaign.name}</h3>
-                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
+                  <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
                     {status.label}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{clientName}</p>
-                <div className="mt-3 text-xs text-muted-foreground">
-                  {new Date(campaign.start_date).toLocaleDateString('fr-FR')} →{' '}
-                  {new Date(campaign.end_date).toLocaleDateString('fr-FR')}
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(campaign.start_date).toLocaleDateString('fr-FR')} →{' '}
+                    {new Date(campaign.end_date).toLocaleDateString('fr-FR')}
+                  </span>
+                  {panelCount > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {panelCount} panneau{panelCount !== 1 ? 'x' : ''}
+                    </span>
+                  )}
                 </div>
+                {timeIndicator && (
+                  <p className={`mt-2 text-xs font-medium ${
+                    campaign.status === 'active' && timeIndicator.startsWith('J-')
+                      ? 'text-orange-500'
+                      : campaign.status === 'active'
+                        ? 'text-green-500'
+                        : 'text-muted-foreground'
+                  }`}>
+                    {timeIndicator}
+                  </p>
+                )}
               </Link>
             )
           })}

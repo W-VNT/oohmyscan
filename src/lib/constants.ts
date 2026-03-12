@@ -32,6 +32,16 @@ export const PANEL_STATUS_CONFIG: Record<PanelStatus, {
   missing: { label: 'Manquant', color: 'bg-red-500', bg: 'bg-red-500/15 text-red-400', variant: 'destructive' },
 }
 
+export const CAMPAIGN_STATUS_CONFIG: Record<CampaignStatus, {
+  label: string
+  className: string
+}> = {
+  draft: { label: 'Brouillon', className: 'bg-gray-500/15 text-gray-500' },
+  active: { label: 'Active', className: 'bg-green-500/15 text-green-600' },
+  completed: { label: 'Terminée', className: 'bg-blue-500/15 text-blue-600' },
+  cancelled: { label: 'Annulée', className: 'bg-red-500/15 text-red-600' },
+}
+
 export const PHOTO_TYPE_LABELS: Record<PhotoType, string> = {
   installation: 'Installation',
   check: 'Vérification',

@@ -8,15 +8,7 @@ import { toast } from '@/components/shared/Toast'
 import { supabase } from '@/lib/supabase'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, PanelTop, FileText, Upload, Trash2, Loader2, Image as ImageIcon } from 'lucide-react'
-import type { PanelStatus } from '@/lib/constants'
-import type { CampaignStatus } from '@/lib/constants'
-
-const statusLabels: Record<CampaignStatus, string> = {
-  draft: 'Brouillon',
-  active: 'Active',
-  completed: 'Terminée',
-  cancelled: 'Annulée',
-}
+import { CAMPAIGN_STATUS_CONFIG, type PanelStatus, type CampaignStatus } from '@/lib/constants'
 
 // Hook for campaign visuals
 function useCampaignVisuals(campaignId: string | undefined) {
@@ -186,7 +178,7 @@ export function CampaignDetailPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Statut</p>
                 <p className="mt-1 text-sm font-medium">
-                  {statusLabels[campaign.status as CampaignStatus]}
+                  {CAMPAIGN_STATUS_CONFIG[campaign.status as CampaignStatus].label}
                 </p>
               </div>
               <div>
