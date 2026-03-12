@@ -11,7 +11,7 @@ export function Footer() {
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex items-center gap-3">
             <span className="text-[15px] font-bold uppercase tracking-wide text-white">
-              OOHMYAD
+              OOH MY AD !
             </span>
             <span className="hidden text-white/10 md:inline">·</span>
             <span className="hidden text-[13px] text-white/25 md:inline">
@@ -33,7 +33,7 @@ export function Footer() {
         </div>
 
         <p className="mt-6 text-center text-[11px] text-white/10 md:text-left">
-          © {new Date().getFullYear()} OOHMYAD — Tous droits réservés
+          © {new Date().getFullYear()} OOH MY AD ! — Tous droits réservés
         </p>
       </div>
     </footer>

@@ -34,7 +34,7 @@ export function Navbar() {
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <a href="#" className="text-[15px] font-bold uppercase tracking-wide text-white">
-            oohmyad
+            OOH MY AD !
           </a>
 
           <div className="hidden items-center gap-1 md:flex">
@@ -72,7 +72,7 @@ export function Navbar() {
       {mobileOpen && (
         <div className="fixed inset-0 z-[60] flex flex-col bg-[#0A0A0A]">
           <div className="flex items-center justify-between px-6 py-4">
-            <span className="text-[15px] font-bold uppercase tracking-wide text-white">oohmyad</span>
+            <span className="text-[15px] font-bold uppercase tracking-wide text-white">OOH MY AD !</span>
             <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="text-white">
               <X className="h-6 w-6" />
             </button>

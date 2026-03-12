@@ -41,7 +41,7 @@ export function ConceptSection() {
               transition={{ duration: 0.7, delay: 0.1 }}
               className="mt-6 max-w-sm text-[15px] leading-relaxed text-white/40"
             >
-              On zappe, on scrolle, on détourne le regard. Chez OOHMYAD, votre message est lu dans
+              On zappe, on scrolle, on détourne le regard. Chez OOH MY AD !, votre message est lu dans
               des <span className="text-white/70">moments captifs</span> — quand le consommateur est
               là, et qu'il reste.
             </motion.p>
