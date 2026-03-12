@@ -92,14 +92,10 @@ export function QRPage() {
         }),
       )
       const blob = await pdf(<DymoQRPDF labels={labels} />).toBlob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `qr-dymo-${items.length}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      saveAs(blob, `qr-dymo-${items.length}.pdf`)
       toast(`PDF généré — ${items.length} étiquette${items.length !== 1 ? 's' : ''}`)
-    } catch {
+    } catch (err) {
+      console.error('Dymo PDF export error:', err)
       toast('Erreur lors de la génération du PDF', 'error')
     } finally {
       setExporting(false)
