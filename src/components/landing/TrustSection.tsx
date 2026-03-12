@@ -1,15 +1,15 @@
 import { motion } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
 
-const LOGOS = [
-  { name: 'Client 1' },
-  { name: 'Client 2' },
-  { name: 'Client 3' },
-  { name: 'Client 4' },
-  { name: 'Client 5' },
-  { name: 'Client 6' },
-  { name: 'Client 7' },
-  { name: 'Client 8' },
+const CLIENTS = [
+  'Havas',
+  'La Région Aura',
+  'Orange',
+  'Dentsu',
+  'Nickel',
+  'Puy du Fou',
+  'Disney',
+  'Century 21',
 ]
 
 export function TrustSection() {
@@ -34,13 +34,13 @@ export function TrustSection() {
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-[#0A0A0A] to-transparent" />
 
         <div className="flex animate-[marquee_25s_linear_infinite]">
-          {[...LOGOS, ...LOGOS, ...LOGOS, ...LOGOS].map((logo, i) => (
-            <div
+          {[...CLIENTS, ...CLIENTS, ...CLIENTS, ...CLIENTS].map((name, i) => (
+            <span
               key={i}
-              className="mx-6 flex h-8 w-28 flex-shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-[11px] text-white/15"
+              className="mx-4 flex-shrink-0 rounded-lg border border-white/[0.06] bg-white/[0.03] px-5 py-2 text-[13px] font-medium tracking-wide text-white/40"
             >
-              {logo.name}
-            </div>
+              {name}
+            </span>
           ))}
         </div>
       </div>
