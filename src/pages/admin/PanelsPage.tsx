@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Filter, Loader2, PanelTop, ChevronLeft, ChevronRight } from 'lucide-react'
-import { PANEL_STATUSES, type PanelStatus } from '@/lib/constants'
+import { Search, Filter, Loader2, PanelTop, ChevronLeft, ChevronRight, Megaphone, Download } from 'lucide-react'
+import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import { usePanelFormats } from '@/hooks/admin/usePanelFormats'
 import type { Panel } from '@/types'
 
@@ -12,14 +12,14 @@ const PAGE_SIZE = 25
 
 function usePaginatedPanels(
   page: number,
-  search: string,
+  debouncedSearch: string,
   status: PanelStatus | 'all',
   format: string,
   sortCol: string,
   sortAsc: boolean,
 ) {
   return useQuery({
-    queryKey: ['panels-paginated', page, search, status, format, sortCol, sortAsc],
+    queryKey: ['panels-paginated', page, debouncedSearch, status, format, sortCol, sortAsc],
     queryFn: async () => {
       let query = supabase
         .from('panels')
@@ -27,8 +27,8 @@ function usePaginatedPanels(
         .order(sortCol, { ascending: sortAsc })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-      if (search.trim()) {
-        const q = `%${search.trim()}%`
+      if (debouncedSearch.trim()) {
+        const q = `%${debouncedSearch.trim()}%`
         query = query.or(`reference.ilike.${q},city.ilike.${q},name.ilike.${q},address.ilike.${q}`)
       }
       if (status !== 'all') query = query.eq('status', status)
@@ -42,29 +42,57 @@ function usePaginatedPanels(
   })
 }
 
-type SortCol = 'reference' | 'city' | 'format' | 'status' | 'updated_at'
+type SortCol = 'updated_at' | 'reference' | 'city' | 'format' | 'status'
 
 export function PanelsPage() {
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<PanelStatus | 'all'>('all')
   const [formatFilter, setFormatFilter] = useState('')
-  const [sortCol, setSortCol] = useState<SortCol>('reference')
-  const [sortAsc, setSortAsc] = useState(true)
+  const [sortCol, setSortCol] = useState<SortCol>('updated_at')
+  const [sortAsc, setSortAsc] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  // Campaign indicator
+  const { data: panelCampaigns = new Set<string>() } = useQuery({
+    queryKey: ['active-campaign-panels'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('panel_campaigns')
+        .select('panel_id')
+        .is('unassigned_at', null)
+      return new Set((data ?? []).map((d) => d.panel_id))
+    },
+    staleTime: 5 * 60 * 1000,
+  })
 
   const { data: panelFormats } = usePanelFormats()
-  const { data, isLoading } = usePaginatedPanels(page, search, statusFilter, formatFilter, sortCol, sortAsc)
+  const { data, isLoading } = usePaginatedPanels(page, debouncedSearch, statusFilter, formatFilter, sortCol, sortAsc)
 
   const panels = data?.panels ?? []
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
-  // Reset page on filter change
+  // Debounce search
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value)
+      setPage(0)
+    }, 300)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [])
+
   function resetPage() { setPage(0) }
 
   function handleSort(col: SortCol) {
     if (sortCol === col) setSortAsc(!sortAsc)
-    else { setSortCol(col); setSortAsc(true) }
+    else { setSortCol(col); setSortAsc(col === 'updated_at' ? false : true) }
     resetPage()
   }
 
@@ -77,10 +105,53 @@ export function PanelsPage() {
     return panelFormats?.filter((f) => f.is_active).map((f) => f.name) ?? []
   }, [panelFormats])
 
+  // CSV export
+  function handleExportCSV() {
+    if (!panels.length) return
+    const headers = ['Nom', 'Référence', 'Ville', 'Adresse', 'Format', 'Type', 'Statut', 'Campagne', 'Mis à jour']
+    const rows = panels.map((p) => [
+      p.name || '',
+      p.reference,
+      p.city || '',
+      p.address || '',
+      p.format || '',
+      p.type || '',
+      PANEL_STATUS_CONFIG[p.status as PanelStatus]?.label ?? p.status,
+      panelCampaigns.has(p.id) ? 'Oui' : 'Non',
+      new Date(p.updated_at).toLocaleDateString('fr-FR'),
+    ])
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `panneaux-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const rangeStart = page * PAGE_SIZE + 1
+  const rangeEnd = Math.min((page + 1) * PAGE_SIZE, total)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Panneaux</h2>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/admin/qr"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm transition-colors hover:bg-accent"
+          >
+            Générer des QR
+          </Link>
+          <button
+            onClick={handleExportCSV}
+            disabled={!panels.length}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm transition-colors hover:bg-accent disabled:opacity-50"
+          >
+            <Download className="size-3.5" />
+            CSV
+          </button>
+        </div>
         <span className="text-sm text-muted-foreground">
           {total} panneau{total !== 1 ? 'x' : ''}
         </span>
@@ -89,17 +160,17 @@ export function PanelsPage() {
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); resetPage() }}
-            placeholder="Rechercher par référence, nom, ville..."
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Rechercher par nom, ville, référence..."
             className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value as PanelStatus | 'all'); resetPage() }}
@@ -107,7 +178,7 @@ export function PanelsPage() {
           >
             <option value="all">Tous les statuts</option>
             {PANEL_STATUSES.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>{PANEL_STATUS_CONFIG[s].label}</option>
             ))}
           </select>
         </div>
@@ -126,11 +197,11 @@ export function PanelsPage() {
       {/* List */}
       {isLoading && page === 0 ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       ) : panels.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <PanelTop className="h-12 w-12" />
+          <PanelTop className="size-12" />
           <p className="mt-4">Aucun panneau trouvé</p>
         </div>
       ) : (
@@ -140,7 +211,7 @@ export function PanelsPage() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="cursor-pointer px-4 py-3 text-left font-medium" onClick={() => handleSort('reference')}>
-                    Référence<SortIcon col="reference" />
+                    Panneau<SortIcon col="reference" />
                   </th>
                   <th className="hidden cursor-pointer px-4 py-3 text-left font-medium sm:table-cell" onClick={() => handleSort('city')}>
                     Ville<SortIcon col="city" />
@@ -160,12 +231,17 @@ export function PanelsPage() {
                 {panels.map((panel) => (
                   <tr key={panel.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-3">
-                      <Link
-                        to={`/admin/panels/${panel.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {panel.name || panel.reference}
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/admin/panels/${panel.id}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {panel.name || panel.reference}
+                        </Link>
+                        {panelCampaigns.has(panel.id) && (
+                          <span title="Campagne active"><Megaphone className="size-3.5 shrink-0 text-red-500" /></span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground sm:hidden">{panel.city || '—'}</p>
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
@@ -190,23 +266,28 @@ export function PanelsPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                Page {page + 1} / {totalPages}
+                {rangeStart}–{rangeEnd} sur {total}
               </p>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                  className="inline-flex items-center rounded-md border border-input px-3 py-1.5 text-sm disabled:opacity-50"
-                >
-                  <ChevronLeft className="size-4" />
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={page >= totalPages - 1}
-                  className="inline-flex items-center rounded-md border border-input px-3 py-1.5 text-sm disabled:opacity-50"
-                >
-                  <ChevronRight className="size-4" />
-                </button>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  Page {page + 1} / {totalPages}
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="inline-flex items-center rounded-md border border-input px-3 py-1.5 text-sm disabled:opacity-50"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="inline-flex items-center rounded-md border border-input px-3 py-1.5 text-sm disabled:opacity-50"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
