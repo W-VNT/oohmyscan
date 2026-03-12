@@ -63,6 +63,7 @@ export interface PotentialPDFProps {
   prospectName: string
   city: string
   radiusKm: number
+  supportTypeLabel?: string
   createdAt: string
   existingPanels: {
     reference: string
@@ -90,6 +91,7 @@ export function PotentialPDF({
   prospectName,
   city,
   radiusKm,
+  supportTypeLabel,
   createdAt,
   existingPanels,
   potentialSpots,
@@ -131,6 +133,12 @@ export function PotentialPDF({
           <Text style={s.infoLabel}>Zone analysée</Text>
           <Text style={s.infoValue}>{city} — rayon {radiusKm} km</Text>
         </View>
+        {supportTypeLabel && (
+          <View style={s.infoRow}>
+            <Text style={s.infoLabel}>Type de support</Text>
+            <Text style={s.infoValue}>{supportTypeLabel}</Text>
+          </View>
+        )}
         <View style={s.infoRow}>
           <Text style={s.infoLabel}>Date d'analyse</Text>
           <Text style={s.infoValue}>{formatDateFR(createdAt)}</Text>

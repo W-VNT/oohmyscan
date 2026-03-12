@@ -632,6 +632,7 @@ export interface Database {
           prospect_name: string
           city: string
           radius_km: number
+          support_type: string | null
           lat: number | null
           lng: number | null
           existing_panels_count: number
@@ -648,6 +649,7 @@ export interface Database {
           prospect_name: string
           city: string
           radius_km?: number
+          support_type?: string | null
           lat?: number | null
           lng?: number | null
           existing_panels_count?: number
@@ -664,6 +666,7 @@ export interface Database {
           prospect_name?: string
           city?: string
           radius_km?: number
+          support_type?: string | null
           lat?: number | null
           lng?: number | null
           existing_panels_count?: number

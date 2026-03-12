@@ -7,6 +7,7 @@ CREATE TABLE potential_requests (
   prospect_name TEXT NOT NULL,
   city TEXT NOT NULL,
   radius_km INT NOT NULL DEFAULT 10,
+  support_type TEXT,
   lat DOUBLE PRECISION,
   lng DOUBLE PRECISION,
   existing_panels_count INT DEFAULT 0,

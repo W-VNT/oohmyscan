@@ -16,7 +16,9 @@ import {
   searchPotentialSpots,
   filterCoveredSpots,
   getDistanceMeters,
+  SUPPORT_TYPES,
   type PotentialSpot,
+  type SupportType,
 } from '@/lib/potential-search'
 import { PotentialPDF } from '@/lib/pdf/PotentialPDF'
 import { pdf } from '@react-pdf/renderer'
@@ -66,6 +68,7 @@ export function PotentialNewPage() {
   const [prospectName, setProspectName] = useState('')
   const [city, setCity] = useState('')
   const [radiusKm, setRadiusKm] = useState(10)
+  const [supportType, setSupportType] = useState<SupportType>('all')
 
   // Results state
   const [analyzing, setAnalyzing] = useState(false)
@@ -82,6 +85,7 @@ export function PotentialNewPage() {
     setProspectName(existingRequest.prospect_name)
     setCity(existingRequest.city)
     setRadiusKm(existingRequest.radius_km)
+    if (existingRequest.support_type) setSupportType(existingRequest.support_type as SupportType)
     if (existingRequest.lat && existingRequest.lng) {
       setCenter({ lat: existingRequest.lat, lng: existingRequest.lng })
     }
@@ -140,7 +144,7 @@ export function PotentialNewPage() {
       setVacantPanels(vacant)
 
       // Step 3: Search potential spots via Google Places
-      const rawSpots = await searchPotentialSpots(geo.lat, geo.lng, radiusKm)
+      const rawSpots = await searchPotentialSpots(geo.lat, geo.lng, radiusKm, supportType)
 
       // Step 4: Filter covered spots
       const filtered = filterCoveredSpots(
@@ -157,7 +161,7 @@ export function PotentialNewPage() {
     } finally {
       setAnalyzing(false)
     }
-  }, [canAnalyze, allPanels, city, radiusKm])
+  }, [canAnalyze, allPanels, city, radiusKm, supportType])
 
   const handleSave = useCallback(async () => {
     if (!center) return
@@ -173,6 +177,7 @@ export function PotentialNewPage() {
         prospect_name: prospectName,
         city,
         radius_km: radiusKm,
+        support_type: supportType,
         lat: center.lat,
         lng: center.lng,
         existing_panels_count: vacantPanels.length,
@@ -195,7 +200,7 @@ export function PotentialNewPage() {
     } finally {
       setSaving(false)
     }
-  }, [center, existingRequest, isNew, prospectName, city, radiusKm, vacantPanels, potentialSpots, createRequest, updateRequest, id, navigate])
+  }, [center, existingRequest, isNew, prospectName, city, radiusKm, supportType, vacantPanels, potentialSpots, createRequest, updateRequest, id, navigate])
 
   const handleStatusChange = useCallback(async (newStatus: 'draft' | 'sent') => {
     if (!id || isNew) return
@@ -220,12 +225,15 @@ export function PotentialNewPage() {
 
       const reference = existingRequest?.reference ?? 'POT-DRAFT'
 
+      const supportLabel = SUPPORT_TYPES.find((s) => s.value === supportType)?.label ?? 'Tous les supports'
+
       const blob = await pdf(
         <PotentialPDF
           reference={reference}
           prospectName={prospectName}
           city={city}
           radiusKm={radiusKm}
+          supportTypeLabel={supportLabel}
           createdAt={existingRequest?.created_at ?? new Date().toISOString()}
           existingPanels={vacantPanels.map((p) => ({
             reference: p.reference,
@@ -297,7 +305,7 @@ export function PotentialNewPage() {
       {/* Form */}
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Prospect *</label>
               <Input
@@ -315,6 +323,18 @@ export function PotentialNewPage() {
                 placeholder="Lyon, Marseille..."
                 className="text-sm"
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Type de support</label>
+              <select
+                value={supportType}
+                onChange={(e) => setSupportType(e.target.value as SupportType)}
+                className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {SUPPORT_TYPES.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Rayon : {radiusKm} km</label>

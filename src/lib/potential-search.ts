@@ -2,33 +2,29 @@ const API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY
 
 const FIELDS = 'places.displayName,places.formattedAddress,places.location,places.types'
 
-/** Place types relevant for OOH billboard placement */
-const OOH_PLACE_TYPES = [
-  'shopping_mall',
-  'subway_station',
-  'train_station',
-  'bus_station',
-  'parking',
-  'supermarket',
-  'department_store',
-  'stadium',
-  'airport',
-  'hospital',
-  'university',
-]
+/** Support types with their associated Google Places types */
+export const SUPPORT_TYPES = [
+  { value: 'all', label: 'Tous les supports', placeTypes: ['bakery', 'pharmacy', 'bar', 'cafe', 'restaurant', 'store', 'convenience_store', 'laundry', 'hair_care', 'beauty_salon'] },
+  { value: 'sac_pain', label: 'Sac à pain', placeTypes: ['bakery'] },
+  { value: 'sac_pharmacie', label: 'Sac à pharmacie', placeTypes: ['pharmacy'] },
+  { value: 'sous_bock', label: 'Sous-bock', placeTypes: ['bar', 'cafe'] },
+  { value: 'set_table', label: 'Set de table', placeTypes: ['restaurant', 'cafe'] },
+  { value: 'affiche_a3', label: 'Affiche A3', placeTypes: ['store', 'convenience_store', 'laundry', 'hair_care', 'beauty_salon'] },
+] as const
 
-const OOH_TYPE_LABELS: Record<string, string> = {
-  shopping_mall: 'Centre commercial',
-  subway_station: 'Station de métro',
-  train_station: 'Gare',
-  bus_station: 'Gare routière',
-  parking: 'Parking',
-  supermarket: 'Supermarché',
-  department_store: 'Grand magasin',
-  stadium: 'Stade',
-  airport: 'Aéroport',
-  hospital: 'Hôpital',
-  university: 'Université',
+export type SupportType = (typeof SUPPORT_TYPES)[number]['value']
+
+const PLACE_TYPE_LABELS: Record<string, string> = {
+  bakery: 'Boulangerie',
+  pharmacy: 'Pharmacie',
+  bar: 'Bar',
+  cafe: 'Café / Brasserie',
+  restaurant: 'Restaurant',
+  store: 'Commerce',
+  convenience_store: 'Épicerie',
+  laundry: 'Pressing',
+  hair_care: 'Coiffeur',
+  beauty_salon: 'Salon de beauté',
 }
 
 export interface PotentialSpot {
@@ -73,14 +69,16 @@ export async function geocodeCity(city: string): Promise<GeocodedCity | null> {
   }
 }
 
-/** Search potential OOH spots using Google Places Nearby Search */
+/** Search potential OOH spots using Google Places Nearby Search, filtered by support type */
 export async function searchPotentialSpots(
   lat: number,
   lng: number,
   radiusKm: number,
+  supportType: SupportType = 'all',
 ): Promise<PotentialSpot[]> {
   if (!API_KEY) return []
 
+  const config = SUPPORT_TYPES.find((s) => s.value === supportType) ?? SUPPORT_TYPES[0]
   const radiusMeters = radiusKm * 1000
 
   const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
@@ -91,7 +89,7 @@ export async function searchPotentialSpots(
       'X-Goog-FieldMask': FIELDS,
     },
     body: JSON.stringify({
-      includedTypes: OOH_PLACE_TYPES,
+      includedTypes: config.placeTypes,
       maxResultCount: 20,
       locationRestriction: {
         circle: {
@@ -110,14 +108,14 @@ export async function searchPotentialSpots(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return places.map((p: any) => {
     const types = (p.types as string[]) ?? []
-    const matchedType = types.find((t) => OOH_PLACE_TYPES.includes(t)) ?? types[0] ?? ''
+    const matchedType = types.find((t) => (config.placeTypes as readonly string[]).includes(t)) ?? types[0] ?? ''
     return {
       name: (p.displayName?.text as string) ?? '',
       address: (p.formattedAddress as string) ?? '',
       lat: p.location?.latitude ?? 0,
       lng: p.location?.longitude ?? 0,
       type: matchedType,
-      typeLabel: OOH_TYPE_LABELS[matchedType] ?? matchedType,
+      typeLabel: PLACE_TYPE_LABELS[matchedType] ?? matchedType,
     }
   })
 }

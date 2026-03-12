@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Search, Plus, Loader2, Filter, ArrowUpDown, SearchCheck } from 'lucide-react'
 import { POTENTIAL_STATUSES, POTENTIAL_STATUS_CONFIG, type PotentialStatus } from '@/lib/constants'
+import { SUPPORT_TYPES } from '@/lib/potential-search'
 
 type SortOption = 'newest' | 'oldest' | 'prospect' | 'city'
 
@@ -147,6 +148,7 @@ export function PotentialPage() {
                   <th className="px-4 py-3 font-medium text-muted-foreground">Référence</th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">Prospect</th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">Ville</th>
+                  <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Support</th>
                   <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Rayon</th>
                   <th className="hidden px-4 py-3 text-right font-medium text-muted-foreground md:table-cell">Vacants</th>
                   <th className="hidden px-4 py-3 text-right font-medium text-muted-foreground md:table-cell">Potentiels</th>
@@ -157,7 +159,7 @@ export function PotentialPage() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                       <SearchCheck className="mx-auto mb-2 size-8" />
                       {debouncedSearch || statusFilter !== 'all' ? 'Aucune demande trouvée' : 'Aucune demande pour le moment'}
                     </td>
@@ -172,6 +174,9 @@ export function PotentialPage() {
                       <td className="px-4 py-3 font-medium font-mono text-xs">{req.reference}</td>
                       <td className="px-4 py-3 font-medium">{req.prospect_name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{req.city}</td>
+                      <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                        {SUPPORT_TYPES.find((s) => s.value === req.support_type)?.label ?? '—'}
+                      </td>
                       <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">{req.radius_km} km</td>
                       <td className="hidden px-4 py-3 text-right tabular-nums md:table-cell">
                         <span className="text-blue-600 font-medium">{req.existing_panels_count}</span>
