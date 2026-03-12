@@ -16,6 +16,7 @@ import { InstallBanner } from '@/components/shared/InstallBanner'
 // Lazy loaded pages
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
+const LandingPage = lazy(() => import('@/pages/landing/LandingPage').then((m) => ({ default: m.LandingPage })))
 
 // Operator pages
 const ScanPage = lazy(() => import('@/pages/operator/ScanPage').then((m) => ({ default: m.ScanPage })))
@@ -66,6 +67,7 @@ export default function App() {
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
               {/* Public */}
+              <Route path="/landing" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
 
               {/* Operator routes (mobile-first) — admin can also access */}

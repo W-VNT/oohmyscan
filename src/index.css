@@ -153,3 +153,9 @@
   border-top-color: var(--color-card) !important;
   border-bottom-color: var(--color-card) !important;
 }
+
+/* Landing page marquee animation */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-25%); }
+}
