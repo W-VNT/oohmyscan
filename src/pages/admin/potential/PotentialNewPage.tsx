@@ -72,6 +72,7 @@ export function PotentialNewPage() {
 
   // Results state
   const [analyzing, setAnalyzing] = useState(false)
+  const [analysisProgress, setAnalysisProgress] = useState('')
   const [analyzed, setAnalyzed] = useState(false)
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null)
   const [vacantPanels, setVacantPanels] = useState<VacantPanel[]>([])
@@ -144,7 +145,9 @@ export function PotentialNewPage() {
       setVacantPanels(vacant)
 
       // Step 3: Search potential spots via Google Places
-      const rawSpots = await searchPotentialSpots(geo.lat, geo.lng, radiusKm, supportType)
+      const rawSpots = await searchPotentialSpots(geo.lat, geo.lng, radiusKm, supportType, (done, total) => {
+        setAnalysisProgress(`Scan zone ${done}/${total}...`)
+      })
 
       // Step 4: Filter covered spots
       const filtered = filterCoveredSpots(
@@ -160,6 +163,7 @@ export function PotentialNewPage() {
       toast("Erreur lors de l'analyse", 'error')
     } finally {
       setAnalyzing(false)
+      setAnalysisProgress('')
     }
   }, [canAnalyze, allPanels, city, radiusKm, supportType])
 
@@ -355,7 +359,7 @@ export function PotentialNewPage() {
             ) : (
               <Search className="mr-1.5 size-4" />
             )}
-            {analyzing ? 'Analyse en cours...' : "Lancer l'analyse"}
+            {analyzing ? (analysisProgress || 'Analyse en cours...') : "Lancer l'analyse"}
           </Button>
         </CardContent>
       </Card>

@@ -1,6 +1,9 @@
 const API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY
 
-const FIELDS = 'places.displayName,places.formattedAddress,places.location,places.types'
+const FIELDS = 'places.id,places.displayName,places.formattedAddress,places.location,places.types'
+
+/** Max radius per sub-query (meters). Google returns max 20 results per call. */
+const SUB_RADIUS_M = 3000
 
 /** Support types with their associated Google Places types */
 export const SUPPORT_TYPES = [
@@ -69,18 +72,48 @@ export async function geocodeCity(city: string): Promise<GeocodedCity | null> {
   }
 }
 
-/** Search potential OOH spots using Google Places Nearby Search, filtered by support type */
-export async function searchPotentialSpots(
+/**
+ * Generate a grid of center points covering a circle of given radius.
+ * Uses a hex-like grid with spacing = SUB_RADIUS_M * 1.5 for good overlap.
+ */
+function generateGridPoints(
+  centerLat: number,
+  centerLng: number,
+  radiusMeters: number,
+): { lat: number; lng: number }[] {
+  const step = SUB_RADIUS_M * 1.5
+  const points: { lat: number; lng: number }[] = []
+  const toRad = (d: number) => (d * Math.PI) / 180
+
+  // 1 degree of latitude ≈ 111320m
+  const latStep = step / 111320
+  // 1 degree of longitude depends on latitude
+  const lngStep = step / (111320 * Math.cos(toRad(centerLat)))
+
+  const gridRadius = Math.ceil(radiusMeters / step)
+
+  for (let dy = -gridRadius; dy <= gridRadius; dy++) {
+    for (let dx = -gridRadius; dx <= gridRadius; dx++) {
+      const lat = centerLat + dy * latStep
+      const lng = centerLng + dx * lngStep
+      // Keep only points inside the main search circle
+      if (getDistanceMeters({ lat, lng }, { lat: centerLat, lng: centerLng }) <= radiusMeters) {
+        points.push({ lat, lng })
+      }
+    }
+  }
+
+  return points
+}
+
+/** Single Nearby Search call */
+async function searchNearbyChunk(
   lat: number,
   lng: number,
-  radiusKm: number,
-  supportType: SupportType = 'all',
-): Promise<PotentialSpot[]> {
-  if (!API_KEY) return []
-
-  const config = SUPPORT_TYPES.find((s) => s.value === supportType) ?? SUPPORT_TYPES[0]
-  const radiusMeters = radiusKm * 1000
-
+  radius: number,
+  placeTypes: readonly string[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any[]> {
   const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
     method: 'POST',
     headers: {
@@ -89,24 +122,73 @@ export async function searchPotentialSpots(
       'X-Goog-FieldMask': FIELDS,
     },
     body: JSON.stringify({
-      includedTypes: config.placeTypes,
+      includedTypes: placeTypes,
       maxResultCount: 20,
       locationRestriction: {
         circle: {
           center: { latitude: lat, longitude: lng },
-          radius: radiusMeters,
+          radius,
         },
       },
       languageCode: 'fr',
     }),
   })
-
   if (!res.ok) return []
   const data = await res.json()
-  const places = data.places ?? []
+  return data.places ?? []
+}
+
+/** Search potential OOH spots using Google Places Nearby Search, filtered by support type.
+ *  Subdivides large areas into a grid of smaller queries for better coverage. */
+export async function searchPotentialSpots(
+  lat: number,
+  lng: number,
+  radiusKm: number,
+  supportType: SupportType = 'all',
+  onProgress?: (done: number, total: number) => void,
+): Promise<PotentialSpot[]> {
+  if (!API_KEY) return []
+
+  const config = SUPPORT_TYPES.find((s) => s.value === supportType) ?? SUPPORT_TYPES[0]
+  const radiusMeters = radiusKm * 1000
+
+  // For small radii (≤ SUB_RADIUS_M), single request is enough
+  const gridPoints =
+    radiusMeters <= SUB_RADIUS_M
+      ? [{ lat, lng }]
+      : generateGridPoints(lat, lng, radiusMeters)
+
+  const subRadius = Math.min(radiusMeters, SUB_RADIUS_M)
+
+  // Run all sub-queries in parallel batches of 5 to avoid rate limits
+  const BATCH_SIZE = 5
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allPlaces: any[] = []
+  let done = 0
+
+  for (let i = 0; i < gridPoints.length; i += BATCH_SIZE) {
+    const batch = gridPoints.slice(i, i + BATCH_SIZE)
+    const results = await Promise.all(
+      batch.map((pt) => searchNearbyChunk(pt.lat, pt.lng, subRadius, config.placeTypes)),
+    )
+    for (const places of results) {
+      allPlaces.push(...places)
+    }
+    done += batch.length
+    onProgress?.(done, gridPoints.length)
+  }
+
+  // Deduplicate by Google place ID
+  const seen = new Set<string>()
+  const unique = allPlaces.filter((p) => {
+    const id = p.id as string
+    if (!id || seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return places.map((p: any) => {
+  return unique.map((p: any) => {
     const types = (p.types as string[]) ?? []
     const matchedType = types.find((t) => (config.placeTypes as readonly string[]).includes(t)) ?? types[0] ?? ''
     return {
