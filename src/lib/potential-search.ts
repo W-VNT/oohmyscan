@@ -46,20 +46,30 @@ export interface GeocodedCity {
   formattedName: string
 }
 
-/** Geocode a city name to GPS coordinates */
+/** Geocode a city name to GPS coordinates using Places Text Search (no separate Geocoding API needed) */
 export async function geocodeCity(city: string): Promise<GeocodedCity | null> {
   if (!API_KEY) return null
-  const res = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(city + ', France')}&key=${API_KEY}`,
-  )
+  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': API_KEY,
+      'X-Goog-FieldMask': 'places.formattedAddress,places.location',
+    },
+    body: JSON.stringify({
+      textQuery: `${city}, France`,
+      languageCode: 'fr',
+      maxResultCount: 1,
+    }),
+  })
   if (!res.ok) return null
   const data = await res.json()
-  const result = data.results?.[0]
-  if (!result) return null
+  const place = data.places?.[0]
+  if (!place?.location) return null
   return {
-    lat: result.geometry.location.lat,
-    lng: result.geometry.location.lng,
-    formattedName: result.formatted_address,
+    lat: place.location.latitude,
+    lng: place.location.longitude,
+    formattedName: place.formattedAddress ?? city,
   }
 }
 
