@@ -3,7 +3,7 @@ const API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY
 const FIELDS = 'places.id,places.displayName,places.formattedAddress,places.location,places.types'
 
 /** Max radius per sub-query (meters). Google returns max 20 results per call. */
-const SUB_RADIUS_M = 3000
+const SUB_RADIUS_M = 2000
 
 /** Support types with their associated Google Places types */
 export const SUPPORT_TYPES = [
