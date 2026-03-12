@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useInvoice, useInvoiceLines, useCreateInvoice, useUpdateInvoice, useSaveInvoiceLines, type InvoiceLine } from '@/hooks/admin/useInvoices'
 import { useQuote, useQuoteLines } from '@/hooks/admin/useQuotes'
-import { useClients } from '@/hooks/admin/useClients'
+import { useClients, useClient } from '@/hooks/admin/useClients'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
@@ -13,20 +13,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
+import { saveAs } from 'file-saver'
 import { InvoicePDF } from '@/lib/pdf/InvoicePDF'
-import { useClient } from '@/hooks/admin/useClients'
+import { INVOICE_STATUS_CONFIG, type InvoiceStatus } from '@/lib/constants'
 
 type EditableLine = Omit<InvoiceLine, 'id' | 'invoice_id'> & { _key: string }
-
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  draft: { label: 'Brouillon', variant: 'secondary' },
-  sent: { label: 'Envoyée', variant: 'default' },
-  paid: { label: 'Payée', variant: 'default' },
-  overdue: { label: 'En retard', variant: 'destructive' },
-  cancelled: { label: 'Annulée', variant: 'outline' },
-}
 
 function newLine(sortOrder: number): EditableLine {
   return {
@@ -50,7 +43,7 @@ export function InvoiceDetailPage() {
 
   const { data: invoice, isLoading: invoiceLoading } = useInvoice(isNew ? undefined : id)
   const { data: existingLines, isLoading: linesLoading } = useInvoiceLines(isNew ? undefined : id)
-  const { data: sourceQuote } = useQuote(fromQuoteId ?? undefined)
+  const { data: sourceQuote } = useQuote(fromQuoteId ?? invoice?.quote_id ?? undefined)
   const { data: sourceQuoteLines } = useQuoteLines(fromQuoteId ?? undefined)
   const { data: clients } = useClients()
   const { data: campaigns } = useCampaigns()
@@ -70,6 +63,9 @@ export function InvoiceDetailPage() {
   const [saving, setSaving] = useState(false)
 
   const { data: clientData } = useClient(clientId || undefined)
+
+  // Is the form read-only?
+  const isLocked = !isNew && !!invoice && invoice.status !== 'draft'
 
   // Init from existing invoice
   useEffect(() => {
@@ -123,6 +119,7 @@ export function InvoiceDetailPage() {
   }, [isNew, dueAt])
 
   function updateLine(key: string, field: keyof EditableLine, value: string | number) {
+    if (isLocked) return
     setLines((prev) =>
       prev.map((l) => {
         if (l._key !== key) return l
@@ -136,10 +133,12 @@ export function InvoiceDetailPage() {
   }
 
   function addLine() {
+    if (isLocked) return
     setLines((prev) => [...prev, newLine(prev.length)])
   }
 
   function addFromCatalog(serviceId: string) {
+    if (isLocked) return
     const service = services?.find((s) => s.id === serviceId)
     if (!service) return
     setLines((prev) => [
@@ -157,7 +156,18 @@ export function InvoiceDetailPage() {
     ])
   }
 
+  function duplicateLine(key: string) {
+    if (isLocked) return
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => l._key === key)
+      if (idx === -1) return prev
+      const clone = { ...prev[idx], _key: crypto.randomUUID(), sort_order: prev.length }
+      return [...prev.slice(0, idx + 1), clone, ...prev.slice(idx + 1)]
+    })
+  }
+
   function removeLine(key: string) {
+    if (isLocked) return
     setLines((prev) => prev.filter((l) => l._key !== key))
   }
 
@@ -182,6 +192,7 @@ export function InvoiceDetailPage() {
   }
 
   async function handleSave() {
+    if (isLocked) return
     if (!clientId) {
       toast('Veuillez sélectionner un client', 'error')
       return
@@ -192,16 +203,18 @@ export function InvoiceDetailPage() {
       let invoiceId = id!
 
       if (isNew) {
-        // Atomic numbering via SQL function
         const { data: invoiceNumber, error: rpcError } = await supabase.rpc('get_next_invoice_number')
+        let finalNumber: string
         if (rpcError || !invoiceNumber) {
           const prefix = settings?.invoice_prefix ?? 'F'
           const nextNum = settings?.next_invoice_number ?? 1
-          var fallbackInvoiceNumber = `${prefix}-${new Date().getFullYear()}-${String(nextNum).padStart(3, '0')}`
+          finalNumber = `${prefix}-${new Date().getFullYear()}-${String(nextNum).padStart(3, '0')}`
+        } else {
+          finalNumber = invoiceNumber
         }
 
         const result = await createInvoice.mutateAsync({
-          invoice_number: invoiceNumber ?? fallbackInvoiceNumber!,
+          invoice_number: finalNumber,
           client_id: clientId,
           campaign_id: campaignId || null,
           quote_id: quoteId || null,
@@ -248,24 +261,16 @@ export function InvoiceDetailPage() {
     }
   }
 
-  async function handleStatusChange(newStatus: 'sent' | 'paid' | 'overdue' | 'cancelled') {
+  async function handleStatusChange(newStatus: InvoiceStatus) {
     if (!id || isNew) return
     try {
       const updates: Record<string, unknown> = { id, status: newStatus }
       if (newStatus === 'paid') updates.paid_at = new Date().toISOString()
-      await updateInvoice.mutateAsync(updates as { id: string; status: 'paid'; paid_at: string })
-      toast(`Facture marquée comme "${statusConfig[newStatus].label}"`)
+      await updateInvoice.mutateAsync(updates as { id: string; status: InvoiceStatus; paid_at?: string })
+      toast(`Facture marquée comme "${INVOICE_STATUS_CONFIG[newStatus].label}"`)
     } catch {
       toast('Erreur', 'error')
     }
-  }
-
-  if (!isNew && (invoiceLoading || linesLoading)) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    )
   }
 
   async function handleDownloadPDF() {
@@ -295,12 +300,7 @@ export function InvoiceDetailPage() {
           }}
         />,
       ).toBlob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${invoice.invoice_number}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      saveAs(blob, `${invoice.invoice_number}.pdf`)
     } catch {
       toast('Erreur lors de la génération du PDF', 'error')
     }
@@ -310,14 +310,23 @@ export function InvoiceDetailPage() {
     if (!invoice || !clientData || !settings) return
     const subject = encodeURIComponent(`Facture ${invoice.invoice_number}`)
     const body = encodeURIComponent(
-      `Bonjour,\n\nVeuillez trouver ci-joint la facture ${invoice.invoice_number} d'un montant de ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(totals.totalTtc)} TTC.\n\nÉchéance : ${new Date(invoice.due_at).toLocaleDateString('fr-FR')}\n\n${settings.iban ? `Règlement par virement :\nIBAN : ${settings.iban}${settings.bic ? `\nBIC : ${settings.bic}` : ''}\n\n` : ''}Cordialement,\n${settings.company_name ?? 'OOHMYAD'}`,
+      `Bonjour,\n\nVeuillez trouver ci-joint la facture ${invoice.invoice_number} d'un montant de ${formatCurrency(totals.totalTtc)} TTC.\n\nÉchéance : ${new Date(invoice.due_at).toLocaleDateString('fr-FR')}\n\n${settings.iban ? `Règlement par virement :\nIBAN : ${settings.iban}${settings.bic ? `\nBIC : ${settings.bic}` : ''}\n\n` : ''}Cordialement,\n${settings.company_name ?? 'OOHMYAD'}`,
     )
     const to = clientData.contact_email ? encodeURIComponent(clientData.contact_email) : ''
     window.open(`mailto:${to}?subject=${subject}&body=${body}`)
   }
 
+  if (!isNew && (invoiceLoading || linesLoading)) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   const activeClients = clients?.filter((c) => c.is_active) ?? []
   const activeServices = services?.filter((s) => s.is_active) ?? []
+  const linkedQuoteId = quoteId || invoice?.quote_id
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -330,8 +339,14 @@ export function InvoiceDetailPage() {
           <h1 className="text-xl font-semibold">
             {isNew ? 'Nouvelle facture' : invoice?.invoice_number ?? ''}
           </h1>
-          {fromQuoteId && sourceQuote && (
-            <p className="text-xs text-muted-foreground">Depuis devis {sourceQuote.quote_number}</p>
+          {linkedQuoteId && sourceQuote && (
+            <Link
+              to={`/admin/quotes/${linkedQuoteId}`}
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <FileText className="size-3" />
+              Depuis devis {sourceQuote.quote_number}
+            </Link>
           )}
         </div>
         {!isNew && invoice && (
@@ -344,18 +359,28 @@ export function InvoiceDetailPage() {
                 <Mail className="mr-1.5 size-3.5" /> Relancer
               </Button>
             )}
-            <Badge variant={statusConfig[invoice.status]?.variant ?? 'secondary'}>
-              {statusConfig[invoice.status]?.label ?? invoice.status}
+            <Badge variant={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.variant ?? 'secondary'}>
+              {INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.label ?? invoice.status}
             </Badge>
           </>
         )}
       </div>
+
+      {/* Locked banner */}
+      {isLocked && (
+        <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-600">
+          Cette facture est en statut "{INVOICE_STATUS_CONFIG[invoice!.status as InvoiceStatus]?.label}" et ne peut plus être modifiée.
+        </div>
+      )}
 
       {/* Status actions */}
       {!isNew && invoice?.status === 'draft' && (
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => handleStatusChange('sent')}>
             <Send className="mr-1.5 size-3.5" /> Marquer envoyée
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
+            <Ban className="mr-1.5 size-3.5" /> Annuler
           </Button>
         </div>
       )}
@@ -366,6 +391,19 @@ export function InvoiceDetailPage() {
           </Button>
           <Button size="sm" variant="destructive" onClick={() => handleStatusChange('overdue')}>
             En retard
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
+            <Ban className="mr-1.5 size-3.5" /> Annuler
+          </Button>
+        </div>
+      )}
+      {!isNew && invoice?.status === 'overdue' && (
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => handleStatusChange('paid')}>
+            <Check className="mr-1.5 size-3.5" /> Marquer payée
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
+            <Ban className="mr-1.5 size-3.5" /> Annuler
           </Button>
         </div>
       )}
@@ -378,7 +416,8 @@ export function InvoiceDetailPage() {
             <select
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+              disabled={isLocked}
+              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
               <option value="">Sélectionner...</option>
               {activeClients.map((c) => (
@@ -391,7 +430,8 @@ export function InvoiceDetailPage() {
             <select
               value={campaignId}
               onChange={(e) => setCampaignId(e.target.value)}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+              disabled={isLocked}
+              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
               <option value="">Aucune</option>
               {campaigns?.map((c) => (
@@ -405,16 +445,19 @@ export function InvoiceDetailPage() {
               type="date"
               value={dueAt}
               onChange={(e) => setDueAt(e.target.value)}
+              disabled={isLocked}
               className="text-sm"
             />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Notes</label>
-            <Input
+            <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              disabled={isLocked}
               placeholder="Notes..."
-              className="text-sm"
+              rows={2}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50"
             />
           </div>
         </CardContent>
@@ -425,27 +468,29 @@ export function InvoiceDetailPage() {
         <CardContent className="space-y-4 pt-6">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Lignes de la facture</p>
-            <div className="flex gap-2">
-              {activeServices.length > 0 && (
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) addFromCatalog(e.target.value)
-                    e.target.value = ''
-                  }}
-                  className="h-7 rounded-md border border-input bg-background px-2 text-xs"
-                >
-                  <option value="">Depuis catalogue...</option>
-                  {activeServices.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.default_unit_price}€)
-                    </option>
-                  ))}
-                </select>
-              )}
-              <Button size="sm" variant="outline" onClick={addLine}>
-                <Plus className="mr-1 size-3.5" /> Ligne
-              </Button>
-            </div>
+            {!isLocked && (
+              <div className="flex gap-2">
+                {activeServices.length > 0 && (
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) addFromCatalog(e.target.value)
+                      e.target.value = ''
+                    }}
+                    className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+                  >
+                    <option value="">Depuis catalogue...</option>
+                    {activeServices.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.default_unit_price}€)
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <Button size="sm" variant="outline" onClick={addLine}>
+                  <Plus className="mr-1 size-3.5" /> Ligne
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="overflow-x-auto">
@@ -458,7 +503,7 @@ export function InvoiceDetailPage() {
                   <th className="w-28 px-2 py-2 font-medium text-muted-foreground">PU HT</th>
                   <th className="w-24 px-2 py-2 font-medium text-muted-foreground">TVA %</th>
                   <th className="w-28 px-2 py-2 text-right font-medium text-muted-foreground">Total HT</th>
-                  <th className="w-10" />
+                  {!isLocked && <th className="w-16" />}
                 </tr>
               </thead>
               <tbody>
@@ -469,6 +514,7 @@ export function InvoiceDetailPage() {
                         value={line.description}
                         onChange={(e) => updateLine(line._key, 'description', e.target.value)}
                         placeholder="Description..."
+                        disabled={isLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -479,6 +525,7 @@ export function InvoiceDetailPage() {
                         step="0.01"
                         value={line.quantity}
                         onChange={(e) => updateLine(line._key, 'quantity', parseFloat(e.target.value) || 0)}
+                        disabled={isLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -486,6 +533,7 @@ export function InvoiceDetailPage() {
                       <Input
                         value={line.unit}
                         onChange={(e) => updateLine(line._key, 'unit', e.target.value)}
+                        disabled={isLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -496,6 +544,7 @@ export function InvoiceDetailPage() {
                         step="0.01"
                         value={line.unit_price}
                         onChange={(e) => updateLine(line._key, 'unit_price', parseFloat(e.target.value) || 0)}
+                        disabled={isLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -503,7 +552,8 @@ export function InvoiceDetailPage() {
                       <select
                         value={line.tva_rate}
                         onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))}
-                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        disabled={isLocked}
+                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
                       >
                         <option value={0}>0%</option>
                         <option value={5.5}>5,5%</option>
@@ -514,19 +564,31 @@ export function InvoiceDetailPage() {
                     <td className="px-2 py-1.5 text-right font-medium tabular-nums">
                       {formatCurrency(line.total_ht)}
                     </td>
-                    <td className="px-2 py-1.5">
-                      <button
-                        onClick={() => removeLine(line._key)}
-                        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </td>
+                    {!isLocked && (
+                      <td className="px-2 py-1.5">
+                        <div className="flex gap-0.5">
+                          <button
+                            onClick={() => duplicateLine(line._key)}
+                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Dupliquer"
+                          >
+                            <Copy className="size-3.5" />
+                          </button>
+                          <button
+                            onClick={() => removeLine(line._key)}
+                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {lines.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-2 py-8 text-center text-muted-foreground">
+                    <td colSpan={isLocked ? 6 : 7} className="px-2 py-8 text-center text-muted-foreground">
                       <Package className="mx-auto mb-2 size-6" />
                       <p className="text-xs">Ajoutez des lignes à la facture</p>
                     </td>
@@ -562,15 +624,17 @@ export function InvoiceDetailPage() {
       </Card>
 
       {/* Save */}
-      <div className="flex gap-3">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
-          {isNew ? 'Créer la facture' : 'Enregistrer'}
-        </Button>
-        <Button variant="outline" onClick={() => navigate('/admin/invoices')}>
-          Annuler
-        </Button>
-      </div>
+      {!isLocked && (
+        <div className="flex gap-3">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+            {isNew ? 'Créer la facture' : 'Enregistrer'}
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/admin/invoices')}>
+            Annuler
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

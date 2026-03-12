@@ -56,6 +56,20 @@ export const QUOTE_STATUS_CONFIG: Record<QuoteStatus, {
   cancelled: { label: 'Annulé', variant: 'outline' },
 }
 
+export const INVOICE_STATUSES = ['draft', 'sent', 'paid', 'overdue', 'cancelled'] as const
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number]
+
+export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, {
+  label: string
+  variant: 'default' | 'secondary' | 'destructive' | 'outline'
+}> = {
+  draft: { label: 'Brouillon', variant: 'secondary' },
+  sent: { label: 'Envoyée', variant: 'default' },
+  paid: { label: 'Payée', variant: 'default' },
+  overdue: { label: 'En retard', variant: 'destructive' },
+  cancelled: { label: 'Annulée', variant: 'outline' },
+}
+
 export const PHOTO_TYPE_LABELS: Record<PhotoType, string> = {
   installation: 'Installation',
   check: 'Vérification',
