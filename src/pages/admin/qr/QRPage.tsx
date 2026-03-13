@@ -1,13 +1,13 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useQRStock, useQRStockStats, useGenerateQRCodes } from '@/hooks/admin/useQRStock'
+import { useQRStock, useQRStockStats, useGenerateQRCodes, useDeleteQRCodes } from '@/hooks/admin/useQRStock'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/shared/Toast'
-import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive, ArrowUpDown, X } from 'lucide-react'
+import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive, ArrowUpDown, X, Trash2 } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 import { pdf } from '@react-pdf/renderer'
 import { DymoQRPDF } from '@/lib/pdf/DymoQRPDF'
@@ -28,6 +28,7 @@ export function QRPage() {
   const { data: qrItems, isLoading } = useQRStock()
   const { data: stats } = useQRStockStats()
   const generateQR = useGenerateQRCodes()
+  const deleteQR = useDeleteQRCodes()
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -185,6 +186,29 @@ export function QRPage() {
     toast('UUID copié')
   }
 
+  const selectedUnassigned = useMemo(() => {
+    if (!qrItems) return []
+    return qrItems.filter((i) => selected.has(i.id) && !i.is_assigned)
+  }, [qrItems, selected])
+
+  async function handleDelete() {
+    if (selectedUnassigned.length === 0) {
+      toast('Seuls les QR codes non assignés peuvent être supprimés', 'error')
+      return
+    }
+    const confirmed = window.confirm(
+      `Supprimer ${selectedUnassigned.length} QR code${selectedUnassigned.length !== 1 ? 's' : ''} non assigné${selectedUnassigned.length !== 1 ? 's' : ''} ?`
+    )
+    if (!confirmed) return
+    try {
+      await deleteQR.mutateAsync(selectedUnassigned.map((i) => i.id))
+      toast(`${selectedUnassigned.length} QR code${selectedUnassigned.length !== 1 ? 's' : ''} supprimé${selectedUnassigned.length !== 1 ? 's' : ''}`)
+      setSelected(new Set())
+    } catch {
+      toast('Erreur lors de la suppression', 'error')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -213,6 +237,12 @@ export function QRPage() {
                 {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileArchive className="mr-1.5 size-4" />}
                 ZIP PNG ({selected.size})
               </Button>
+              {selectedUnassigned.length > 0 && (
+                <Button variant="destructive" onClick={handleDelete} disabled={deleteQR.isPending}>
+                  {deleteQR.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Trash2 className="mr-1.5 size-4" />}
+                  Supprimer ({selectedUnassigned.length})
+                </Button>
+              )}
             </>
           )}
           <Button onClick={() => setSheetOpen(true)}>

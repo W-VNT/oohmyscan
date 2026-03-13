@@ -41,6 +41,23 @@ export function useQRStockStats() {
   })
 }
 
+export function useDeleteQRCodes() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('qr_stock')
+        .delete()
+        .in('id', ids)
+        .eq('is_assigned', false)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['qr-stock'] })
+    },
+  })
+}
+
 export function useGenerateQRCodes() {
   const queryClient = useQueryClient()
   return useMutation({
