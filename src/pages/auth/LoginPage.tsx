@@ -33,9 +33,9 @@ export function LoginPage() {
           .select('role')
           .eq('id', session.user.id)
           .single()
-        navigate(profile?.role === 'admin' ? '/admin' : '/dashboard')
+        navigate(profile?.role === 'admin' ? '/admin' : '/app/dashboard')
       } else {
-        navigate('/dashboard')
+        navigate('/app/dashboard')
       }
     }
   }

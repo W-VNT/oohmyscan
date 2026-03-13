@@ -13,7 +13,7 @@ export function ScanMissionSheet({ open, onClose }: ScanMissionSheetProps) {
 
   function go(mode: 'install' | 'campaign') {
     onClose()
-    navigate(`/scan?mode=${mode}`)
+    navigate(`/app/scan?mode=${mode}`)
   }
 
   return (

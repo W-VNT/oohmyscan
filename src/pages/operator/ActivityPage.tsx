@@ -94,7 +94,7 @@ export function ActivityPage() {
           <PanelTop className="h-12 w-12" />
           <p className="mt-4">Aucune activité récente</p>
           <Link
-            to="/scan"
+            to="/app/scan"
             className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground"
           >
             <ScanLine className="size-3.5" />

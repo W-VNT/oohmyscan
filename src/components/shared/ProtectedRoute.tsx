@@ -25,7 +25,7 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
 
   // Admin can access everything; others must match required role
   if (role && profile.role !== 'admin' && profile.role !== role) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/app" replace />
   }
 
   return <Outlet />

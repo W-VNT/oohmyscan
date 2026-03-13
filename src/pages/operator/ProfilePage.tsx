@@ -293,7 +293,7 @@ export function ProfilePage() {
 
       {/* Stats — clickable */}
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => navigate('/panels')} className="text-left">
+        <button onClick={() => navigate('/app/panels')} className="text-left">
           <Card size="sm">
             <CardContent className="flex items-center gap-2.5">
               <div className="flex size-8 items-center justify-center rounded-md bg-blue-500/10 text-blue-500">
@@ -307,7 +307,7 @@ export function ProfilePage() {
             </CardContent>
           </Card>
         </button>
-        <button onClick={() => navigate('/my-campaigns')} className="text-left">
+        <button onClick={() => navigate('/app/my-campaigns')} className="text-left">
           <Card size="sm">
             <CardContent className="flex items-center gap-2.5">
               <div className="flex size-8 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-500">

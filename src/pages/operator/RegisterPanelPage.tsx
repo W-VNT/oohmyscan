@@ -176,7 +176,7 @@ export function RegisterPanelPage() {
       })
 
       toast('Panneau enregistré avec succès')
-      navigate('/dashboard', { replace: true })
+      navigate('/app/dashboard', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement")
     } finally {

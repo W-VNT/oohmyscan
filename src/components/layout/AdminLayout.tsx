@@ -145,7 +145,7 @@ export function AdminLayout() {
             <p className="text-[11px] text-muted-foreground">Administrateur</p>
           </div>
           <NavLink
-            to="/dashboard"
+            to="/app/dashboard"
             className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Smartphone className="size-4" />

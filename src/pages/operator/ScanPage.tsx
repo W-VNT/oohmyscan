@@ -56,7 +56,7 @@ export function ScanPage() {
         // Mode install : on veut créer un nouveau point
         if (!existingPanel) {
           // QR nouveau → OK, aller vers register
-          navigate(`/register/${scannedId}`, { replace: true })
+          navigate(`/app/register/${scannedId}`, { replace: true })
           return
         }
 
@@ -72,7 +72,7 @@ export function ScanPage() {
             message: 'Ce point est déjà installé et a une campagne en cours. Vous ne pouvez pas le réinstaller.',
             actions: [
               { label: 'Rescanner', icon: RotateCcw, onClick: resetScan },
-              { label: 'Voir la fiche', icon: Eye, onClick: () => navigate(`/panels/${existingPanel.id}`), primary: true },
+              { label: 'Voir la fiche', icon: Eye, onClick: () => navigate(`/app/panels/${existingPanel.id}`), primary: true },
             ],
           })
         } else {
@@ -82,7 +82,7 @@ export function ScanPage() {
             message: 'Ce point existe déjà dans le système.',
             actions: [
               { label: 'Rescanner', icon: RotateCcw, onClick: resetScan },
-              { label: 'Voir la fiche', icon: Eye, onClick: () => navigate(`/panels/${existingPanel.id}`), primary: true },
+              { label: 'Voir la fiche', icon: Eye, onClick: () => navigate(`/app/panels/${existingPanel.id}`), primary: true },
             ],
           })
         }
@@ -96,7 +96,7 @@ export function ScanPage() {
             message: 'Ce point n\'est pas encore dans le système. Voulez-vous l\'installer d\'abord ?',
             actions: [
               { label: 'Rescanner', icon: RotateCcw, onClick: resetScan },
-              { label: 'Installer ce point', icon: Plus, onClick: () => navigate(`/register/${scannedId}`), primary: true },
+              { label: 'Installer ce point', icon: Plus, onClick: () => navigate(`/app/register/${scannedId}`), primary: true },
             ],
           })
           return
@@ -114,12 +114,12 @@ export function ScanPage() {
             message: 'Ce point a déjà une campagne active. Vous ne pouvez pas en assigner une nouvelle.',
             actions: [
               { label: 'Rescanner', icon: RotateCcw, onClick: resetScan },
-              { label: 'Voir la fiche', icon: Eye, onClick: () => navigate(`/panels/${existingPanel.id}`), primary: true },
+              { label: 'Voir la fiche', icon: Eye, onClick: () => navigate(`/app/panels/${existingPanel.id}`), primary: true },
             ],
           })
         } else {
           // OK → assigner campagne
-          navigate(`/assign/${existingPanel.id}`, { replace: true })
+          navigate(`/app/assign/${existingPanel.id}`, { replace: true })
         }
       }
     }

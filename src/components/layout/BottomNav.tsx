@@ -6,13 +6,13 @@ import { useAuth } from '@/hooks/useAuth'
 import { ScanMissionSheet } from '@/components/shared/ScanMissionSheet'
 
 const leftItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/map', icon: MapPin, label: 'Carte' },
+  { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/app/map', icon: MapPin, label: 'Carte' },
 ]
 
 const rightItems = [
-  { to: '/panels', icon: PanelTop, label: 'Panneaux' },
-  { to: '/profile', icon: User, label: 'Profil' },
+  { to: '/app/panels', icon: PanelTop, label: 'Panneaux' },
+  { to: '/app/profile', icon: User, label: 'Profil' },
 ]
 
 function NavItem({ to, icon: Icon, label }: { to: string; icon: typeof LayoutDashboard; label: string }) {

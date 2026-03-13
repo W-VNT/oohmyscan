@@ -33,7 +33,7 @@ export function AssignCampaignPage() {
         <div className="text-center">
           <p className="text-lg font-medium">Panneau non trouvé</p>
           <button
-            onClick={() => navigate('/scan')}
+            onClick={() => navigate('/app/scan')}
             className="mt-4 text-sm text-primary underline"
           >
             Retour au scanner
@@ -77,7 +77,7 @@ export function AssignCampaignPage() {
         .eq('id', panelId)
 
       toast('Campagne assignée avec succès')
-      navigate(`/panels/${panelId}`, { replace: true })
+      navigate(`/app/panels/${panelId}`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de l\'assignation')
     } finally {

@@ -194,13 +194,13 @@ export function OperatorDashboardPage() {
 
       {/* 2 — Action buttons (terrain-first) */}
       <div className="grid grid-cols-2 gap-2">
-        <Link to="/scan?mode=install" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
+        <Link to="/app/scan?mode=install" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
           <div className="flex size-10 items-center justify-center rounded-full bg-blue-500/10">
             <Plus className="size-5 text-blue-500" strokeWidth={1.5} />
           </div>
           <span className="text-[13px] font-medium">Installer</span>
         </Link>
-        <Link to="/scan?mode=campaign" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
+        <Link to="/app/scan?mode=campaign" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
           <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500/10">
             <Megaphone className="size-5 text-emerald-500" strokeWidth={1.5} />
           </div>
@@ -262,7 +262,7 @@ export function OperatorDashboardPage() {
 
                   {!isDone && (
                     <Link
-                      to="/scan?mode=campaign"
+                      to="/app/scan?mode=campaign"
                       className={cn(
                         buttonVariants({ size: 'sm' }),
                         'w-full gap-1.5'
@@ -281,7 +281,7 @@ export function OperatorDashboardPage() {
 
       {/* 4 — Last point (contexte terrain) */}
       {lastPanel && (
-        <Link to={`/panels/${lastPanel.id}`} className="block">
+        <Link to={`/app/panels/${lastPanel.id}`} className="block">
           <Card size="sm">
             <CardContent>
               <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
@@ -348,7 +348,7 @@ export function OperatorDashboardPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-[13px] font-medium">Activité récente</h2>
           {activities.length > 5 && (
-            <Link to="/panels" className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground">
+            <Link to="/app/panels" className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground">
               Tout voir <ChevronRight className="size-3" />
             </Link>
           )}
@@ -358,7 +358,7 @@ export function OperatorDashboardPage() {
           <div className="flex flex-col items-center py-12 text-muted-foreground">
             <PanelTop className="size-8" strokeWidth={1} />
             <p className="mt-3 text-sm">Aucune activité</p>
-            <Link to="/scan" className="mt-1 text-sm font-medium text-primary hover:underline">
+            <Link to="/app/scan" className="mt-1 text-sm font-medium text-primary hover:underline">
               Commencer à scanner
             </Link>
           </div>
@@ -367,7 +367,7 @@ export function OperatorDashboardPage() {
             {activities.slice(0, 5).map((item) => (
               <Link
                 key={item.id}
-                to={`/panels/${item.panelId}`}
+                to={`/app/panels/${item.panelId}`}
                 className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
               >
                 <div className={cn(

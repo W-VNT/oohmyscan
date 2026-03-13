@@ -67,22 +67,23 @@ export default function App() {
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
               {/* Public */}
-              <Route path="/landing" element={<LandingPage />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/landing" element={<Navigate to="/" replace />} />
               <Route path="/login" element={<LoginPage />} />
 
               {/* Operator routes (mobile-first) — admin can also access */}
               <Route element={<ProtectedRoute role="operator" />}>
                 <Route element={<AppLayout />}>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<OperatorDashboardPage />} />
-                  <Route path="/scan" element={<ScanPage />} />
-                  <Route path="/panels" element={<OperatorPanelsPage />} />
-                  <Route path="/panels/:id" element={<OperatorPanelDetailPage />} />
-                  <Route path="/map" element={<OperatorMapPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/my-campaigns" element={<MyCampaignsPage />} />
-                  <Route path="/register/:panelId" element={<RegisterPanelPage />} />
-                  <Route path="/assign/:panelId" element={<AssignCampaignPage />} />
+                  <Route path="/app" element={<Navigate to="/app/dashboard" replace />} />
+                  <Route path="/app/dashboard" element={<OperatorDashboardPage />} />
+                  <Route path="/app/scan" element={<ScanPage />} />
+                  <Route path="/app/panels" element={<OperatorPanelsPage />} />
+                  <Route path="/app/panels/:id" element={<OperatorPanelDetailPage />} />
+                  <Route path="/app/map" element={<OperatorMapPage />} />
+                  <Route path="/app/profile" element={<ProfilePage />} />
+                  <Route path="/app/my-campaigns" element={<MyCampaignsPage />} />
+                  <Route path="/app/register/:panelId" element={<RegisterPanelPage />} />
+                  <Route path="/app/assign/:panelId" element={<AssignCampaignPage />} />
                 </Route>
               </Route>
 
