@@ -186,6 +186,9 @@ export function ProcessModal({ step, onClose }: ProcessModalProps) {
           />
 
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Étape ${step.num} — ${step.title}`}
             data-lenis-prevent
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -195,6 +198,7 @@ export function ProcessModal({ step, onClose }: ProcessModalProps) {
           >
             <button
               onClick={onClose}
+              aria-label="Fermer"
               className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.1] text-white/50 transition-colors hover:bg-white/5 hover:text-white"
             >
               <X className="h-4 w-4" />

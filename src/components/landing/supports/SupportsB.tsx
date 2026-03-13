@@ -50,6 +50,9 @@ export function SupportsB() {
           {SUPPORTS.map((support, i) => (
             <motion.div
               key={support.id}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(support) } }}
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.1 + i * 0.06 }}

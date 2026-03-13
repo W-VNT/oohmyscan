@@ -33,7 +33,7 @@ export function TrustSection() {
         <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-[#0A0A0A] to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-[#0A0A0A] to-transparent" />
 
-        <div className="flex animate-[marquee_25s_linear_infinite]">
+        <div className="flex animate-[marquee_25s_linear_infinite] motion-reduce:[animation-play-state:paused]">
           {[...CLIENTS, ...CLIENTS, ...CLIENTS, ...CLIENTS].map((name, i) => (
             <span
               key={i}

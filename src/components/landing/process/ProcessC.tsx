@@ -24,7 +24,6 @@ export interface ProcessStep {
   icon: LucideIcon
   tools: ProcessTool[]
   deliverable: string
-  previews?: { src: string; alt: string; label: string }[]
 }
 
 const STEPS: ProcessStep[] = [
@@ -53,9 +52,6 @@ const STEPS: ProcessStep[] = [
       { icon: FileText, name: 'Devis sur-mesure', desc: 'Proposition chiffrée détaillée avec options, envoyée sous 24h.' },
     ],
     deliverable: 'Devis détaillé + plan média avec supports recommandés et couverture estimée.',
-    previews: [
-      { src: '/images/previews/admin-devis.png', alt: 'OOHMYADMIN — Devis', label: 'OOHMYADMIN' },
-    ],
   },
   {
     num: '03',
@@ -69,10 +65,6 @@ const STEPS: ProcessStep[] = [
       { icon: CheckCircle2, name: 'Suivi temps réel', desc: 'Dashboard de suivi pour monitorer l\'avancement du déploiement.' },
     ],
     deliverable: 'Supports déployés avec photos de validation en temps réel.',
-    previews: [
-      { src: '/images/previews/scan-mobile.png', alt: 'OOHMYSCAN — Scan terrain', label: 'OOHMYSCAN' },
-      { src: '/images/previews/admin-dashboard.png', alt: 'OOHMYADMIN — Suivi', label: 'OOHMYADMIN' },
-    ],
   },
   {
     num: '04',
@@ -86,9 +78,6 @@ const STEPS: ProcessStep[] = [
       { icon: Lightbulb, name: 'Recommandations', desc: 'Analyse post-campagne avec suggestions d\'optimisation pour la suite.' },
     ],
     deliverable: 'Rapport PDF complet avec preuves, stats et recommandations.',
-    previews: [
-      { src: '/images/previews/admin-rapport.png', alt: 'OOHMYADMIN — Rapport', label: 'OOHMYADMIN' },
-    ],
   },
 ]
 
@@ -164,6 +153,9 @@ export function ProcessC() {
 
                   {/* Card */}
                   <div
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStep(step) } }}
                     onClick={() => setSelectedStep(step)}
                     className={`w-full cursor-pointer rounded-2xl border p-6 transition-all duration-700 hover:border-[#F5C400]/20 ${
                       isActive
@@ -239,6 +231,9 @@ export function ProcessC() {
 
                   {/* Card */}
                   <div
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStep(step) } }}
                     onClick={() => setSelectedStep(step)}
                     className={`cursor-pointer rounded-xl border p-5 transition-all duration-700 hover:border-[#F5C400]/20 ${
                       isActive

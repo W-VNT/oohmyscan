@@ -11,7 +11,6 @@ export function ContactSection() {
 
   const [form, setForm] = useState({
     name: '',
-    company: '',
     email: '',
     city: '',
     support_interest: '',

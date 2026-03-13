@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase'
 
 interface ContactFormData {
   name: string
-  company: string
   email: string
   city: string
   support_interest: string
@@ -27,8 +26,6 @@ export function useContactForm() {
       return 'Adresse email invalide.'
     if (data.email.trim().length > 320)
       return 'Email trop long.'
-    if (data.company.trim().length > 200)
-      return 'Nom de société trop long (200 max).'
     if (data.city.trim().length > 200)
       return 'Ville trop longue (200 max).'
     if (!data.message.trim() || data.message.trim().length > 5000)
@@ -58,7 +55,6 @@ export function useContactForm() {
 
     const { error: err } = await supabase.from('contact_requests').insert({
       name: data.name.trim(),
-      company: data.company.trim() || null,
       email: data.email.trim(),
       city: data.city.trim() || null,
       support_interest: data.support_interest || null,
