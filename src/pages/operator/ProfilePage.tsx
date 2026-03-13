@@ -307,7 +307,7 @@ export function ProfilePage() {
             </CardContent>
           </Card>
         </button>
-        <button onClick={() => navigate('/app/my-campaigns')} className="text-left">
+        <button onClick={() => navigate('/app/panels?tab=campaigns')} className="text-left">
           <Card size="sm">
             <CardContent className="flex items-center gap-2.5">
               <div className="flex size-8 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-500">

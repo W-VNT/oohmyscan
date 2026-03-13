@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { useAppStore } from '@/store/app.store'
@@ -37,14 +37,25 @@ export function useAuth() {
   }, [])
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-    setProfile(data)
-    setLoading(false)
+      if (error) {
+        console.error('[AUTH] Profile fetch error:', error.message)
+        setProfile(null)
+      } else {
+        setProfile(data)
+      }
+    } catch (err) {
+      console.error('[AUTH] Profile fetch failed:', err)
+      setProfile(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function signIn(email: string, password: string) {
@@ -59,15 +70,19 @@ export function useAuth() {
   }
 
   // Inactivity timeout — reset on user interaction
-  const resetTimer = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      if (session) signOut()
-    }, INACTIVITY_TIMEOUT)
-  }, [session])
+  const sessionRef = useRef(session)
+  sessionRef.current = session
 
   useEffect(() => {
     if (!session) return
+
+    const resetTimer = () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => {
+        if (sessionRef.current) signOut()
+      }, INACTIVITY_TIMEOUT)
+    }
+
     const events = ['pointerdown', 'keydown', 'scroll', 'touchstart'] as const
     events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }))
     resetTimer()
@@ -75,7 +90,7 @@ export function useAuth() {
       events.forEach((e) => window.removeEventListener(e, resetTimer))
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [session, resetTimer])
+  }, [session])
 
   return {
     session,

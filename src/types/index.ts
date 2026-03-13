@@ -14,3 +14,6 @@ export type Panel = Tables<'panels'>
 export type PanelPhoto = Tables<'panel_photos'>
 export type Campaign = Tables<'campaigns'>
 export type PanelCampaign = Tables<'panel_campaigns'>
+export type Location = Tables<'locations'>
+export type PanelContract = Tables<'panel_contracts'>
+export type ContractAmendment = Tables<'contract_amendments'>

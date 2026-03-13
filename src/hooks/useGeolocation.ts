@@ -43,9 +43,9 @@ export function useGeolocation() {
         setState((s) => ({ ...s, loading: false, error: message }))
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000,
+        enableHighAccuracy: false,
+        timeout: 8000,
+        maximumAge: 120000,
       }
     )
   }, [])

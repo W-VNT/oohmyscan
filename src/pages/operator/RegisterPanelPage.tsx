@@ -79,12 +79,14 @@ export function RegisterPanelPage() {
     if (!lat || !lng || nearbyFetchedRef.current || selectedPlace) return
     nearbyFetchedRef.current = true
     setSearching(true)
-    nearbyPlaces(lng, lat).then((results) => {
-      if (results.length && !selectedPlace && !placeQuery.trim()) {
-        setSuggestions(results)
-      }
-      setSearching(false)
-    })
+    nearbyPlaces(lng, lat)
+      .then((results) => {
+        if (results.length && !selectedPlace && !placeQuery.trim()) {
+          setSuggestions(results)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setSearching(false))
   }, [lat, lng, selectedPlace, placeQuery])
 
   // Cleanup debounce on unmount
@@ -108,9 +110,14 @@ export function RegisterPanelPage() {
 
       debounceRef.current = setTimeout(async () => {
         setSearching(true)
-        const results = await searchPlaces(value, lng, lat)
-        setSuggestions(results)
-        setSearching(false)
+        try {
+          const results = await searchPlaces(value, lng, lat)
+          setSuggestions(results)
+        } catch {
+          setSuggestions([])
+        } finally {
+          setSearching(false)
+        }
       }, 300)
     },
     [lat, lng],
@@ -126,7 +133,9 @@ export function RegisterPanelPage() {
   }
 
   function canGoStep2() {
-    return (selectedPlace || manualName.trim()) && lat && lng
+    // GPS or selected place with its own coordinates are sufficient
+    const hasCoords = (lat && lng) || (selectedPlace?.lat && selectedPlace?.lng)
+    return (selectedPlace || manualName.trim()) && hasCoords
   }
 
   function canGoStep3() {
@@ -134,8 +143,10 @@ export function RegisterPanelPage() {
   }
 
   async function handleSubmit() {
-    if (!lat || !lng) {
-      setError('Position GPS requise')
+    const finalLat = selectedPlace?.lat ?? lat
+    const finalLng = selectedPlace?.lng ?? lng
+    if (!finalLat || !finalLng) {
+      setError('Position requise — activez le GPS ou sélectionnez un lieu')
       return
     }
     if (!photoPath) {
@@ -157,12 +168,12 @@ export function RegisterPanelPage() {
         address: manualAddress || null,
         city: manualCity || null,
         contact_phone: contactPhone || null,
-        lat: selectedPlace?.lat ?? lat,
-        lng: selectedPlace?.lng ?? lng,
+        lat: finalLat,
+        lng: finalLng,
         format: format || null,
         type: type || null,
         notes: notes || null,
-        status: 'active',
+        status: 'vacant',
         installed_at: new Date().toISOString(),
         installed_by: session?.user?.id,
         last_checked_at: new Date().toISOString(),
@@ -176,7 +187,7 @@ export function RegisterPanelPage() {
       })
 
       toast('Panneau enregistré avec succès')
-      navigate('/app/dashboard', { replace: true })
+      navigate(`/app/contract/${panel.id}`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement")
     } finally {
@@ -230,7 +241,7 @@ export function RegisterPanelPage() {
               <CheckCircle className="size-3" />
               Position acquise
               {accuracy && (
-                <span className="text-[11px] text-muted-foreground">
+                <span className={`text-[11px] ${accuracy <= 20 ? 'text-green-500' : accuracy <= 50 ? 'text-orange-500' : 'text-red-500'}`}>
                   (±{Math.round(accuracy)}m)
                 </span>
               )}
@@ -244,6 +255,9 @@ export function RegisterPanelPage() {
               >
                 Réessayer
               </button>
+              <span className="mt-1 block text-[11px] text-muted-foreground">
+                Vous pouvez continuer en sélectionnant un lieu via la recherche
+              </span>
             </span>
           )}
         </div>
@@ -276,6 +290,19 @@ export function RegisterPanelPage() {
               </div>
 
               {/* Suggestions dropdown */}
+              {searching && suggestions.length === 0 && placeQuery.trim() && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-background p-2 shadow-lg">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-start gap-3 px-3 py-2.5">
+                      <div className="mt-0.5 size-4 shrink-0 animate-pulse rounded bg-muted" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3.5 w-3/4 animate-pulse rounded bg-muted" />
+                        <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {suggestions.length > 0 && (
                 <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg">
                   {suggestions.map((place) => (
@@ -539,7 +566,7 @@ export function RegisterPanelPage() {
 
             <button
               onClick={handleSubmit}
-              disabled={submitting || !photoPath || !lat || !lng}
+              disabled={submitting || !photoPath || !(lat || selectedPlace?.lat)}
               className="flex h-12 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-40"
             >
               {submitting ? (

@@ -21,7 +21,7 @@ function NavItem({ to, icon: Icon, label }: { to: string; icon: typeof LayoutDas
       to={to}
       className={({ isActive }) =>
         cn(
-          'flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[44px] py-2 text-[10px] font-medium tracking-wide transition-colors',
+          'flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[52px] py-2.5 text-[10px] font-medium tracking-wide transition-colors',
           isActive ? 'text-foreground' : 'text-muted-foreground/70'
         )
       }

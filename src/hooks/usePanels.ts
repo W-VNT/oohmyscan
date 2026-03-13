@@ -4,16 +4,19 @@ import type { Panel, InsertTables, UpdateTables } from '@/types'
 
 const PAGE_SIZE = 30
 
+// Lightweight fields for lists — detail page uses usePanel('*') separately
+const LIST_FIELDS = 'id, name, reference, status, city, address, lat, lng, format, qr_code, created_at, zone_label, location_id'
+
 export function usePanels() {
   return useQuery({
     queryKey: ['panels'],
     queryFn: async (): Promise<Panel[]> => {
       const { data, error } = await supabase
         .from('panels')
-        .select('*')
+        .select(LIST_FIELDS)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data
+      return data as Panel[]
     },
   })
 }
@@ -24,7 +27,7 @@ export function useInfinitePanels(search: string) {
     queryFn: async ({ pageParam = 0 }): Promise<Panel[]> => {
       let query = supabase
         .from('panels')
-        .select('*')
+        .select(LIST_FIELDS)
         .order('created_at', { ascending: false })
         .range(pageParam, pageParam + PAGE_SIZE - 1)
 

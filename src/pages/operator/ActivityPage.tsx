@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { Loader2, Camera, Megaphone, PanelTop, ScanLine } from 'lucide-react'
+import { Loader2, Camera, Megaphone, PanelTop, ScanLine, ArrowLeft } from 'lucide-react'
 import { PHOTO_TYPE_LABELS } from '@/lib/constants'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export function ActivityPage() {
+  const navigate = useNavigate()
   const { session } = useAuth()
 
   const { data: recentPhotos, isLoading: photosLoading } = useQuery({
@@ -53,6 +54,7 @@ export function ActivityPage() {
   // Merge and sort all activity
   type ActivityItem = {
     id: string
+    panelId: string
     type: 'photo' | 'assignment'
     date: string
     panelRef: string
@@ -65,6 +67,7 @@ export function ActivityPage() {
       const panel = (p as Record<string, unknown>).panels as { reference: string; name?: string; status: string } | null
       return {
         id: p.id,
+        panelId: p.panel_id,
         type: 'photo' as const,
         date: p.taken_at,
         panelRef: panel?.name || panel?.reference || '—',
@@ -77,6 +80,7 @@ export function ActivityPage() {
       const campaign = (a as Record<string, unknown>).campaigns as { name: string; client: string } | null
       return {
         id: a.id,
+        panelId: a.panel_id,
         type: 'assignment' as const,
         date: a.assigned_at,
         panelRef: panel?.name || panel?.reference || '—',
@@ -86,8 +90,16 @@ export function ActivityPage() {
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
-    <div className="p-4 space-y-4">
-      <h1 className="text-xl font-bold">Mon activité</h1>
+    <div className="min-h-screen bg-background pb-20">
+      {/* Header */}
+      <div className="sticky top-[env(safe-area-inset-top)] z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
+        <button onClick={() => navigate(-1)} aria-label="Retour">
+          <ArrowLeft className="size-5" />
+        </button>
+        <h1 className="text-lg font-semibold">Mon activité</h1>
+      </div>
+
+      <div className="space-y-4 p-4">
 
       {activities.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -104,9 +116,10 @@ export function ActivityPage() {
       ) : (
         <div className="space-y-2">
           {activities.map((item) => (
-            <div
+            <Link
               key={item.id}
-              className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
+              to={`/app/panels/${item.panelId}`}
+              className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors active:bg-muted/50"
             >
               <div className={`flex h-9 w-9 items-center justify-center rounded-full ${
                 item.type === 'photo' ? 'bg-blue-500/10 text-blue-600' : 'bg-green-500/10 text-green-600'
@@ -128,10 +141,11 @@ export function ActivityPage() {
                   month: 'short',
                 })}
               </span>
-            </div>
+            </Link>
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

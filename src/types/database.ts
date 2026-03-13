@@ -48,6 +48,8 @@ export interface Database {
           notes: string | null
           installed_at: string | null
           installed_by: string | null
+          location_id: string | null
+          zone_label: string | null
           last_checked_at: string | null
           created_at: string
           updated_at: string
@@ -66,6 +68,8 @@ export interface Database {
           type?: string | null
           status?: 'active' | 'vacant' | 'missing' | 'maintenance'
           notes?: string | null
+          location_id?: string | null
+          zone_label?: string | null
           installed_at?: string | null
           installed_by?: string | null
           last_checked_at?: string | null
@@ -86,6 +90,8 @@ export interface Database {
           type?: string | null
           status?: 'active' | 'vacant' | 'missing' | 'maintenance'
           notes?: string | null
+          location_id?: string | null
+          zone_label?: string | null
           installed_at?: string | null
           installed_by?: string | null
           last_checked_at?: string | null
@@ -718,9 +724,207 @@ export interface Database {
         }
         Relationships: []
       }
+      locations: {
+        Row: {
+          id: string
+          name: string
+          address: string
+          postal_code: string
+          city: string
+          phone: string | null
+          owner_last_name: string
+          owner_first_name: string
+          owner_role: string
+          owner_email: string | null
+          closing_months: string | null
+          has_contract: boolean
+          contract_signed_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          address: string
+          postal_code: string
+          city: string
+          phone?: string | null
+          owner_last_name: string
+          owner_first_name: string
+          owner_role?: string
+          owner_email?: string | null
+          closing_months?: string | null
+          has_contract?: boolean
+          contract_signed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          address?: string
+          postal_code?: string
+          city?: string
+          phone?: string | null
+          owner_last_name?: string
+          owner_first_name?: string
+          owner_role?: string
+          owner_email?: string | null
+          closing_months?: string | null
+          has_contract?: boolean
+          contract_signed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      panel_contracts: {
+        Row: {
+          id: string
+          location_id: string
+          contract_number: string
+          establishment_name: string
+          establishment_address: string
+          establishment_postal_code: string
+          establishment_city: string
+          establishment_phone: string | null
+          owner_last_name: string
+          owner_first_name: string
+          owner_role: string
+          owner_email: string | null
+          closing_months: string | null
+          panels_snapshot: unknown
+          signature_owner: string
+          signature_operator: string
+          signed_at: string
+          signed_city: string | null
+          storage_path: string | null
+          status: 'signed' | 'amended' | 'terminated'
+          next_amendment_number: number
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          contract_number: string
+          establishment_name: string
+          establishment_address: string
+          establishment_postal_code: string
+          establishment_city: string
+          establishment_phone?: string | null
+          owner_last_name: string
+          owner_first_name: string
+          owner_role: string
+          owner_email?: string | null
+          closing_months?: string | null
+          panels_snapshot?: unknown
+          signature_owner: string
+          signature_operator: string
+          signed_at: string
+          signed_city?: string | null
+          storage_path?: string | null
+          status?: 'signed' | 'amended' | 'terminated'
+          next_amendment_number?: number
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          contract_number?: string
+          establishment_name?: string
+          establishment_address?: string
+          establishment_postal_code?: string
+          establishment_city?: string
+          establishment_phone?: string | null
+          owner_last_name?: string
+          owner_first_name?: string
+          owner_role?: string
+          owner_email?: string | null
+          closing_months?: string | null
+          panels_snapshot?: unknown
+          signature_owner?: string
+          signature_operator?: string
+          signed_at?: string
+          signed_city?: string | null
+          storage_path?: string | null
+          status?: 'signed' | 'amended' | 'terminated'
+          next_amendment_number?: number
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      contract_amendments: {
+        Row: {
+          id: string
+          contract_id: string
+          location_id: string
+          amendment_number: string
+          reason: 'panel_added' | 'panel_removed' | 'terms_updated'
+          panels_added: unknown
+          panels_removed: unknown
+          panels_snapshot: unknown
+          signature_owner: string
+          signature_operator: string
+          signed_at: string
+          signed_city: string | null
+          storage_path: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          contract_id: string
+          location_id: string
+          amendment_number: string
+          reason: 'panel_added' | 'panel_removed' | 'terms_updated'
+          panels_added?: unknown
+          panels_removed?: unknown
+          panels_snapshot?: unknown
+          signature_owner: string
+          signature_operator: string
+          signed_at: string
+          signed_city?: string | null
+          storage_path?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          contract_id?: string
+          location_id?: string
+          amendment_number?: string
+          reason?: 'panel_added' | 'panel_removed' | 'terms_updated'
+          panels_added?: unknown
+          panels_removed?: unknown
+          panels_snapshot?: unknown
+          signature_owner?: string
+          signature_operator?: string
+          signed_at?: string
+          signed_city?: string | null
+          storage_path?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      panels_without_location: {
+        Row: {
+          id: string
+          qr_code: string
+          reference: string
+          name: string | null
+          location_id: null
+          [key: string]: unknown
+        }
+      }
     }
     Functions: {
       get_next_quote_number: {
@@ -733,6 +937,10 @@ export interface Database {
       }
       get_next_potential_number: {
         Args: Record<string, never>
+        Returns: string
+      }
+      get_next_amendment_number: {
+        Args: { p_contract_id: string }
         Returns: string
       }
     }

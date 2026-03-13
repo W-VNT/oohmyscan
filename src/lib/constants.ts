@@ -77,6 +77,44 @@ export const PHOTO_TYPE_LABELS: Record<PhotoType, string> = {
   damage: 'Dégât',
 }
 
+export const PANEL_ZONES = [
+  { value: 'entrance',    label: 'Entrée principale' },
+  { value: 'hall',         label: 'Hall / Accueil' },
+  { value: 'waiting',     label: 'Salle d\'attente' },
+  { value: 'hallway',     label: 'Couloir / Passage' },
+  { value: 'restrooms',   label: 'Sanitaires / WC' },
+  { value: 'locker_room', label: 'Vestiaires' },
+  { value: 'parking',     label: 'Parking' },
+  { value: 'terrace',     label: 'Terrasse / Extérieur' },
+  { value: 'dining',      label: 'Salle de restauration' },
+  { value: 'bar',         label: 'Bar / Comptoir' },
+  { value: 'leisure',     label: 'Espace détente / Loisirs' },
+  { value: 'shop',        label: 'Commerce / Boutique' },
+  { value: 'office',      label: 'Bureau / Open space' },
+  { value: 'meeting',     label: 'Salle de réunion' },
+  { value: 'kitchen',     label: 'Cuisine / Office' },
+  { value: 'technical',   label: 'Local technique' },
+  { value: 'elevator',    label: 'Ascenseur / Escalier' },
+  { value: 'pool',        label: 'Piscine' },
+  { value: 'other',       label: 'Autre' },
+] as const
+
+export type PanelZone = (typeof PANEL_ZONES)[number]['value']
+
+export const PANEL_PROBLEMS = [
+  { value: 'damaged',    label: 'Endommagé',       icon: 'Zap',       status: 'maintenance' as PanelStatus },
+  { value: 'missing',    label: 'Manquant',         icon: 'CircleOff', status: 'missing' as PanelStatus },
+  { value: 'detached',   label: 'Décollé',          icon: 'Unlink',    status: 'maintenance' as PanelStatus },
+  { value: 'dirty',      label: 'Sale / Illisible', icon: 'Droplets',  status: 'maintenance' as PanelStatus },
+  { value: 'obstructed', label: 'Obstrué',          icon: 'EyeOff',    status: 'maintenance' as PanelStatus },
+] as const
+
+export const CONTRACT_STATUSES = ['signed', 'amended', 'terminated'] as const
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number]
+
+export const AMENDMENT_REASONS = ['panel_added', 'panel_removed', 'terms_updated'] as const
+export type AmendmentReason = (typeof AMENDMENT_REASONS)[number]
+
 export const POTENTIAL_STATUSES = ['draft', 'sent'] as const
 export type PotentialStatus = (typeof POTENTIAL_STATUSES)[number]
 

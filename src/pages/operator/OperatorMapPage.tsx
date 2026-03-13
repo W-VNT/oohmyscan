@@ -47,6 +47,16 @@ function getPanelColor(panel: Panel, campaignIds: Set<string>): string {
 export function OperatorMapPage() {
   const { data: panels, isLoading } = usePanels()
   const mapRef = useRef<MapRef>(null)
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
+
+  // Watch for theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
   const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null)
   const [viewState, setViewState] = useState({
     longitude: 2.3522,
@@ -82,7 +92,7 @@ export function OperatorMapPage() {
         setLocating(false)
       },
       () => setLocating(false),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 },
     )
   }, [])
 
@@ -204,7 +214,7 @@ export function OperatorMapPage() {
         {...viewState}
         onMove={(evt: { viewState: typeof viewState }) => setViewState(evt.viewState)}
         mapboxAccessToken={MAPBOX_TOKEN}
-        mapStyle="mapbox://styles/mapbox/dark-v11"
+        mapStyle={isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11'}
         style={{ width: '100%', height: '100%' }}
         onClick={handleMapClick}
         interactiveLayerIds={['clusters', 'unclustered-point']}
@@ -325,15 +335,15 @@ export function OperatorMapPage() {
 
               <div className="flex gap-1.5">
                 <Link
-                  to={`/panels/${selectedPanel.id}`}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-md border border-border py-1.5 text-[11px] font-medium transition-colors hover:bg-muted"
+                  to={`/app/panels/${selectedPanel.id}`}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md border border-border py-2.5 text-[12px] font-medium transition-colors hover:bg-muted"
                 >
                   <Eye className="size-3" />
                   Voir
                 </Link>
                 <button
                   onClick={() => openDirections(selectedPanel.lat, selectedPanel.lng)}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-md bg-foreground py-1.5 text-[11px] font-medium text-background transition-colors hover:bg-foreground/90"
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md bg-foreground py-2.5 text-[12px] font-medium text-background transition-colors hover:bg-foreground/90"
                 >
                   <Navigation className="size-3" />
                   Itinéraire

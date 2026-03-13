@@ -28,6 +28,10 @@ const OperatorMapPage = lazy(() => import('@/pages/operator/OperatorMapPage').th
 const OperatorPanelDetailPage = lazy(() => import('@/pages/operator/OperatorPanelDetailPage').then((m) => ({ default: m.OperatorPanelDetailPage })))
 const ProfilePage = lazy(() => import('@/pages/operator/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const MyCampaignsPage = lazy(() => import('@/pages/operator/MyCampaignsPage').then((m) => ({ default: m.MyCampaignsPage })))
+const ContractPage = lazy(() => import('@/pages/operator/ContractPage').then((m) => ({ default: m.ContractPage })))
+const OperatorLocationPage = lazy(() => import('@/pages/operator/OperatorLocationPage').then((m) => ({ default: m.OperatorLocationPage })))
+const ActivityPage = lazy(() => import('@/pages/operator/ActivityPage').then((m) => ({ default: m.ActivityPage })))
+const OperatorCampaignDetailPage = lazy(() => import('@/pages/operator/OperatorCampaignDetailPage').then((m) => ({ default: m.OperatorCampaignDetailPage })))
 
 // Admin pages
 const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
@@ -48,6 +52,8 @@ const PotentialNewPage = lazy(() => import('@/pages/admin/potential/PotentialNew
 const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 const ProofOfPostingPage = lazy(() => import('@/pages/admin/reports/ProofOfPostingPage').then((m) => ({ default: m.ProofOfPostingPage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const LocationsPage = lazy(() => import('@/pages/admin/locations/LocationsPage').then((m) => ({ default: m.LocationsPage })))
+const LocationDetailPage = lazy(() => import('@/pages/admin/locations/LocationDetailPage').then((m) => ({ default: m.LocationDetailPage })))
 
 /**
  * Hostname-based redirect for subdomain routing.
@@ -70,7 +76,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,
-      retry: 1,
+      gcTime: 1000 * 60 * 30,
+      retry: 2,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+      refetchOnMount: false,
+      refetchOnReconnect: true,
     },
   },
 })
@@ -102,6 +112,10 @@ export default function App() {
                   <Route path="/app/my-campaigns" element={<MyCampaignsPage />} />
                   <Route path="/app/register/:panelId" element={<RegisterPanelPage />} />
                   <Route path="/app/assign/:panelId" element={<AssignCampaignPage />} />
+                  <Route path="/app/contract/:panelId" element={<ContractPage />} />
+                  <Route path="/app/locations/:id" element={<OperatorLocationPage />} />
+                  <Route path="/app/activity" element={<ActivityPage />} />
+                  <Route path="/app/campaigns/:id" element={<OperatorCampaignDetailPage />} />
                 </Route>
               </Route>
 
@@ -112,6 +126,8 @@ export default function App() {
                   <Route path="map" element={<MapPage />} />
                   <Route path="panels" element={<PanelsPage />} />
                   <Route path="panels/:id" element={<PanelDetailPage />} />
+                  <Route path="locations" element={<LocationsPage />} />
+                  <Route path="locations/:id" element={<LocationDetailPage />} />
                   <Route path="campaigns" element={<CampaignsPage />} />
                   <Route path="campaigns/:id" element={<CampaignDetailPage />} />
                   <Route path="clients" element={<ClientsPage />} />

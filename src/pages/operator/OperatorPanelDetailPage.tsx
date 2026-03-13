@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { usePanel, useUpdatePanel } from '@/hooks/usePanels'
+import { useLocation as useLocationData, useLocationPanels, useLocationContract } from '@/hooks/useLocations'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/shared/Toast'
-import { PANEL_FORMATS, PANEL_TYPES, PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS } from '@/lib/constants'
+import { PANEL_FORMATS, PANEL_TYPES, PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS, PANEL_ZONES, PANEL_PROBLEMS } from '@/lib/constants'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
 import { searchPlaces, type PlaceSuggestion } from '@/lib/google-places'
 import { isValidUUID } from '@/lib/utils'
@@ -26,9 +27,20 @@ import {
   Calendar,
   Phone,
   AlertTriangle,
+  CircleAlert,
   Trash2,
   ChevronLeft,
   ChevronRight,
+  Landmark,
+  FileText,
+  PanelTop,
+  FileCheck,
+  Download,
+  Zap,
+  CircleOff,
+  Unlink,
+  Droplets,
+  EyeOff,
 } from 'lucide-react'
 
 
@@ -41,7 +53,16 @@ export function OperatorPanelDetailPage() {
   const { data: panel, isLoading } = usePanel(validId)
   const updatePanel = useUpdatePanel()
 
+  // Location data
+  const { data: location } = useLocationData(panel?.location_id ?? undefined)
+  const { data: locationPanels } = useLocationPanels(panel?.location_id ?? undefined)
+  const { data: locationContract } = useLocationContract(panel?.location_id ?? undefined)
+
   const [editing, setEditing] = useState(false)
+  const [showReport, setShowReport] = useState(false)
+  const [reportProblem, setReportProblem] = useState<string | null>(null)
+  const [reportNote, setReportNote] = useState('')
+  const [submittingReport, setSubmittingReport] = useState(false)
   const [form, setForm] = useState({
     name: '',
     address: '',
@@ -316,6 +337,35 @@ export function OperatorPanelDetailPage() {
     }
   }
 
+  async function handleReportSubmit() {
+    if (!id || !reportProblem) return
+    const problem = PANEL_PROBLEMS.find((p) => p.value === reportProblem)
+    if (!problem) return
+
+    setSubmittingReport(true)
+    try {
+      const notePrefix = `[${problem.label}]`
+      const fullNote = reportNote.trim()
+        ? `${notePrefix} ${reportNote.trim()}`
+        : notePrefix
+      const existingNotes = panel?.notes ? `${panel.notes}\n` : ''
+
+      await updatePanel.mutateAsync({
+        id,
+        status: problem.status,
+        notes: existingNotes + fullNote,
+      })
+      toast(`Problème signalé : ${problem.label}`)
+      setShowReport(false)
+      setReportProblem(null)
+      setReportNote('')
+    } catch {
+      toast('Erreur lors du signalement', 'error')
+    } finally {
+      setSubmittingReport(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="bg-background pb-20">
@@ -423,20 +473,47 @@ export function OperatorPanelDetailPage() {
                 </span>
               )}
             </div>
-            {panel.contact_phone && (
-              <a
-                href={`tel:${panel.contact_phone}`}
-                className="inline-flex items-center gap-1 text-[12px] text-primary"
-              >
-                <Phone className="size-3" />
-                {panel.contact_phone}
-              </a>
-            )}
           </div>
         </div>
 
+        {/* Location banner */}
+        {location && (
+          <Link
+            to={`/app/locations/${location.id}`}
+            className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 transition-colors active:bg-muted/60"
+          >
+            <Landmark className="size-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium">{location.name}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {location.city} {location.postal_code}
+                {' · '}
+                {locationPanels?.length ?? 0} panneau{(locationPanels?.length ?? 0) !== 1 ? 'x' : ''}
+                {' · '}
+                {location.has_contract ? (
+                  <span className="text-green-600">Contrat</span>
+                ) : (
+                  <span className="text-orange-500">Pas de contrat</span>
+                )}
+              </p>
+            </div>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </Link>
+        )}
+
+        {/* Zone label */}
+        {panel.zone_label && (
+          <div className="flex items-center gap-2 text-[12px]">
+            <PanelTop className="size-3 text-muted-foreground" />
+            <span className="text-muted-foreground">Zone :</span>
+            <span className="font-medium">
+              {panel.zone_label?.startsWith('custom:') ? panel.zone_label.slice(7) : PANEL_ZONES.find((z) => z.value === panel.zone_label)?.label ?? panel.zone_label}
+            </span>
+          </div>
+        )}
+
         {/* Action buttons */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className={`grid gap-2 ${panel.contact_phone ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <button
             onClick={() => photoInputRef.current?.click()}
             disabled={uploadingPhoto}
@@ -458,13 +535,23 @@ export function OperatorPanelDetailPage() {
             className="hidden"
           />
 
-          <Link
-            to={`/scan?mode=campaign`}
+          {panel.contact_phone && (
+            <a
+              href={`tel:${panel.contact_phone}`}
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-border px-2 py-3 transition-colors hover:bg-muted"
+            >
+              <Phone className="size-4 text-emerald-500" />
+              <span className="text-[11px] font-medium">Appeler</span>
+            </a>
+          )}
+
+          <button
+            onClick={() => setShowReport(true)}
             className="flex flex-col items-center gap-1.5 rounded-xl border border-border px-2 py-3 transition-colors hover:bg-muted"
           >
-            <Megaphone className="size-4 text-emerald-500" />
-            <span className="text-[11px] font-medium">Diffuser</span>
-          </Link>
+            <CircleAlert className="size-4 text-orange-500" />
+            <span className="text-[11px] font-medium">Signaler</span>
+          </button>
 
           <button
             onClick={() => {
@@ -755,13 +842,6 @@ export function OperatorPanelDetailPage() {
               </span>
             </div>
           )}
-          <div className="flex items-center gap-2 text-[12px]">
-            <MapPin className="size-3 text-muted-foreground" />
-            <span className="text-muted-foreground">GPS</span>
-            <span className="ml-auto font-medium tabular-nums">
-              {panel.lat.toFixed(5)}, {panel.lng.toFixed(5)}
-            </span>
-          </div>
           {panel.last_checked_at && (
             <div className="flex items-center gap-2 text-[12px]">
               <Camera className="size-3 text-muted-foreground" />
@@ -784,7 +864,152 @@ export function OperatorPanelDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Contract CTA (adaptive) */}
+        {(() => {
+          // No location → show "create contract" which will also create the location
+          if (!panel.location_id) {
+            return (
+              <Link
+                to={`/app/contract/${panel.id}`}
+                className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 py-4 text-[13px] font-medium text-primary transition-colors active:bg-primary/10"
+              >
+                <FileText className="size-4" />
+                Créer le contrat
+              </Link>
+            )
+          }
+
+          // Location exists, no contract
+          if (!locationContract) {
+            return (
+              <Link
+                to={`/app/contract/${panel.id}`}
+                className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 py-4 text-[13px] font-medium text-primary transition-colors active:bg-primary/10"
+              >
+                <FileText className="size-4" />
+                Créer le contrat
+              </Link>
+            )
+          }
+
+          // Contract exists, check if this panel is included
+          const panelsInContract = (locationContract.panels_snapshot as Array<{ panel_id: string }>) ?? []
+          const isIncluded = panelsInContract.some((p) => p.panel_id === panel.id)
+
+          if (isIncluded) {
+            return (
+              <div className="rounded-lg border border-border p-3">
+                <div className="flex items-center gap-3">
+                  <FileCheck className="size-4 shrink-0 text-green-600" />
+                  <div className="flex-1">
+                    <p className="text-[13px] font-medium">Contrat {locationContract.contract_number}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Signé le {new Date(locationContract.signed_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                </div>
+                {locationContract.storage_path && (
+                  <button
+                    onClick={async () => {
+                      const { data } = supabase.storage.from('panel-photos').getPublicUrl(locationContract.storage_path!)
+                      if (data?.publicUrl) {
+                        window.open(data.publicUrl, '_blank')
+                      }
+                    }}
+                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border py-2 text-[12px] font-medium text-primary transition-colors active:bg-muted/50"
+                  >
+                    <Download className="size-3.5" />
+                    Voir le PDF
+                  </button>
+                )}
+              </div>
+            )
+          }
+
+          // Contract exists but panel not included → amendment
+          return (
+            <Link
+              to={`/app/contract/${panel.id}`}
+              className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-blue-500/30 bg-blue-500/5 py-4 text-[13px] font-medium text-blue-600 transition-colors active:bg-blue-500/10"
+            >
+              <FileText className="size-4" />
+              Ajouter à l'avenant
+            </Link>
+          )
+        })()}
       </div>
+
+      {/* Report problem bottom sheet */}
+      {showReport && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => { setShowReport(false); setReportProblem(null); setReportNote('') }}
+          />
+          <div className="relative w-full max-w-lg animate-in slide-in-from-bottom rounded-t-2xl bg-background pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
+            {/* Drag handle */}
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted-foreground/20" />
+
+            <div className="px-4">
+              <p className="text-[15px] font-semibold">Signaler un problème</p>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Sélectionnez le type de problème rencontré
+              </p>
+
+              {/* Problem types */}
+              <div className="mt-4 space-y-2">
+                {PANEL_PROBLEMS.map((problem) => {
+                  const IconMap = { Zap, CircleOff, Unlink, Droplets, EyeOff } as Record<string, typeof Zap>
+                  const Icon = IconMap[problem.icon]
+                  return (
+                    <button
+                      key={problem.value}
+                      type="button"
+                      onClick={() => setReportProblem(problem.value)}
+                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                        reportProblem === problem.value
+                          ? 'border-orange-500 bg-orange-500/10'
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      {Icon && <Icon className={`size-4 ${reportProblem === problem.value ? 'text-orange-500' : 'text-muted-foreground'}`} />}
+                      <span className="text-[13px] font-medium">{problem.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Optional note */}
+              {reportProblem && (
+                <div className="mt-3 space-y-1.5">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Précision (optionnel)
+                  </label>
+                  <textarea
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value.slice(0, 200))}
+                    placeholder="Coin supérieur droit fissuré..."
+                    rows={2}
+                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground"
+                    maxLength={200}
+                  />
+                </div>
+              )}
+
+              {/* Submit */}
+              <button
+                onClick={handleReportSubmit}
+                disabled={!reportProblem || submittingReport}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 text-[14px] font-medium text-white transition-colors hover:bg-orange-600 disabled:opacity-50"
+              >
+                {submittingReport && <Loader2 className="size-4 animate-spin" />}
+                Signaler le problème
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fullscreen photo viewer with swipe */}
       {viewingIndex !== null && (() => {
