@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // Layouts (always loaded)
@@ -49,6 +49,23 @@ const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => (
 const ProofOfPostingPage = lazy(() => import('@/pages/admin/reports/ProofOfPostingPage').then((m) => ({ default: m.ProofOfPostingPage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
+/**
+ * Hostname-based redirect for subdomain routing.
+ * app.oohmyad.com → /app, admin.oohmyad.com → /admin
+ */
+function HostnameRedirect() {
+  const { pathname } = useLocation()
+  const host = window.location.hostname
+
+  if (host.startsWith('app.') && pathname === '/') {
+    return <Navigate to="/app/dashboard" replace />
+  }
+  if (host.startsWith('admin.') && pathname === '/') {
+    return <Navigate to="/admin" replace />
+  }
+  return null
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -64,6 +81,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <ScrollToTop />
+          <HostnameRedirect />
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
               {/* Public */}
