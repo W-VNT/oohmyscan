@@ -117,12 +117,12 @@ export function ContactSection() {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <input type="text" placeholder="Nom / Société" required className={inputCls} value={form.name} onChange={set('name')} />
-                  <input type="email" placeholder="Email" required className={inputCls} value={form.email} onChange={set('email')} />
+                  <input type="text" placeholder="Nom / Société" required maxLength={200} className={inputCls} value={form.name} onChange={set('name')} />
+                  <input type="email" placeholder="Email" required maxLength={320} className={inputCls} value={form.email} onChange={set('email')} />
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <input type="text" placeholder="Ville cible" className={inputCls} value={form.city} onChange={set('city')} />
+                  <input type="text" placeholder="Ville cible" maxLength={200} className={inputCls} value={form.city} onChange={set('city')} />
                   <select className={inputCls} value={form.support_interest} onChange={set('support_interest')}>
                     <option value="">Support visé</option>
                     <option value="all">Tous les supports</option>
@@ -135,6 +135,7 @@ export function ContactSection() {
                 <textarea
                   placeholder="Votre message / budget indicatif"
                   required
+                  maxLength={5000}
                   rows={4}
                   className={inputCls + ' resize-none'}
                   value={form.message}
