@@ -9,7 +9,7 @@ export function HeroC() {
       {/* Mobile background image */}
       <div className="absolute inset-0 md:hidden">
         <img src="/images/supports/hero.png" alt="" className="h-full w-full object-cover" loading="eager" />
-        <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-white/40 dark:from-[#0A0A0A] dark:via-[#0A0A0A]/80 dark:to-[#0A0A0A]/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-white via-white/60 to-transparent dark:from-[#0A0A0A] dark:via-[#0A0A0A]/80 dark:to-[#0A0A0A]/40" />
       </div>
 
       <div className="relative mx-auto grid min-h-screen max-w-[1400px] md:grid-cols-2">
@@ -99,8 +99,8 @@ export function HeroC() {
             className="h-full w-full object-cover"
             loading="eager"
           />
-          <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white dark:from-[#0A0A0A] to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white dark:from-[#0A0A0A] to-transparent" />
+          <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white/80 dark:from-[#0A0A0A] to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white/80 dark:from-[#0A0A0A] to-transparent" />
         </motion.div>
       </div>
     </section>
