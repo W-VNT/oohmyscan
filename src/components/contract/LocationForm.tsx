@@ -105,7 +105,7 @@ export function LocationForm({ onSubmit, initialData, panelCoords, submitLabel =
     if (form.owner_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email)) {
       e.owner_email = 'Email invalide'
     }
-    if (form.phone && !/^[\d\s+()./-]{6,20}$/.test(form.phone.trim())) {
+    if (form.phone && !/^[\d\s+()./-]{6,25}$/.test(form.phone.trim())) {
       e.phone = 'Numéro invalide'
     }
     setErrors(e)
@@ -127,11 +127,14 @@ export function LocationForm({ onSubmit, initialData, panelCoords, submitLabel =
     label: string,
     placeholder: string,
     type = 'text',
+    extra?: { inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']; autoComplete?: string },
   ) => (
     <div className="space-y-1">
       <label className="text-xs font-medium text-muted-foreground">{label}</label>
       <input
         type={type}
+        inputMode={extra?.inputMode}
+        autoComplete={extra?.autoComplete}
         value={form[key]}
         onChange={(e) => update(key, e.target.value)}
         placeholder={placeholder}
@@ -203,7 +206,7 @@ export function LocationForm({ onSubmit, initialData, panelCoords, submitLabel =
             {field('postal_code', 'Code postal', '69001')}
             {field('city', 'Ville', 'Lyon')}
           </div>
-          {field('phone', 'Téléphone', '04 78 00 00 00', 'tel')}
+          {field('phone', 'Téléphone', '04 78 00 00 00', 'tel', { inputMode: 'tel', autoComplete: 'tel' })}
         </div>
       </div>
 
@@ -219,7 +222,7 @@ export function LocationForm({ onSubmit, initialData, panelCoords, submitLabel =
             {field('owner_last_name', 'Nom', 'Dupont')}
           </div>
           {field('owner_role', 'Fonction', 'Gérant')}
-          {field('owner_email', 'Email', 'jean@bar-central.fr', 'email')}
+          {field('owner_email', 'Email', 'jean@bar-central.fr', 'email', { inputMode: 'email', autoComplete: 'email' })}
         </div>
       </div>
 

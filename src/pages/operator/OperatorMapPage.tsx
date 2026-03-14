@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { usePanels } from '@/hooks/usePanels'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { PullToRefresh } from '@/components/shared/PullToRefresh'
 import { Loader2, LocateFixed, Navigation, Eye, Search, X, MapPinOff, CircleCheck, Megaphone, AlertTriangle } from 'lucide-react'
 import type { Panel } from '@/types'
 import Map, { Marker, Popup, Source, Layer } from 'react-map-gl/mapbox'
@@ -45,6 +46,7 @@ function getPanelColor(panel: Panel, campaignIds: Set<string>): string {
 }
 
 export function OperatorMapPage() {
+  const queryClient = useQueryClient()
   const { data: panels, isLoading } = usePanels()
   const mapRef = useRef<MapRef>(null)
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
@@ -80,6 +82,10 @@ export function OperatorMapPage() {
     },
     staleTime: 5 * 60 * 1000,
   })
+
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries()
+  }, [queryClient])
 
   const flyToUser = useCallback(() => {
     if (!navigator.geolocation) return
@@ -208,6 +214,7 @@ export function OperatorMapPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="relative h-[calc(100dvh-4rem-env(safe-area-inset-top))]">
       <Map
         ref={mapRef}
@@ -451,5 +458,6 @@ export function OperatorMapPage() {
         )}
       </button>
     </div>
+    </PullToRefresh>
   )
 }

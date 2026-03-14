@@ -450,6 +450,8 @@ export function UsersPage() {
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="06 12 34 56 78"
                 type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 className="text-sm"
               />
             </div>
@@ -482,6 +484,8 @@ export function UsersPage() {
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="jean@example.com"
                 type="email"
+                inputMode="email"
+                autoComplete="email"
                 className="text-sm"
               />
             </div>

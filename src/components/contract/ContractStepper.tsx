@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, AlertTriangle, RotateCcw } from 'lucide-react'
 import { LocationSearch } from './LocationSearch'
 import { LocationForm, type LocationFormData } from './LocationForm'
 import { ZonePicker } from './ZonePicker'
@@ -57,6 +57,8 @@ export function ContractStepper({ panel }: ContractStepperProps) {
   const [signatureOperator, setSignatureOperator] = useState('')
   const [contractNumber, setContractNumber] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   // Fetch panels for existing location
   const { data: locationPanels } = useLocationPanels(location?.id)
@@ -205,6 +207,7 @@ export function ContractStepper({ panel }: ContractStepperProps) {
 
     setStep('saving')
     setError(null)
+    setSaveError(null)
 
     const now = new Date().toISOString()
     const company = getCompanyForPDF()
@@ -217,7 +220,18 @@ export function ContractStepper({ panel }: ContractStepperProps) {
       }
     }
 
+    // Abort controller for cancellation
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    // Timeout wrapper — rejects after 30 seconds
+    const SAVE_TIMEOUT_MS = 30_000
+    const timeoutId = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS)
+
     try {
+      // Wrap the entire save in a race against the abort signal
+      if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError')
+
       // Upload signatures to storage instead of storing base64 in DB
       const [sigOwnerPath, sigOperatorPath] = await Promise.all([
         uploadSignature(signatureOwner, 'owner'),
@@ -367,11 +381,20 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         queryClient.invalidateQueries({ queryKey: ['locations', location.id] }),
       ])
 
+      clearTimeout(timeoutId)
+      abortRef.current = null
       setStep('success')
       toast(isAmendment ? 'Avenant signé avec succès' : 'Contrat signé avec succès')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement')
-      setStep('sign_operator') // Go back to last step
+      clearTimeout(timeoutId)
+      abortRef.current = null
+
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setSaveError('Délai d\'attente dépassé. Vérifiez votre connexion et réessayez.')
+      } else {
+        setSaveError(err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement')
+      }
+      // Stay on 'saving' step — the UI will show error state with retry/cancel
     }
   }
 
@@ -503,8 +526,38 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         {/* Step: Saving */}
         {step === 'saving' && (
           <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="mt-4 text-sm text-muted-foreground">Enregistrement en cours...</p>
+            {saveError ? (
+              <>
+                <AlertTriangle className="size-8 text-destructive" />
+                <p className="mt-4 text-sm font-medium text-destructive">
+                  Échec de l'enregistrement
+                </p>
+                <p className="mt-1 max-w-xs text-center text-sm text-muted-foreground">
+                  {saveError}
+                </p>
+                <button
+                  onClick={handleSave}
+                  className="mt-6 inline-flex h-10 items-center gap-2 rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  <RotateCcw className="size-4" />
+                  Réessayer
+                </button>
+                <button
+                  onClick={() => {
+                    setSaveError(null)
+                    setStep('sign_operator')
+                  }}
+                  className="mt-3 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  Annuler
+                </button>
+              </>
+            ) : (
+              <>
+                <Loader2 className="size-8 animate-spin text-primary" />
+                <p className="mt-4 text-sm text-muted-foreground">Enregistrement en cours...</p>
+              </>
+            )}
           </div>
         )}
 

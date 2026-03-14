@@ -391,6 +391,8 @@ export function ProfilePage() {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="06 12 34 56 78"
                   type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   className="text-[13px]"
                   maxLength={20}
                 />

@@ -117,7 +117,7 @@ export function ContactSection() {
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <input type="text" placeholder="Nom / Société" required maxLength={200} className={inputCls} value={form.name} onChange={set('name')} />
-                  <input type="email" placeholder="Email" required maxLength={320} className={inputCls} value={form.email} onChange={set('email')} />
+                  <input type="email" inputMode="email" autoComplete="email" placeholder="Email" required maxLength={320} className={inputCls} value={form.email} onChange={set('email')} />
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">

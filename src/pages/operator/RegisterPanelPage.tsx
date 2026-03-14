@@ -414,6 +414,8 @@ export function RegisterPanelPage() {
               </label>
               <input
                 type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
                 placeholder="Ex: 01 23 45 67 89"

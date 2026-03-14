@@ -5,6 +5,7 @@ import { useLocation as useLocationData, useLocationPanels, useLocationContract 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
+import { PullToRefresh } from '@/components/shared/PullToRefresh'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,10 @@ export function OperatorPanelDetailPage() {
   const validId = isValidUUID(id) ? id : undefined
   const { data: panel, isLoading } = usePanel(validId)
   const updatePanel = useUpdatePanel()
+
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries()
+  }, [queryClient])
 
   // Location data
   const { data: location } = useLocationData(panel?.location_id ?? undefined)
@@ -421,6 +426,7 @@ export function OperatorPanelDetailPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={handleRefresh}>
     <div className="bg-background pb-20">
       {/* Header */}
       <div className="sticky top-[env(safe-area-inset-top)] z-10 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
@@ -695,6 +701,8 @@ export function OperatorPanelDetailPage() {
                     onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))}
                     placeholder="01 23 45 67 89"
                     type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
                     className="text-[13px]"
                     maxLength={20}
                   />
@@ -1160,5 +1168,6 @@ export function OperatorPanelDetailPage() {
         )
       })()}
     </div>
+    </PullToRefresh>
   )
 }
