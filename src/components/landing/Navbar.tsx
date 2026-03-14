@@ -28,12 +28,12 @@ export function Navbar() {
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           scrolled
-            ? 'border-b border-[#1A1A1A]/[0.06] dark:border-white/[0.06] bg-white/70 dark:bg-[#0A0A0A]/70 backdrop-blur-2xl'
+            ? 'border-b border-[#1A1A1A]/[0.06] dark:border-white/[0.06] bg-white/90 dark:bg-[#0A0A0A]/70 backdrop-blur-2xl [&_a:first-child]:!text-[#1A1A1A] [&_a:first-child]:dark:!text-white [&_button]:!text-[#1A1A1A]/70 [&_button]:dark:!text-white/70'
             : 'bg-transparent'
         }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <a href="#" className="text-[15px] font-bold uppercase tracking-wide text-[#1A1A1A] dark:text-white">
+          <a href="#" className="text-[15px] font-bold uppercase tracking-wide text-white md:text-[#1A1A1A] md:dark:text-white">
             OOH MY AD !
           </a>
 
@@ -59,7 +59,7 @@ export function Navbar() {
           </div>
 
           <button
-            className="text-[#1A1A1A]/70 dark:text-white/70 md:hidden"
+            className="text-white/70 md:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Ouvrir le menu"
           >
