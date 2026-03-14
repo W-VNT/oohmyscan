@@ -11,20 +11,20 @@ export function SupportsB() {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
 
   return (
-    <section id="supports" className="relative overflow-hidden bg-[#0A0A0A] py-20 md:py-28">
+    <section id="supports" className="relative overflow-hidden bg-white dark:bg-[#0A0A0A] py-20 md:py-28">
       <div ref={ref} className="mx-auto max-w-6xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-white/30">
+          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#1A1A1A]/30 dark:text-white/30">
             Nos supports
           </span>
-          <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-white">
+          <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#1A1A1A] dark:text-white">
             6 façons d'atteindre
             <br />
-            <span className="text-white/30">votre cible.</span>
+            <span className="text-[#1A1A1A]/30 dark:text-white/30">votre cible.</span>
           </h2>
         </motion.div>
 
@@ -57,7 +57,7 @@ export function SupportsB() {
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.1 + i * 0.06 }}
               onClick={() => setSelected(support)}
-              className="group cursor-pointer overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]"
+              className="group cursor-pointer overflow-hidden rounded-xl border border-[#1A1A1A]/[0.06] dark:border-white/[0.06] bg-[#1A1A1A]/[0.02] dark:bg-white/[0.02]"
             >
               <div className="relative aspect-[16/9] overflow-hidden">
                 <img
@@ -69,10 +69,10 @@ export function SupportsB() {
               </div>
               <div className="flex items-center justify-between px-4 py-3.5">
                 <div>
-                  <h3 className="font-['Bebas_Neue'] text-lg tracking-tight text-white">
+                  <h3 className="font-['Bebas_Neue'] text-lg tracking-tight text-[#1A1A1A] dark:text-white">
                     {support.name}
                   </h3>
-                  <p className="mt-0.5 text-[12px] text-white/40">{support.tagline}</p>
+                  <p className="mt-0.5 text-[12px] text-[#1A1A1A]/40 dark:text-white/40">{support.tagline}</p>
                 </div>
                 <span className="text-[11px] tabular-nums text-[#F5C400]">
                   {support.contactDuration}
@@ -136,7 +136,7 @@ function TiltCard({
           loading="lazy"
         />
         {/* Single overlay — extra info revealed on hover */}
-        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/10 to-transparent p-4 transition-all duration-300 group-hover:from-black/90 group-hover:via-black/40">
+        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/50 dark:from-black/70 via-black/10 to-transparent p-4 transition-all duration-300 group-hover:from-black/90 group-hover:via-black/40">
           <h3 className="font-['Bebas_Neue'] text-xl tracking-tight text-white">{support.name}</h3>
           <p className="mt-0.5 text-[11px] text-white/50 transition-colors duration-300 group-hover:text-white/60">{support.tagline}</p>
           <div className="mt-2 flex items-center gap-3 max-h-0 overflow-hidden opacity-0 transition-all duration-300 group-hover:max-h-10 group-hover:opacity-100">
