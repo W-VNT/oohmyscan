@@ -97,8 +97,9 @@ export function ContractPDF({
   signatureOwner,
   signatureOperator,
   company,
-  zoneLabels,
+  zoneLabels: _zoneLabels,
 }: ContractPDFProps) {
+  void _zoneLabels
   const pointsTotal = panels.length * 50
 
   return (

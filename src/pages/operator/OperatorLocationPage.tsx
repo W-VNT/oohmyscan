@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useLocation as useLocationData, useLocationPanels, useLocationContract } from '@/hooks/useLocations'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Landmark, MapPin, Phone, Mail, PanelTop, FileCheck, Calendar, Download, Loader2 } from 'lucide-react'
+import { ArrowLeft, Landmark, Phone, Mail, PanelTop, FileCheck, Download, Loader2 } from 'lucide-react'
 import { PANEL_ZONES, PANEL_STATUS_CONFIG } from '@/lib/constants'
 import type { PanelStatus } from '@/lib/constants'
 

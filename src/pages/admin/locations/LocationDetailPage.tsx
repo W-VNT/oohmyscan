@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from '@/components/shared/Toast'
 import type { PanelStatus } from '@/lib/constants'
 
-async function downloadPDF(storagePath: string, filename: string) {
+async function downloadPDF(storagePath: string, _filename: string) {
   const { data, error } = await supabase.storage
     .from('panel-photos')
     .createSignedUrl(storagePath, 3600)

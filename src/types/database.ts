@@ -806,6 +806,7 @@ export interface Database {
           next_amendment_number: number
           created_by: string | null
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -831,6 +832,7 @@ export interface Database {
           next_amendment_number?: number
           created_by?: string | null
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
@@ -856,6 +858,7 @@ export interface Database {
           next_amendment_number?: number
           created_by?: string | null
           created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -924,6 +927,7 @@ export interface Database {
           location_id: null
           [key: string]: unknown
         }
+        Relationships: []
       }
     }
     Functions: {
@@ -943,12 +947,10 @@ export interface Database {
         Args: { p_contract_id: string }
         Returns: string
       }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
+      get_next_contract_number: {
+        Args: Record<string, never>
+        Returns: string
+      }
     }
   }
 }

@@ -167,7 +167,8 @@ export function ContractStepper({ panel }: ContractStepperProps) {
   // Generate PDF blob and upload to storage
   async function generateAndUploadPDF(
     docNumber: string,
-    pdfElement: React.ReactElement,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pdfElement: React.ReactElement<any>,
   ): Promise<string> {
     const blob = await pdf(pdfElement).toBlob()
     const path = `contracts/${docNumber}.pdf`
@@ -209,7 +210,7 @@ export function ContractStepper({ panel }: ContractStepperProps) {
     const company = getCompanyForPDF()
 
     // Build full zone labels map (includes custom zones)
-    const fullZoneLabels = { ...zoneLabels }
+    const fullZoneLabels: Record<string, string> = { ...zoneLabels }
     for (const snap of allPanelsSnapshot) {
       if (snap.zone_label.startsWith('custom:')) {
         fullZoneLabels[snap.zone_label] = snap.zone_label.slice(7)
@@ -228,7 +229,7 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         .from('panels')
         .update({
           location_id: location.id,
-          zone_label: selectedZone,
+          zone_label: selectedZone as any,
           updated_at: now,
         })
         .eq('id', panel.id)

@@ -38,7 +38,7 @@ export function useInfinitePanels(search: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return data
+      return data as Panel[]
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {

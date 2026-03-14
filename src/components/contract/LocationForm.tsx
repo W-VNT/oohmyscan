@@ -44,7 +44,7 @@ export function LocationForm({ onSubmit, initialData, panelCoords, submitLabel =
   const [searching, setSearching] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   useEffect(() => {
     return () => {

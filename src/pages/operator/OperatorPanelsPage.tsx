@@ -258,7 +258,6 @@ export function OperatorPanelsPage() {
                     ? Math.round((campaign.totalPanels / targetCount) * 100)
                     : 0
                 const isDone = targetCount > 0 && campaign.totalPanels >= targetCount
-                const isActive = campaign.status === 'active'
 
                 return (
                   <Link

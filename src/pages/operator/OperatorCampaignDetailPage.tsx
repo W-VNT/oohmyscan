@@ -13,7 +13,6 @@ import {
   MapPin,
   PanelTop,
   ChevronRight,
-  Loader2,
   Clock,
   Image as ImageIcon,
   FileText,
