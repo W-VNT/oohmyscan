@@ -1,14 +1,19 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
 import { Download, X, Share, PlusSquare } from 'lucide-react'
 
 export function InstallBanner() {
+  const { pathname } = useLocation()
   const { canInstall, isInstalled, install, showIOSGuide } = usePWAInstall()
   const [dismissed, setDismissed] = useState(() => {
     return localStorage.getItem('install-banner-dismissed') === 'true'
   })
   const [showingIOSGuide, setShowingIOSGuide] = useState(false)
 
+  // Only show on login and app pages, not on landing or admin
+  const showOnRoute = pathname === '/login' || pathname.startsWith('/app')
+  if (!showOnRoute) return null
   if (isInstalled || dismissed) return null
   if (!canInstall && !showIOSGuide) return null
 
