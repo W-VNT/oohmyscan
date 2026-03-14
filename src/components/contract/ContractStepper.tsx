@@ -379,6 +379,10 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         queryClient.invalidateQueries({ queryKey: ['panels', panel.id] }),
         queryClient.invalidateQueries({ queryKey: ['locations'] }),
         queryClient.invalidateQueries({ queryKey: ['locations', location.id] }),
+        queryClient.invalidateQueries({ queryKey: ['locations', location.id, 'contract'] }),
+        ...(existingContract
+          ? [queryClient.invalidateQueries({ queryKey: ['contracts', existingContract.id, 'amendments'] })]
+          : []),
       ])
 
       clearTimeout(timeoutId)

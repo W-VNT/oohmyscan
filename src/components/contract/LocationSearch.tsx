@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Search, MapPin, FileCheck, AlertTriangle, Plus, PanelTop } from 'lucide-react'
+import { Search, MapPin, FileCheck, AlertTriangle, Plus, PanelTop, Loader2 } from 'lucide-react'
 import { useSearchLocations } from '@/hooks/useLocations'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -66,21 +66,25 @@ export function LocationSearch({ onSelect, onCreateNew }: LocationSearchProps) {
           value={search}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="Rechercher par nom ou ville..."
-          className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground"
+          className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-9 py-2 text-sm placeholder:text-muted-foreground"
           autoFocus
         />
+        {isLoading && debouncedSearch.length >= 1 && (
+          <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+        )}
       </div>
 
       {/* Results */}
-      {debouncedSearch.length >= 2 && (
+      {debouncedSearch.length >= 1 ? (
         <div className="space-y-2">
           {isLoading ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              Recherche...
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              Recherche en cours...
             </div>
           ) : results && results.length > 0 ? (
             results.map((location) => {
               const panelCount = panelCounts.get(location.id) ?? 0
+              const addressParts = [location.address, location.postal_code, location.city].filter(Boolean)
               return (
                 <button
                   key={location.id}
@@ -91,9 +95,11 @@ export function LocationSearch({ onSelect, onCreateNew }: LocationSearchProps) {
                     <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div className="flex-1">
                       <p className="font-medium">{location.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {location.city} {location.postal_code}
-                      </p>
+                      {addressParts.length > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          {addressParts.join(', ')}
+                        </p>
+                      )}
                       <div className="mt-2 flex items-center gap-3 text-xs">
                         {location.has_contract ? (
                           <span className="inline-flex items-center gap-1 text-green-600">
@@ -117,11 +123,15 @@ export function LocationSearch({ onSelect, onCreateNew }: LocationSearchProps) {
               )
             })
           ) : (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              Aucun lieu trouvé pour "{debouncedSearch}"
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              Aucun résultat pour « {debouncedSearch} »
             </div>
           )}
         </div>
+      ) : (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          Tapez le nom du lieu pour rechercher
+        </p>
       )}
 
       {/* Create new */}

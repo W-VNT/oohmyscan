@@ -138,6 +138,6 @@ export function useSearchLocations(search: string) {
       if (error) throw error
       return data
     },
-    enabled: search.trim().length >= 2,
+    enabled: search.trim().length >= 1,
   })
 }

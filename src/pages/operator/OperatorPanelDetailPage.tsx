@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { usePanel, useUpdatePanel } from '@/hooks/usePanels'
-import { useLocation as useLocationData, useLocationPanels, useLocationContract } from '@/hooks/useLocations'
+import { useLocation as useLocationData, useLocationPanels, useLocationContract, useContractAmendments } from '@/hooks/useLocations'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
@@ -62,6 +62,7 @@ export function OperatorPanelDetailPage() {
   const { data: location } = useLocationData(panel?.location_id ?? undefined)
   const { data: locationPanels } = useLocationPanels(panel?.location_id ?? undefined)
   const { data: locationContract } = useLocationContract(panel?.location_id ?? undefined)
+  const { data: amendments } = useContractAmendments(locationContract?.id)
 
   const [editing, setEditing] = useState(false)
   const [showReport, setShowReport] = useState(false)
@@ -930,6 +931,48 @@ export function OperatorPanelDetailPage() {
                     <Download className="size-3.5" />
                     Voir le PDF
                   </button>
+                )}
+                {/* Avenants */}
+                {amendments && amendments.length > 0 && (
+                  <div className="mt-3 border-t border-border pt-3">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Avenants ({amendments.length})
+                    </p>
+                    <div className="space-y-2">
+                      {amendments.map((amendment) => (
+                        <div
+                          key={amendment.id}
+                          className="flex items-center justify-between rounded-md border border-border p-2.5"
+                        >
+                          <div>
+                            <p className="text-[12px] font-medium">{amendment.amendment_number}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {amendment.reason === 'panel_added' && 'Ajout de panneau'}
+                              {amendment.reason === 'panel_removed' && 'Retrait de panneau'}
+                              {amendment.reason === 'terms_updated' && 'Modification des termes'}
+                              {' · '}
+                              {amendment.signed_at
+                                ? new Date(amendment.signed_at).toLocaleDateString('fr-FR')
+                                : '—'}
+                            </p>
+                          </div>
+                          {amendment.storage_path && (
+                            <button
+                              onClick={async () => {
+                                const { data } = supabase.storage.from('panel-photos').getPublicUrl(amendment.storage_path!)
+                                if (data?.publicUrl) {
+                                  window.open(data.publicUrl, '_blank')
+                                }
+                              }}
+                              className="rounded-md p-1.5 text-muted-foreground transition-colors active:bg-muted/50"
+                            >
+                              <Download className="size-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             )
