@@ -1,10 +1,10 @@
 -- ============================================================
--- Migration: Locations + Contracts + Amendments
+-- Migration: Locations + Contracts + Amendments (IDEMPOTENT)
 -- Refactoring: 1 lieu → N panneaux, 1 lieu → 1 contrat → N avenants
 -- ============================================================
 
 -- 1. Table locations (établissements)
-CREATE TABLE locations (
+CREATE TABLE IF NOT EXISTS locations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Infos établissement
@@ -31,32 +31,33 @@ CREATE TABLE locations (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_locations_city ON locations(city);
-CREATE INDEX idx_locations_has_contract ON locations(has_contract);
-CREATE INDEX idx_locations_name ON locations USING gin (name gin_trgm_ops);
-CREATE INDEX idx_locations_address ON locations USING gin (address gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_locations_city ON locations(city);
+CREATE INDEX IF NOT EXISTS idx_locations_has_contract ON locations(has_contract);
+CREATE INDEX IF NOT EXISTS idx_locations_name ON locations USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_locations_address ON locations USING gin (address gin_trgm_ops);
 
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 
--- Admins: full access. Operators: read-only.
+-- RLS policies (DROP IF EXISTS then recreate)
+DROP POLICY IF EXISTS "Admin full access locations" ON locations;
 CREATE POLICY "Admin full access locations" ON locations
   FOR ALL TO authenticated
   USING (is_admin())
   WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS "Operator read locations" ON locations;
 CREATE POLICY "Operator read locations" ON locations
   FOR SELECT TO authenticated
   USING (true);
 
 -- 2. Panels: ajout location_id + zone_label
-ALTER TABLE panels
-  ADD COLUMN location_id UUID REFERENCES locations(id),
-  ADD COLUMN zone_label TEXT;
+ALTER TABLE panels ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id);
+ALTER TABLE panels ADD COLUMN IF NOT EXISTS zone_label TEXT;
 
-CREATE INDEX idx_panels_location_id ON panels(location_id);
+CREATE INDEX IF NOT EXISTS idx_panels_location_id ON panels(location_id);
 
 -- 3. Table panel_contracts (lié au lieu, pas au panneau)
-CREATE TABLE panel_contracts (
+CREATE TABLE IF NOT EXISTS panel_contracts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Lien vers le LIEU
@@ -99,26 +100,31 @@ CREATE TABLE panel_contracts (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_panel_contracts_location_id ON panel_contracts(location_id);
+-- Add updated_at if table existed without it
+ALTER TABLE panel_contracts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS idx_panel_contracts_location_id ON panel_contracts(location_id);
 
 ALTER TABLE panel_contracts ENABLE ROW LEVEL SECURITY;
 
--- Admins: full access. Operators: read + insert (they create contracts on terrain).
+DROP POLICY IF EXISTS "Admin full access contracts" ON panel_contracts;
 CREATE POLICY "Admin full access contracts" ON panel_contracts
   FOR ALL TO authenticated
   USING (is_admin())
   WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS "Operator read contracts" ON panel_contracts;
 CREATE POLICY "Operator read contracts" ON panel_contracts
   FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Operator insert contracts" ON panel_contracts;
 CREATE POLICY "Operator insert contracts" ON panel_contracts
   FOR INSERT TO authenticated
   WITH CHECK (NOT is_admin());
 
 -- 4. Table contract_amendments (avenants)
-CREATE TABLE contract_amendments (
+CREATE TABLE IF NOT EXISTS contract_amendments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   contract_id UUID NOT NULL REFERENCES panel_contracts(id) ON DELETE CASCADE,
@@ -150,21 +156,23 @@ CREATE TABLE contract_amendments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_contract_amendments_contract_id ON contract_amendments(contract_id);
-CREATE INDEX idx_contract_amendments_location_id ON contract_amendments(location_id);
+CREATE INDEX IF NOT EXISTS idx_contract_amendments_contract_id ON contract_amendments(contract_id);
+CREATE INDEX IF NOT EXISTS idx_contract_amendments_location_id ON contract_amendments(location_id);
 
 ALTER TABLE contract_amendments ENABLE ROW LEVEL SECURITY;
 
--- Admins: full access. Operators: read + insert.
+DROP POLICY IF EXISTS "Admin full access amendments" ON contract_amendments;
 CREATE POLICY "Admin full access amendments" ON contract_amendments
   FOR ALL TO authenticated
   USING (is_admin())
   WITH CHECK (is_admin());
 
+DROP POLICY IF EXISTS "Operator read amendments" ON contract_amendments;
 CREATE POLICY "Operator read amendments" ON contract_amendments
   FOR SELECT TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Operator insert amendments" ON contract_amendments;
 CREATE POLICY "Operator insert amendments" ON contract_amendments
   FOR INSERT TO authenticated
   WITH CHECK (NOT is_admin());
@@ -235,10 +243,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_sync_location_has_contract ON panel_contracts;
 CREATE TRIGGER trg_sync_location_has_contract
   AFTER INSERT OR DELETE ON panel_contracts
   FOR EACH ROW EXECUTE FUNCTION sync_location_has_contract();
 
 -- 8. Vue panneaux orphelins (sans lieu)
-CREATE VIEW panels_without_location AS
+CREATE OR REPLACE VIEW panels_without_location AS
   SELECT * FROM panels WHERE location_id IS NULL;
