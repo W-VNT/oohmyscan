@@ -31,7 +31,7 @@ export function LandingPage() {
       </Helmet>
 
       <SmoothScroll>
-        <div className="min-h-screen bg-white dark:bg-[#0A0A0A] text-[#1A1A1A] dark:text-[#F5F5F5]" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#0A0A0A] text-[#111111] dark:text-[#F5F5F5]" style={{ fontFamily: "'Inter', sans-serif" }}>
           <Navbar />
           <HeroC />
           <TrustSection />

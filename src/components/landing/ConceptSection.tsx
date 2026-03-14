@@ -14,7 +14,7 @@ export function ConceptSection() {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
 
   return (
-    <section id="concept" className="relative overflow-hidden bg-white dark:bg-[#0A0A0A] py-20 md:py-28">
+    <section id="concept" className="relative overflow-hidden bg-[#FAFAFA] dark:bg-[#0A0A0A] py-20 md:py-28">
       <div ref={ref} className="relative mx-auto max-w-6xl px-6">
         {/* Layout : texte à gauche + tableau à droite sur desktop */}
         <div className="grid gap-12 md:grid-cols-[1fr_1fr] md:items-center md:gap-16">
@@ -25,13 +25,13 @@ export function ConceptSection() {
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.7 }}
             >
-              <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#1A1A1A]/30 dark:text-white/30">
+              <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/30">
                 Le problème
               </span>
-              <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,64px)] leading-[0.95] text-[#1A1A1A] dark:text-white">
+              <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,64px)] leading-[0.95] text-[#111111] dark:text-white">
                 La pub traditionnelle,
                 <br />
-                <span className="text-[#1A1A1A]/30 dark:text-white/30">on l'évite.</span>
+                <span className="text-[#9CA3AF] dark:text-white/30">on l'évite.</span>
               </h2>
             </motion.div>
 
@@ -39,10 +39,10 @@ export function ConceptSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="mt-6 max-w-sm text-[15px] leading-relaxed text-[#1A1A1A]/40 dark:text-white/40"
+              className="mt-6 max-w-sm text-[15px] leading-relaxed text-[#6B7280] dark:text-white/40"
             >
               On zappe, on scrolle, on détourne le regard. Chez OOH MY AD !, votre message est lu dans
-              des <span className="text-[#1A1A1A]/70 dark:text-white/70">moments captifs</span> — quand le consommateur est
+              des <span className="text-[#374151] dark:text-white/70">moments captifs</span> — quand le consommateur est
               là, et qu'il reste.
             </motion.p>
 
@@ -50,7 +50,7 @@ export function ConceptSection() {
               initial={{ opacity: 0 }}
               animate={inView ? { opacity: 1 } : {}}
               transition={{ duration: 0.6, delay: 0.7 }}
-              className="mt-8 text-[13px] text-[#1A1A1A]/20 dark:text-white/20"
+              className="mt-8 text-[13px] text-[#D1D5DB] dark:text-white/20"
             >
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#F5C400] mr-2 align-middle" />
               Temps de contact réel mesuré sur le terrain
@@ -62,10 +62,10 @@ export function ConceptSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.25 }}
-            className="overflow-hidden rounded-2xl border border-[#1A1A1A]/[0.06] dark:border-white/[0.06]"
+            className="overflow-hidden rounded-2xl border border-[#E5E5E5] dark:border-white/[0.06]"
           >
             {/* Header row */}
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-[#1A1A1A]/[0.06] dark:border-white/[0.06] bg-[#1A1A1A]/[0.02] dark:bg-white/[0.02] px-5 py-3 text-[11px] uppercase tracking-[0.15em] text-[#1A1A1A]/25 dark:text-white/25">
+            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-5 py-3 text-[11px] uppercase tracking-[0.15em] text-[#9CA3AF] dark:text-white/25">
               <span>Média</span>
               <span className="text-right">Durée</span>
               <span className="text-right">Attention</span>
@@ -79,21 +79,21 @@ export function ConceptSection() {
                 animate={inView ? { opacity: 1 } : {}}
                 transition={{ duration: 0.4, delay: 0.35 + i * 0.06 }}
                 className={`grid grid-cols-[1fr_auto_auto] items-center gap-4 px-5 py-3.5 ${
-                  i < COMPARISON.length - 1 ? 'border-b border-[#1A1A1A]/[0.04] dark:border-white/[0.04]' : ''
+                  i < COMPARISON.length - 1 ? 'border-b border-[#E5E5E5] dark:border-white/[0.04]' : ''
                 } ${!row.evitable ? 'bg-[#F5C400]/[0.03]' : ''}`}
               >
                 <div className="flex items-center gap-2.5">
                   {!row.evitable && (
                     <div className="h-1.5 w-1.5 rounded-full bg-[#F5C400]" />
                   )}
-                  <span className={`text-[13px] ${row.evitable ? 'text-[#1A1A1A]/30 dark:text-white/30 line-through decoration-[#1A1A1A]/10 dark:decoration-white/10' : 'text-[#1A1A1A] dark:text-white font-medium'}`}>
+                  <span className={`text-[13px] ${row.evitable ? 'text-[#9CA3AF] dark:text-white/30 line-through decoration-[#E5E5E5] dark:decoration-white/10' : 'text-[#111111] dark:text-white font-medium'}`}>
                     {row.media}
                   </span>
                 </div>
-                <span className={`text-right text-[13px] tabular-nums ${row.evitable ? 'text-[#1A1A1A]/20 dark:text-white/20' : 'text-[#F5C400]'}`}>
+                <span className={`text-right text-[13px] tabular-nums ${row.evitable ? 'text-[#D1D5DB] dark:text-white/20' : 'text-[#F5C400]'}`}>
                   {row.duration}
                 </span>
-                <span className={`text-right text-[13px] ${row.evitable ? 'text-[#1A1A1A]/20 dark:text-white/20' : 'text-[#1A1A1A]/60 dark:text-white/60'}`}>
+                <span className={`text-right text-[13px] ${row.evitable ? 'text-[#D1D5DB] dark:text-white/20' : 'text-[#4B5563] dark:text-white/60'}`}>
                   {row.attention}
                 </span>
               </motion.div>

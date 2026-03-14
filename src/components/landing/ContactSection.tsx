@@ -27,7 +27,7 @@ export function ContactSection() {
   }
 
   const inputCls =
-    'w-full rounded-lg border border-[#1A1A1A]/[0.08] dark:border-white/[0.08] bg-[#1A1A1A]/[0.04] dark:bg-white/[0.04] px-4 py-3 text-[14px] text-[#1A1A1A] dark:text-white placeholder-[#1A1A1A]/25 dark:placeholder-white/25 outline-none transition-all focus:border-[#F5C400]/30 focus:bg-[#1A1A1A]/[0.06] dark:focus:bg-white/[0.06]'
+    'w-full rounded-lg border border-[#E5E5E5] dark:border-white/[0.08] bg-white dark:bg-white/[0.04] px-4 py-3 text-[14px] text-[#111111] dark:text-white placeholder-[#9CA3AF] dark:placeholder-white/25 outline-none transition-all focus:border-[#F5C400]/30 focus:bg-[#F5F5F5] dark:focus:bg-white/[0.06]'
 
   const REASSURANCE = [
     { icon: UserCheck, text: 'Brief gratuit, sans engagement' },
@@ -36,7 +36,7 @@ export function ContactSection() {
   ]
 
   return (
-    <section id="contact" className="relative overflow-hidden bg-white dark:bg-[#0A0A0A] py-20 md:py-28">
+    <section id="contact" className="relative overflow-hidden bg-[#FAFAFA] dark:bg-[#0A0A0A] py-20 md:py-28">
       {/* Subtle glow */}
       <div className="pointer-events-none absolute top-0 left-1/2 h-[500px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#F5C400]/[0.03] blur-[120px]" />
 
@@ -48,15 +48,15 @@ export function ContactSection() {
           transition={{ duration: 0.7 }}
           className="text-center"
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#1A1A1A]/30 dark:text-white/30">
+          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/30">
             Contact
           </span>
-          <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#1A1A1A] dark:text-white">
+          <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111] dark:text-white">
             Parlons de votre
             <br />
             <span className="text-[#F5C400]">campagne.</span>
           </h2>
-          <p className="mx-auto mt-4 max-w-md text-[15px] text-[#1A1A1A]/40 dark:text-white/40">
+          <p className="mx-auto mt-4 max-w-md text-[15px] text-[#6B7280] dark:text-white/40">
             Décrivez votre projet, on revient vers vous sous 24h avec une proposition sur-mesure.
           </p>
         </motion.div>
@@ -76,16 +76,16 @@ export function ContactSection() {
                   <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#F5C400]/[0.08]">
                     <Icon className="h-4 w-4 text-[#F5C400]/60" />
                   </div>
-                  <span className="pt-2 text-[14px] text-[#1A1A1A]/50 dark:text-white/50">{item.text}</span>
+                  <span className="pt-2 text-[14px] text-[#6B7280] dark:text-white/50">{item.text}</span>
                 </div>
               )
             })}
 
-            <div className="border-t border-[#1A1A1A]/[0.06] dark:border-white/[0.06] pt-6">
-              <p className="text-[12px] text-[#1A1A1A]/20 dark:text-white/20">Ou directement</p>
+            <div className="border-t border-[#E5E5E5] dark:border-white/[0.06] pt-6">
+              <p className="text-[12px] text-[#D1D5DB] dark:text-white/20">Ou directement</p>
               <a
                 href="mailto:contact@oohmyad.com"
-                className="mt-1 text-[14px] font-medium text-[#1A1A1A] dark:text-white transition-colors hover:text-[#F5C400]"
+                className="mt-1 text-[14px] font-medium text-[#111111] dark:text-white transition-colors hover:text-[#F5C400]"
               >
                 contact@oohmyad.com
               </a>
@@ -104,12 +104,12 @@ export function ContactSection() {
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#F5C400]/15">
                     <ArrowRight className="h-5 w-5 text-[#F5C400]" />
                   </div>
-                  <p className="mt-4 text-lg font-medium text-[#1A1A1A] dark:text-white">Merci !</p>
-                  <p className="mt-2 text-[14px] text-[#1A1A1A]/40 dark:text-white/40">On revient vers vous sous 24h.</p>
+                  <p className="mt-4 text-lg font-medium text-[#111111] dark:text-white">Merci !</p>
+                  <p className="mt-2 text-[14px] text-[#6B7280] dark:text-white/40">On revient vers vous sous 24h.</p>
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-[#1A1A1A]/[0.06] dark:border-white/[0.06] bg-[#1A1A1A]/[0.02] dark:bg-white/[0.02] p-6 md:p-8">
+              <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-6 md:p-8">
                 {/* Honeypot */}
                 <div className="absolute left-[-9999px]" aria-hidden="true">
                   <input type="text" name="website" tabIndex={-1} autoComplete="off" value={form.website} onChange={set('website')} />

@@ -194,12 +194,12 @@ export function ProcessModal({ step, onClose }: ProcessModalProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 35, stiffness: 300 }}
-            className="fixed right-0 top-0 z-[80] h-full w-full overflow-y-auto bg-white dark:bg-[#0A0A0A] md:max-w-md"
+            className="fixed right-0 top-0 z-[80] h-full w-full overflow-y-auto bg-[#FAFAFA] dark:bg-[#0A0A0A] md:max-w-md"
           >
             <button
               onClick={onClose}
               aria-label="Fermer"
-              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-[#1A1A1A]/[0.1] dark:border-white/[0.1] text-[#1A1A1A]/50 dark:text-white/50 transition-colors hover:bg-[#1A1A1A]/5 dark:hover:bg-white/5 hover:text-[#1A1A1A] dark:hover:text-white"
+              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-[#E5E5E5] dark:border-white/[0.1] text-[#6B7280] dark:text-white/50 transition-colors hover:bg-[#F5F5F5] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white"
             >
               <X className="h-4 w-4" />
             </button>
@@ -212,16 +212,16 @@ export function ProcessModal({ step, onClose }: ProcessModalProps) {
                 </div>
                 <div>
                   <span className="text-[11px] tabular-nums text-[#F5C400]/40">{step.num}</span>
-                  <h2 className="font-['Bebas_Neue'] text-3xl tracking-tight text-[#1A1A1A] dark:text-white">{step.title}</h2>
+                  <h2 className="font-['Bebas_Neue'] text-3xl tracking-tight text-[#111111] dark:text-white">{step.title}</h2>
                 </div>
               </div>
-              <p className="mt-6 text-[14px] leading-relaxed text-[#1A1A1A]/50 dark:text-white/50">{step.detail}</p>
+              <p className="mt-6 text-[14px] leading-relaxed text-[#6B7280] dark:text-white/50">{step.detail}</p>
             </div>
 
             {/* App Mockups */}
             {mockup && (
               <div className="px-8 pt-6">
-                <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#1A1A1A]/20 dark:text-white/20">
+                <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#D1D5DB] dark:text-white/20">
                   Nos outils
                 </span>
                 <div className="mt-4">{mockup}</div>
@@ -230,7 +230,7 @@ export function ProcessModal({ step, onClose }: ProcessModalProps) {
 
             {/* Tools */}
             <div className="px-8 pt-6">
-              <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#1A1A1A]/20 dark:text-white/20">
+              <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#D1D5DB] dark:text-white/20">
                 Méthodes
               </span>
               <div className="mt-4 space-y-3">
@@ -239,15 +239,15 @@ export function ProcessModal({ step, onClose }: ProcessModalProps) {
                   return (
                     <div
                       key={tool.name}
-                      className="rounded-xl border border-[#1A1A1A]/[0.06] dark:border-white/[0.06] bg-[#1A1A1A]/[0.02] dark:bg-white/[0.02] p-4"
+                      className="rounded-xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1A1A1A]/[0.04] dark:bg-white/[0.04]">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-white/[0.04]">
                           <ToolIcon className="h-4 w-4 text-[#F5C400]/60" />
                         </div>
-                        <h3 className="text-[14px] font-medium text-[#1A1A1A] dark:text-white">{tool.name}</h3>
+                        <h3 className="text-[14px] font-medium text-[#111111] dark:text-white">{tool.name}</h3>
                       </div>
-                      <p className="mt-2 ml-11 text-[13px] leading-relaxed text-[#1A1A1A]/35 dark:text-white/35">{tool.desc}</p>
+                      <p className="mt-2 ml-11 text-[13px] leading-relaxed text-[#9CA3AF] dark:text-white/35">{tool.desc}</p>
                     </div>
                   )
                 })}
@@ -256,7 +256,7 @@ export function ProcessModal({ step, onClose }: ProcessModalProps) {
 
             {/* Deliverable */}
             <div className="px-8 pt-8">
-              <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#1A1A1A]/20 dark:text-white/20">
+              <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#D1D5DB] dark:text-white/20">
                 Livrable
               </span>
               <div className="mt-3 rounded-xl border border-[#F5C400]/10 bg-[#F5C400]/[0.04] p-4">

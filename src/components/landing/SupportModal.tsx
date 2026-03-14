@@ -29,7 +29,7 @@ export function SupportModal({ support, onClose }: SupportModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-md"
+            className="fixed inset-0 z-[70] bg-black/40 dark:bg-black/70 backdrop-blur-md"
           />
 
           <motion.div
@@ -41,43 +41,43 @@ export function SupportModal({ support, onClose }: SupportModalProps) {
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 35, stiffness: 300 }}
             data-lenis-prevent
-            className="fixed right-0 top-0 z-[80] h-full w-full overflow-y-auto bg-[#0A0A0A] md:max-w-md"
+            className="fixed right-0 top-0 z-[80] h-full w-full overflow-y-auto bg-[#FAFAFA] dark:bg-[#0A0A0A] md:max-w-md"
           >
             <button
               onClick={onClose}
               aria-label="Fermer"
-              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.1] text-white/50 transition-colors hover:bg-white/5 hover:text-white"
+              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-[#E5E5E5] dark:border-white/[0.1] text-[#6B7280] dark:text-white/50 transition-colors hover:bg-[#F5F5F5] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white"
             >
               <X className="h-4 w-4" />
             </button>
 
             <div className="relative aspect-[16/10] overflow-hidden">
               <img src={support.photo} alt={support.name} className="h-full w-full object-cover" />
-              <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0A0A0A] to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#FAFAFA] dark:from-[#0A0A0A] to-transparent" />
             </div>
 
             <div className="px-8 pb-8">
-              <h2 className="font-['Bebas_Neue'] text-4xl tracking-tight text-white">{support.name}</h2>
+              <h2 className="font-['Bebas_Neue'] text-4xl tracking-tight text-[#111111] dark:text-white">{support.name}</h2>
               <p className="mt-1 text-[14px] text-[#F5C400]/80">{support.tagline}</p>
-              <p className="mt-6 text-[14px] leading-relaxed text-white/40">{support.description}</p>
+              <p className="mt-6 text-[14px] leading-relaxed text-[#6B7280] dark:text-white/40">{support.description}</p>
 
-              <div className="mt-8 space-y-3 border-t border-white/[0.06] pt-6">
+              <div className="mt-8 space-y-3 border-t border-[#E5E5E5] dark:border-white/[0.06] pt-6">
                 {[
                   { label: 'Durée contact', value: support.contactDuration },
                   { label: 'Réseau', value: support.network },
                 ].map((spec) => (
                   <div key={spec.label} className="flex items-center justify-between">
-                    <span className="text-[12px] text-white/25">{spec.label}</span>
-                    <span className="text-[13px] text-white/60">{spec.value}</span>
+                    <span className="text-[12px] text-[#9CA3AF] dark:text-white/25">{spec.label}</span>
+                    <span className="text-[13px] text-[#4B5563] dark:text-white/60">{spec.value}</span>
                   </div>
                 ))}
               </div>
 
               <div className="mt-6">
-                <span className="text-[12px] text-white/25">Idéal pour</span>
+                <span className="text-[12px] text-[#9CA3AF] dark:text-white/25">Idéal pour</span>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {support.idealFor.map((item) => (
-                    <span key={item} className="rounded-full border border-white/[0.06] px-3 py-1 text-[11px] text-white/40">
+                    <span key={item} className="rounded-full border border-[#E5E5E5] dark:border-white/[0.06] px-3 py-1 text-[11px] text-[#6B7280] dark:text-white/40">
                       {item}
                     </span>
                   ))}

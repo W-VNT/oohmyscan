@@ -105,7 +105,7 @@ export function ProcessC() {
     <section
       ref={sectionRef}
       id="process"
-      className="relative overflow-hidden bg-white dark:bg-[#0A0A0A] py-20 md:py-28"
+      className="relative overflow-hidden bg-[#FAFAFA] dark:bg-[#0A0A0A] py-20 md:py-28"
     >
       <div className="relative mx-auto max-w-6xl px-6">
         <motion.div
@@ -115,13 +115,13 @@ export function ProcessC() {
           transition={{ duration: 0.7 }}
           className="md:text-center"
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#1A1A1A]/30 dark:text-white/30">
+          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/30">
             Comment ça marche
           </span>
-          <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#1A1A1A] dark:text-white">
+          <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111] dark:text-white">
             De l'idée au terrain
             <br />
-            <span className="text-[#1A1A1A]/30 dark:text-white/30">en 4 étapes.</span>
+            <span className="text-[#9CA3AF] dark:text-white/30">en 4 étapes.</span>
           </h2>
         </motion.div>
 
@@ -129,7 +129,7 @@ export function ProcessC() {
         <div className="mt-20 hidden md:block">
           {/* Horizontal line track */}
           <div className="relative h-px mx-12 mb-12">
-            <div className="absolute inset-0 bg-[#1A1A1A]/[0.06] dark:bg-white/[0.06]" />
+            <div className="absolute inset-0 bg-[#E5E5E5] dark:bg-white/[0.06]" />
             <motion.div
               className="absolute inset-y-0 left-0 origin-left bg-gradient-to-r from-[#F5C400] to-[#F5C400]/40"
               style={{ scaleX: lineProgress }}
@@ -146,7 +146,7 @@ export function ProcessC() {
                   <div className="absolute -top-[54px] left-1/2 -translate-x-1/2">
                     <div
                       className={`h-3 w-3 rounded-full transition-all duration-500 ${
-                        isActive ? 'bg-[#F5C400] shadow-[0_0_12px_rgba(245,196,0,0.4)]' : 'bg-[#1A1A1A]/10 dark:bg-white/10'
+                        isActive ? 'bg-[#F5C400] shadow-[0_0_12px_rgba(245,196,0,0.4)]' : 'bg-[#E5E5E5] dark:bg-white/10'
                       }`}
                     />
                   </div>
@@ -160,24 +160,24 @@ export function ProcessC() {
                     className={`w-full cursor-pointer rounded-2xl border p-6 transition-all duration-700 hover:border-[#F5C400]/20 ${
                       isActive
                         ? 'border-[#F5C400]/15 bg-[#F5C400]/[0.04]'
-                        : 'border-[#1A1A1A]/[0.04] dark:border-white/[0.04] bg-[#1A1A1A]/[0.02] dark:bg-white/[0.02]'
+                        : 'border-[#E5E5E5] dark:border-white/[0.04] bg-white dark:bg-white/[0.02]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div
                         className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-500 ${
-                          isActive ? 'bg-[#F5C400]/15' : 'bg-[#1A1A1A]/[0.04] dark:bg-white/[0.04]'
+                          isActive ? 'bg-[#F5C400]/15' : 'bg-white dark:bg-white/[0.04]'
                         }`}
                       >
                         <Icon
                           className={`h-5 w-5 transition-colors duration-500 ${
-                            isActive ? 'text-[#F5C400]' : 'text-[#1A1A1A]/20 dark:text-white/20'
+                            isActive ? 'text-[#F5C400]' : 'text-[#D1D5DB] dark:text-white/20'
                           }`}
                         />
                       </div>
                       <span
                         className={`text-[11px] tabular-nums transition-colors duration-500 ${
-                          isActive ? 'text-[#F5C400]/40' : 'text-[#1A1A1A]/10 dark:text-white/10'
+                          isActive ? 'text-[#F5C400]/40' : 'text-[#F3F4F6] dark:text-white/10'
                         }`}
                       >
                         {step.num}
@@ -185,14 +185,14 @@ export function ProcessC() {
                     </div>
                     <h3
                       className={`mt-4 text-[17px] font-medium transition-colors duration-500 ${
-                        isActive ? 'text-[#1A1A1A] dark:text-white' : 'text-[#1A1A1A]/30 dark:text-white/30'
+                        isActive ? 'text-[#111111] dark:text-white' : 'text-[#9CA3AF] dark:text-white/30'
                       }`}
                     >
                       {step.title}
                     </h3>
                     <p
                       className={`mt-2 text-[13px] leading-relaxed transition-colors duration-500 ${
-                        isActive ? 'text-[#1A1A1A]/50 dark:text-white/50' : 'text-[#1A1A1A]/15 dark:text-white/15'
+                        isActive ? 'text-[#6B7280] dark:text-white/50' : 'text-[#E5E7EB] dark:text-white/15'
                       }`}
                     >
                       {step.desc}
@@ -207,7 +207,7 @@ export function ProcessC() {
         {/* Mobile — vertical with animated line + cards */}
         <div className="relative mt-12 md:hidden">
           {/* Static track */}
-          <div className="absolute left-[11px] top-0 bottom-0 w-px bg-[#1A1A1A]/[0.06] dark:bg-white/[0.06]" />
+          <div className="absolute left-[11px] top-0 bottom-0 w-px bg-[#E5E5E5] dark:bg-white/[0.06]" />
           {/* Animated progress */}
           <motion.div
             className="absolute left-[11px] top-0 w-px origin-top bg-gradient-to-b from-[#F5C400] to-[#F5C400]/20"
@@ -224,7 +224,7 @@ export function ProcessC() {
                   <div className="absolute left-[5px] top-5">
                     <div
                       className={`h-3 w-3 rounded-full transition-all duration-500 ${
-                        isActive ? 'bg-[#F5C400] shadow-[0_0_10px_rgba(245,196,0,0.4)]' : 'bg-[#1A1A1A]/10 dark:bg-white/10'
+                        isActive ? 'bg-[#F5C400] shadow-[0_0_10px_rgba(245,196,0,0.4)]' : 'bg-[#E5E5E5] dark:bg-white/10'
                       }`}
                     />
                   </div>
@@ -238,18 +238,18 @@ export function ProcessC() {
                     className={`cursor-pointer rounded-xl border p-5 transition-all duration-700 hover:border-[#F5C400]/20 ${
                       isActive
                         ? 'border-[#F5C400]/15 bg-[#F5C400]/[0.04]'
-                        : 'border-[#1A1A1A]/[0.04] dark:border-white/[0.04] bg-[#1A1A1A]/[0.02] dark:bg-white/[0.02]'
+                        : 'border-[#E5E5E5] dark:border-white/[0.04] bg-white dark:bg-white/[0.02]'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div
                         className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg transition-all duration-500 ${
-                          isActive ? 'bg-[#F5C400]/15' : 'bg-[#1A1A1A]/[0.04] dark:bg-white/[0.04]'
+                          isActive ? 'bg-[#F5C400]/15' : 'bg-white dark:bg-white/[0.04]'
                         }`}
                       >
                         <Icon
                           className={`h-4 w-4 transition-colors duration-500 ${
-                            isActive ? 'text-[#F5C400]' : 'text-[#1A1A1A]/20 dark:text-white/20'
+                            isActive ? 'text-[#F5C400]' : 'text-[#D1D5DB] dark:text-white/20'
                           }`}
                         />
                       </div>
@@ -257,14 +257,14 @@ export function ProcessC() {
                         <div className="flex items-center justify-between">
                           <h3
                             className={`text-[15px] font-medium transition-colors duration-500 ${
-                              isActive ? 'text-[#1A1A1A] dark:text-white' : 'text-[#1A1A1A]/30 dark:text-white/30'
+                              isActive ? 'text-[#111111] dark:text-white' : 'text-[#9CA3AF] dark:text-white/30'
                             }`}
                           >
                             {step.title}
                           </h3>
                           <span
                             className={`text-[11px] tabular-nums transition-colors duration-500 ${
-                              isActive ? 'text-[#F5C400]/40' : 'text-[#1A1A1A]/10 dark:text-white/10'
+                              isActive ? 'text-[#F5C400]/40' : 'text-[#F3F4F6] dark:text-white/10'
                             }`}
                           >
                             {step.num}
@@ -272,7 +272,7 @@ export function ProcessC() {
                         </div>
                         <p
                           className={`mt-1.5 text-[13px] leading-relaxed transition-colors duration-500 ${
-                            isActive ? 'text-[#1A1A1A]/50 dark:text-white/50' : 'text-[#1A1A1A]/15 dark:text-white/15'
+                            isActive ? 'text-[#6B7280] dark:text-white/50' : 'text-[#E5E7EB] dark:text-white/15'
                           }`}
                         >
                           {step.desc}

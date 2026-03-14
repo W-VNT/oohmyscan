@@ -28,12 +28,12 @@ export function Navbar() {
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           scrolled
-            ? 'border-b border-[#1A1A1A]/[0.06] dark:border-white/[0.06] bg-white/90 dark:bg-[#0A0A0A]/70 backdrop-blur-2xl [&_a:first-child]:!text-[#1A1A1A] [&_a:first-child]:dark:!text-white [&_button]:!text-[#1A1A1A]/70 [&_button]:dark:!text-white/70'
+            ? 'border-b border-[#E5E5E5] dark:border-white/[0.06] bg-[#FAFAFA]/90 dark:bg-[#0A0A0A]/70 backdrop-blur-2xl [&_a:first-child]:!text-[#111111] [&_a:first-child]:dark:!text-white [&_button]:!text-[#374151] [&_button]:dark:!text-white/70'
             : 'bg-transparent'
         }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <a href="#" className="text-[15px] font-bold uppercase tracking-wide text-white md:text-[#1A1A1A] md:dark:text-white">
+          <a href="#" className="text-[15px] font-bold uppercase tracking-wide text-white md:text-[#111111] md:dark:text-white">
             OOH MY AD !
           </a>
 
@@ -42,7 +42,7 @@ export function Navbar() {
               <a
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-3.5 py-2 text-[13px] text-[#1A1A1A]/50 dark:text-white/50 transition-colors hover:text-[#1A1A1A] dark:hover:text-white"
+                className="rounded-lg px-3.5 py-2 text-[13px] text-[#6B7280] dark:text-white/50 transition-colors hover:text-[#111111] dark:hover:text-white"
               >
                 {link.label}
               </a>
@@ -70,10 +70,10 @@ export function Navbar() {
 
       {/* Mobile — plein écran dark, gros liens centrés */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-white dark:bg-[#0A0A0A]">
+        <div className="fixed inset-0 z-[60] flex flex-col bg-[#FAFAFA] dark:bg-[#0A0A0A]">
           <div className="flex items-center justify-between px-6 py-4">
-            <span className="text-[15px] font-bold uppercase tracking-wide text-[#1A1A1A] dark:text-white">OOH MY AD !</span>
-            <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="text-[#1A1A1A] dark:text-white">
+            <span className="text-[15px] font-bold uppercase tracking-wide text-[#111111] dark:text-white">OOH MY AD !</span>
+            <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="text-[#111111] dark:text-white">
               <X className="h-6 w-6" />
             </button>
           </div>
@@ -83,7 +83,7 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className="text-2xl font-medium text-[#1A1A1A]/50 dark:text-white/50 transition-colors hover:text-[#1A1A1A] dark:hover:text-white"
+                className="text-2xl font-medium text-[#6B7280] dark:text-white/50 transition-colors hover:text-[#111111] dark:hover:text-white"
               >
                 {link.label}
               </a>
