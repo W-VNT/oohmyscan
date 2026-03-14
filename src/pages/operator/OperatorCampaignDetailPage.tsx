@@ -97,7 +97,7 @@ export function OperatorCampaignDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('panel_campaigns')
-        .select('panel_id, assigned_by, assigned_at, panels(id, name, reference, status, city, address)')
+        .select('panel_id, assigned_by, assigned_at, panels(id, name, reference, status, city, address, zone_label)')
         .eq('campaign_id', id!)
         .is('unassigned_at', null)
         .order('assigned_at', { ascending: false })
@@ -323,6 +323,7 @@ export function OperatorCampaignDetailPage() {
                   status: string
                   city: string | null
                   address: string | null
+                  zone_label: string | null
                 } | null
                 if (!panel) return null
                 const statusCfg = PANEL_STATUS_CONFIG[panel.status as PanelStatus]
@@ -335,7 +336,7 @@ export function OperatorCampaignDetailPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-[13px] font-medium">
-                          {panel.name || panel.reference}
+                          {panel.name || 'Panneau'}
                         </p>
                         <Badge
                           variant={statusCfg?.variant ?? 'secondary'}
@@ -347,7 +348,7 @@ export function OperatorCampaignDetailPage() {
                       {(panel.city || panel.address) && (
                         <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                           <MapPin className="size-3" />
-                          <span className="truncate">{panel.city || panel.address}</span>
+                          <span className="truncate">{panel.zone_label ? `${panel.zone_label} · ${panel.city}` : (panel.city || panel.address)}</span>
                         </div>
                       )}
                     </div>

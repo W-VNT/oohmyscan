@@ -183,7 +183,7 @@ export function OperatorDashboardPage() {
         panelId: p.panel_id,
         type: photoTypeToActivity(p.photo_type),
         date: p.taken_at,
-        panelRef: panel?.name || panel?.reference || '—',
+        panelRef: panel?.name || 'Panneau',
         panelStatus: panel?.status,
         detail: PHOTO_TYPE_LABELS[p.photo_type as PhotoType] ?? p.photo_type,
       }
@@ -196,7 +196,7 @@ export function OperatorDashboardPage() {
         panelId: a.panel_id,
         type: 'assignment' as const,
         date: a.assigned_at,
-        panelRef: panel?.name || panel?.reference || '—',
+        panelRef: panel?.name || 'Panneau',
         detail: campaign?.name ?? '—',
       }
     }),
@@ -337,10 +337,10 @@ export function OperatorDashboardPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium">{p.name || p.reference}</p>
+                    <p className="truncate text-[13px] font-medium">{(p as any).locations?.name || p.name || 'Panneau'}</p>
                     <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                       <span>{statusCfg?.label ?? p.status}</span>
-                      {p.city && <><span>·</span><span>{p.city}</span></>}
+                      {p.city && <><span>·</span><span>{p.zone_label ? `${p.zone_label} · ${p.city}` : p.city}</span></>}
                       {dist !== null && <><span>·</span><span>{dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`}</span></>}
                     </div>
                   </div>
@@ -362,11 +362,11 @@ export function OperatorDashboardPage() {
               </p>
               <div className="mt-2 flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-sm font-medium">{lastInteractedPanel.name || lastInteractedPanel.reference}</p>
+                  <p className="text-sm font-medium">{(lastInteractedPanel as any).locations?.name || lastInteractedPanel.name || 'Panneau'}</p>
                   {(lastInteractedPanel.city || lastInteractedPanel.address) && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <MapPin className="size-3" />
-                      <span>{lastInteractedPanel.city || lastInteractedPanel.address}</span>
+                      <span>{lastInteractedPanel.zone_label ? `${lastInteractedPanel.zone_label} · ${lastInteractedPanel.city}` : (lastInteractedPanel.city || lastInteractedPanel.address)}</span>
                     </div>
                   )}
                 </div>

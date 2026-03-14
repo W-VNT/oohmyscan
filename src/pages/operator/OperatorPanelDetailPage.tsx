@@ -435,7 +435,7 @@ export function OperatorPanelDetailPage() {
           <button onClick={() => navigate(-1)} aria-label="Retour">
             <ArrowLeft className="size-5" />
           </button>
-          <h1 className="text-[15px] font-semibold">{panel.name || panel.reference}</h1>
+          <h1 className="text-[15px] font-semibold">{location?.name || panel.name || 'Panneau'}</h1>
         </div>
         <div className="flex items-center gap-1.5">
           <div className={`size-2 rounded-full ${status.color}`} />

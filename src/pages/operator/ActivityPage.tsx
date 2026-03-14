@@ -70,7 +70,7 @@ export function ActivityPage() {
         panelId: p.panel_id,
         type: 'photo' as const,
         date: p.taken_at,
-        panelRef: panel?.name || panel?.reference || '—',
+        panelRef: panel?.name || 'Panneau',
         panelStatus: panel?.status,
         detail: PHOTO_TYPE_LABELS[p.photo_type as PhotoType] ?? p.photo_type,
       }
@@ -83,7 +83,7 @@ export function ActivityPage() {
         panelId: a.panel_id,
         type: 'assignment' as const,
         date: a.assigned_at,
-        panelRef: panel?.name || panel?.reference || '—',
+        panelRef: panel?.name || 'Panneau',
         detail: campaign?.name ?? '—',
       }
     }),

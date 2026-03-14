@@ -5,7 +5,7 @@ import type { Panel, InsertTables, UpdateTables } from '@/types'
 const PAGE_SIZE = 30
 
 // Lightweight fields for lists — detail page uses usePanel('*') separately
-const LIST_FIELDS = 'id, name, reference, status, city, address, lat, lng, format, qr_code, created_at, zone_label, location_id'
+const LIST_FIELDS = 'id, name, reference, status, city, address, lat, lng, format, qr_code, created_at, zone_label, location_id, locations(name)'
 
 export function usePanels() {
   return useQuery({
@@ -16,7 +16,7 @@ export function usePanels() {
         .select(LIST_FIELDS)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as Panel[]
+      return data as unknown as Panel[]
     },
   })
 }
@@ -38,7 +38,7 @@ export function useInfinitePanels(search: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return data as Panel[]
+      return data as unknown as Panel[]
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {

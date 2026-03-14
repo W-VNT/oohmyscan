@@ -113,9 +113,9 @@ export function AssignCampaignPage() {
       <div className="mx-4 mt-4 rounded-lg border border-border p-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">{panel.name || panel.reference}</p>
+            <p className="font-medium">{(panel as any).locations?.name || panel.name || 'Panneau'}</p>
             <p className="text-sm text-muted-foreground">
-              {panel.city || panel.address || '—'}
+              {panel.zone_label ? `${panel.zone_label} · ${panel.city}` : (panel.city || panel.address || '—')}
             </p>
           </div>
           <StatusBadge status={panel.status as PanelStatus} />
@@ -193,7 +193,7 @@ export function AssignCampaignPage() {
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Panneau</span>
-                  <span className="font-medium">{panel.name || panel.reference}</span>
+                  <span className="font-medium">{(panel as any).locations?.name || panel.name || 'Panneau'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Campagne</span>

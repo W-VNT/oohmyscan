@@ -311,7 +311,7 @@ export function OperatorMapPage() {
             <div className="min-w-[200px] space-y-2.5 p-3">
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[14px] font-semibold">{selectedPanel.name || selectedPanel.reference}</p>
+                  <p className="text-[14px] font-semibold">{(selectedPanel as any).locations?.name || selectedPanel.name || 'Panneau'}</p>
                   {(() => {
                     const hasIssue = selectedPanel.status === 'maintenance' || selectedPanel.status === 'missing'
                     const occupied = panelCampaigns.has(selectedPanel.id)
@@ -328,9 +328,9 @@ export function OperatorMapPage() {
                     )
                   })()}
                 </div>
-                {(selectedPanel.name || selectedPanel.city) && (
+                {selectedPanel.city && (
                   <p className="mt-0.5 text-[12px] text-muted-foreground">
-                    {selectedPanel.name}{selectedPanel.name && selectedPanel.city ? ' · ' : ''}{selectedPanel.city}
+                    {selectedPanel.zone_label ? `${selectedPanel.zone_label} · ${selectedPanel.city}` : selectedPanel.city}
                   </p>
                 )}
                 {distanceToSelected !== null && (
@@ -391,9 +391,9 @@ export function OperatorMapPage() {
                       style={{ backgroundColor: getPanelColor(panel, panelCampaigns) }}
                     />
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium">{panel.name || panel.reference}</p>
-                      {(panel.city || panel.name) && (
-                        <p className="truncate text-[11px] text-muted-foreground">{panel.city || panel.name}</p>
+                      <p className="text-[13px] font-medium">{(panel as any).locations?.name || panel.name || 'Panneau'}</p>
+                      {panel.city && (
+                        <p className="truncate text-[11px] text-muted-foreground">{panel.zone_label ? `${panel.zone_label} · ${panel.city}` : panel.city}</p>
                       )}
                     </div>
                     {userPos && (

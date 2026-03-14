@@ -201,7 +201,7 @@ export function OperatorPanelsPage() {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-[13px] font-medium">{panel.name || panel.reference}</p>
+                        <p className="text-[13px] font-medium">{(panel as any).locations?.name || panel.name || 'Panneau'}</p>
                         <Badge variant={cfg?.variant ?? 'secondary'} className="text-[10px] font-normal">
                           {cfg?.label ?? panel.status}
                         </Badge>
@@ -209,7 +209,7 @@ export function OperatorPanelsPage() {
                       {(panel.city || panel.address) && (
                         <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                           <MapPin className="size-3" />
-                          <span className="truncate">{panel.city || panel.address}</span>
+                          <span className="truncate">{panel.zone_label ? `${panel.zone_label} · ${panel.city}` : (panel.city || panel.address)}</span>
                         </div>
                       )}
                     </div>
