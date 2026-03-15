@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useUsers, useUpdateUser, useOperatorStats, useInviteUser, type Profile } from '@/hooks/admin/useUsers'
+import { useAppStore } from '@/store/app.store'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -40,6 +41,7 @@ export function UsersPage() {
   const { data: stats } = useOperatorStats()
   const updateUser = useUpdateUser()
   const inviteUser = useInviteUser()
+  const currentUserId = useAppStore((s) => s.profile?.id)
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -61,6 +63,8 @@ export function UsersPage() {
   const [inviteRole, setInviteRole] = useState<'admin' | 'operator'>('operator')
   const [inviting, setInviting] = useState(false)
 
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({})
+  const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null)
 
   // Debounce
@@ -135,26 +139,37 @@ export function UsersPage() {
     setFullName(user.full_name)
     setRole(user.role)
     setPhone(user.phone ?? '')
+    setEditErrors({})
     setSheetOpen(true)
   }
 
   async function handleSave() {
-    if (!editingUser || !fullName.trim()) {
-      toast('Le nom est requis', 'error')
+    const errors: Record<string, string> = {}
+    if (!editingUser) return
+    if (!fullName.trim()) {
+      errors.fullName = 'Le nom est requis'
+    }
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors)
       return
     }
+    setEditErrors({})
     setSaving(true)
     try {
-      await updateUser.mutateAsync({
+      const updates: Partial<Profile> & { id: string } = {
         id: editingUser.id,
         full_name: fullName.trim(),
-        role,
         phone: phone.trim() || null,
-      })
+      }
+      // Only include role if it actually changed (avoids unnecessary RPC call)
+      if (role !== editingUser.role) {
+        updates.role = role
+      }
+      await updateUser.mutateAsync(updates)
       toast('Utilisateur mis à jour')
       setSheetOpen(false)
-    } catch {
-      toast('Erreur lors de la sauvegarde', 'error')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde', 'error')
     } finally {
       setSaving(false)
     }
@@ -176,14 +191,20 @@ export function UsersPage() {
   }
 
   async function handleInvite() {
-    if (!inviteEmail.trim() || !inviteName.trim()) {
-      toast('Email et nom requis', 'error')
+    const errors: Record<string, string> = {}
+    if (!inviteEmail.trim()) {
+      errors.inviteEmail = 'L\'email est requis'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())) {
+      errors.inviteEmail = 'Format d\'email invalide'
+    }
+    if (!inviteName.trim()) {
+      errors.inviteName = 'Le nom est requis'
+    }
+    if (Object.keys(errors).length > 0) {
+      setInviteErrors(errors)
       return
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())) {
-      toast('Format d\'email invalide', 'error')
-      return
-    }
+    setInviteErrors({})
     setInviting(true)
     try {
       await inviteUser.mutateAsync({
@@ -222,7 +243,7 @@ export function UsersPage() {
             <span>{roleCounts.operator} opérateur{roleCounts.operator !== 1 ? 's' : ''}</span>
           </div>
         </div>
-        <Button onClick={() => setInviteOpen(true)}>
+        <Button onClick={() => { setInviteErrors({}); setInviteOpen(true) }}>
           <UserPlus className="mr-1.5 size-4" />
           Inviter
         </Button>
@@ -425,10 +446,14 @@ export function UsersPage() {
               <label className="text-xs font-medium text-muted-foreground">Nom complet *</label>
               <Input
                 value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                onChange={(e) => {
+                  setFullName(e.target.value)
+                  if (editErrors.fullName) setEditErrors((prev) => { const next = { ...prev }; delete next.fullName; return next })
+                }}
                 placeholder="Jean Dupont"
-                className="text-sm"
+                className={`text-sm ${editErrors.fullName ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
               />
+              {editErrors.fullName && <p className="text-[11px] text-red-500">{editErrors.fullName}</p>}
             </div>
 
             <div className="space-y-1">
@@ -436,11 +461,15 @@ export function UsersPage() {
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'admin' | 'operator')}
-                className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+                disabled={editingUser?.id === currentUserId}
+                className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="operator">Opérateur</option>
                 <option value="admin">Administrateur</option>
               </select>
+              {editingUser?.id === currentUserId && (
+                <p className="text-[11px] text-muted-foreground">Vous ne pouvez pas modifier votre propre rôle</p>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -481,23 +510,31 @@ export function UsersPage() {
               <label className="text-xs font-medium text-muted-foreground">Email *</label>
               <Input
                 value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
+                onChange={(e) => {
+                  setInviteEmail(e.target.value)
+                  if (inviteErrors.inviteEmail) setInviteErrors((prev) => { const next = { ...prev }; delete next.inviteEmail; return next })
+                }}
                 placeholder="jean@example.com"
                 type="email"
                 inputMode="email"
                 autoComplete="email"
-                className="text-sm"
+                className={`text-sm ${inviteErrors.inviteEmail ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
               />
+              {inviteErrors.inviteEmail && <p className="text-[11px] text-red-500">{inviteErrors.inviteEmail}</p>}
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Nom complet *</label>
               <Input
                 value={inviteName}
-                onChange={(e) => setInviteName(e.target.value)}
+                onChange={(e) => {
+                  setInviteName(e.target.value)
+                  if (inviteErrors.inviteName) setInviteErrors((prev) => { const next = { ...prev }; delete next.inviteName; return next })
+                }}
                 placeholder="Jean Dupont"
-                className="text-sm"
+                className={`text-sm ${inviteErrors.inviteName ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
               />
+              {inviteErrors.inviteName && <p className="text-[11px] text-red-500">{inviteErrors.inviteName}</p>}
             </div>
 
             <div className="space-y-1">

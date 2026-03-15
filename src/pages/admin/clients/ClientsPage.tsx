@@ -48,6 +48,7 @@ export function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [form, setForm] = useState<ClientForm>(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof ClientForm, string>>>({})
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -126,6 +127,7 @@ export function ClientsPage() {
   function openCreate() {
     setEditingClient(null)
     setForm(emptyForm)
+    setFormErrors({})
     setSheetOpen(true)
   }
 
@@ -144,20 +146,27 @@ export function ClientsPage() {
       notes: client.notes,
       is_active: client.is_active,
     })
+    setFormErrors({})
     setSheetOpen(true)
   }
 
   async function handleSave() {
+    const errors: Partial<Record<keyof ClientForm, string>> = {}
+
     if (!form.company_name.trim()) {
-      toast('Le nom de la société est requis', 'error')
-      return
+      errors.company_name = 'Le nom de la société est requis'
     }
 
     if (form.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email)) {
-      toast('Format d\'email invalide', 'error')
+      errors.contact_email = 'Format d\'email invalide'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
       return
     }
 
+    setFormErrors({})
     setSaving(true)
     try {
       if (editingClient) {
@@ -195,18 +204,25 @@ export function ClientsPage() {
     label: string,
     placeholder?: string,
     type?: string,
-  ) => (
-    <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
-      <Input
-        value={(form[key] as string) ?? ''}
-        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value || null }))}
-        placeholder={placeholder}
-        type={type}
-        className="text-sm"
-      />
-    </div>
-  )
+  ) => {
+    const error = formErrors[key]
+    return (
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-muted-foreground">{label}</label>
+        <Input
+          value={(form[key] as string) ?? ''}
+          onChange={(e) => {
+            setForm((f) => ({ ...f, [key]: e.target.value || null }))
+            if (error) setFormErrors((prev) => { const next = { ...prev }; delete next[key]; return next })
+          }}
+          placeholder={placeholder}
+          type={type}
+          className={`text-sm ${error ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+        />
+        {error && <p className="text-[11px] text-red-500">{error}</p>}
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (

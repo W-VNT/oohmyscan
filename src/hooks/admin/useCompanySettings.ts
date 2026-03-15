@@ -18,6 +18,8 @@ export interface CompanySettings {
   invoice_prefix: string
   next_quote_number: number
   next_invoice_number: number
+  potential_prefix: string
+  next_potential_number: number
   legal_mentions: string | null
 }
 

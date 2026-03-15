@@ -120,33 +120,25 @@ export function useSaveQuoteLines() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ quoteId, lines }: { quoteId: string; lines: Omit<QuoteLine, 'id'>[] }) => {
-      // Delete existing lines and insert new ones
-      const { error: deleteError } = await supabase
-        .from('quote_lines')
-        .delete()
-        .eq('quote_id', quoteId)
-      if (deleteError) throw deleteError
-
-      if (lines.length > 0) {
-        const { error: insertError } = await supabase
-          .from('quote_lines')
-          .insert(lines)
-        if (insertError) throw insertError
-      }
-
-      // Update quote totals
       const totalHt = lines.reduce((sum, l) => sum + l.total_ht, 0)
       const totalTva = lines.reduce((sum, l) => sum + l.total_ht * (l.tva_rate / 100), 0)
-      const { error: updateError } = await supabase
-        .from('quotes')
-        .update({
-          total_ht: Math.round(totalHt * 100) / 100,
-          total_tva: Math.round(totalTva * 100) / 100,
-          total_ttc: Math.round((totalHt + totalTva) * 100) / 100,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', quoteId)
-      if (updateError) throw updateError
+
+      const { error } = await supabase.rpc('save_quote_lines', {
+        p_quote_id: quoteId,
+        p_lines: lines.map((l) => ({
+          description: l.description,
+          quantity: l.quantity,
+          unit: l.unit,
+          unit_price: l.unit_price,
+          tva_rate: l.tva_rate,
+          total_ht: l.total_ht,
+          sort_order: l.sort_order,
+        })),
+        p_total_ht: Math.round(totalHt * 100) / 100,
+        p_total_tva: Math.round(totalTva * 100) / 100,
+        p_total_ttc: Math.round((totalHt + totalTva) * 100) / 100,
+      })
+      if (error) throw error
     },
     onSuccess: (_, { quoteId }) => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] })

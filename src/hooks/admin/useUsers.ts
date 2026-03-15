@@ -80,15 +80,33 @@ export function useOperatorStats() {
 export function useUpdateUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Profile> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
-      if (error) throw error
-      return data
+    mutationFn: async ({ id, role, ...profileUpdates }: Partial<Profile> & { id: string }) => {
+      // If role is being changed, use the secure RPC function
+      if (role !== undefined) {
+        const { data: rpcResult, error: rpcError } = await supabase
+          .rpc('admin_update_user_role', {
+            target_user_id: id,
+            new_role: role,
+          })
+        if (rpcError) throw rpcError
+        if (rpcResult && !rpcResult.success) {
+          throw new Error(rpcResult.error ?? 'Erreur lors du changement de rôle')
+        }
+      }
+
+      // If there are other profile fields to update, do a direct update
+      if (Object.keys(profileUpdates).length > 0) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .update(profileUpdates)
+          .eq('id', id)
+          .select()
+          .single()
+        if (error) throw error
+        return data
+      }
+
+      return null
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })

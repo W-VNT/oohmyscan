@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/app.store'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 
 const PAGE_TITLES: Record<string, string> = {
   '/admin': 'Dashboard',
@@ -182,7 +183,9 @@ export function AdminLayout() {
           <div className="flex-1" />
         </header>
         <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

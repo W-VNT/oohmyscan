@@ -122,31 +122,25 @@ export function useSaveInvoiceLines() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ invoiceId, lines }: { invoiceId: string; lines: Omit<InvoiceLine, 'id'>[] }) => {
-      const { error: deleteError } = await supabase
-        .from('invoice_lines')
-        .delete()
-        .eq('invoice_id', invoiceId)
-      if (deleteError) throw deleteError
-
-      if (lines.length > 0) {
-        const { error: insertError } = await supabase
-          .from('invoice_lines')
-          .insert(lines)
-        if (insertError) throw insertError
-      }
-
       const totalHt = lines.reduce((sum, l) => sum + l.total_ht, 0)
       const totalTva = lines.reduce((sum, l) => sum + l.total_ht * (l.tva_rate / 100), 0)
-      const { error: updateError } = await supabase
-        .from('invoices')
-        .update({
-          total_ht: Math.round(totalHt * 100) / 100,
-          total_tva: Math.round(totalTva * 100) / 100,
-          total_ttc: Math.round((totalHt + totalTva) * 100) / 100,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', invoiceId)
-      if (updateError) throw updateError
+
+      const { error } = await supabase.rpc('save_invoice_lines', {
+        p_invoice_id: invoiceId,
+        p_lines: lines.map((l) => ({
+          description: l.description,
+          quantity: l.quantity,
+          unit: l.unit,
+          unit_price: l.unit_price,
+          tva_rate: l.tva_rate,
+          total_ht: l.total_ht,
+          sort_order: l.sort_order,
+        })),
+        p_total_ht: Math.round(totalHt * 100) / 100,
+        p_total_tva: Math.round(totalTva * 100) / 100,
+        p_total_ttc: Math.round((totalHt + totalTva) * 100) / 100,
+      })
+      if (error) throw error
     },
     onSuccess: (_, { invoiceId }) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] })

@@ -951,6 +951,36 @@ export interface Database {
         Args: Record<string, never>
         Returns: string
       }
+      save_quote_lines: {
+        Args: {
+          p_quote_id: string
+          p_lines: Record<string, unknown>[]
+          p_total_ht: number
+          p_total_tva: number
+          p_total_ttc: number
+        }
+        Returns: undefined
+      }
+      save_invoice_lines: {
+        Args: {
+          p_invoice_id: string
+          p_lines: Record<string, unknown>[]
+          p_total_ht: number
+          p_total_tva: number
+          p_total_ttc: number
+        }
+        Returns: undefined
+      }
+      admin_update_user_role: {
+        Args: {
+          target_user_id: string
+          new_role: string
+        }
+        Returns: {
+          success: boolean
+          error?: string
+        }
+      }
     }
   }
 }
