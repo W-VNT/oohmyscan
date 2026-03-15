@@ -1101,7 +1101,7 @@ export function OperatorPanelDetailPage() {
             </p>
             <button
               onClick={() => { setViewingIndex(null); setConfirmDelete(false) }}
-              className="flex size-10 items-center justify-center rounded-full bg-white/10"
+              className="flex size-11 items-center justify-center rounded-full bg-white/10"
               aria-label="Fermer"
             >
               <X className="size-5 text-white" />
@@ -1125,7 +1125,7 @@ export function OperatorPanelDetailPage() {
             {viewingIndex > 0 && (
               <button
                 onClick={goPrev}
-                className="absolute left-2 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-2 sm:flex"
+                className="absolute left-2 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-2 min-h-[44px] min-w-[44px] sm:flex"
                 aria-label="Photo précédente"
               >
                 <ChevronLeft className="size-5 text-white" />
@@ -1134,7 +1134,7 @@ export function OperatorPanelDetailPage() {
             {viewingIndex < total - 1 && (
               <button
                 onClick={goNext}
-                className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-2 sm:flex"
+                className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-2 min-h-[44px] min-w-[44px] sm:flex"
                 aria-label="Photo suivante"
               >
                 <ChevronRight className="size-5 text-white" />
@@ -1161,13 +1161,16 @@ export function OperatorPanelDetailPage() {
 
             {/* Dots indicator */}
             {total > 1 && (
-              <div className="mb-3 flex justify-center gap-1.5">
+              <div className="mb-3 flex justify-center">
                 {visiblePhotos.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => { setViewingIndex(i); setConfirmDelete(false) }}
-                    className={`size-1.5 rounded-full transition-colors ${i === viewingIndex ? 'bg-white' : 'bg-white/30'}`}
-                  />
+                    className="relative flex min-h-[44px] min-w-[44px] items-center justify-center"
+                    aria-label={`Photo ${i + 1}`}
+                  >
+                    <span className={`block size-1.5 rounded-full transition-colors ${i === viewingIndex ? 'bg-white' : 'bg-white/30'}`} />
+                  </button>
                 ))}
               </div>
             )}

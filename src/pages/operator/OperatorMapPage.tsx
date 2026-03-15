@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { PullToRefresh } from '@/components/shared/PullToRefresh'
 import { Loader2, LocateFixed, Navigation, Eye, Search, X, MapPinOff, CircleCheck, Megaphone, AlertTriangle } from 'lucide-react'
-import type { Panel } from '@/types'
+import type { PanelWithLocation } from '@/types'
 import Map, { Marker, Popup, Source, Layer } from 'react-map-gl/mapbox'
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox'
 import type { GeoJSONSource } from 'mapbox-gl'
@@ -38,7 +38,7 @@ function openDirections(lat: number, lng: number) {
   }
 }
 
-function getPanelColor(panel: Panel, campaignIds: Set<string>): string {
+function getPanelColor(panel: PanelWithLocation, campaignIds: Set<string>): string {
   const hasIssue = panel.status === 'maintenance' || panel.status === 'missing'
   if (hasIssue) return '#f97316'
   if (campaignIds.has(panel.id)) return '#ef4444'
@@ -59,7 +59,7 @@ export function OperatorMapPage() {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
     return () => observer.disconnect()
   }, [])
-  const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null)
+  const [selectedPanel, setSelectedPanel] = useState<PanelWithLocation | null>(null)
   const [viewState, setViewState] = useState({
     longitude: 2.3522,
     latitude: 48.8566,
@@ -124,7 +124,7 @@ export function OperatorMapPage() {
 
   // Lookup panel by id for click events
   const panelMap = useMemo(() => {
-    const map = new globalThis.Map<string, Panel>()
+    const map = new globalThis.Map<string, PanelWithLocation>()
     for (const p of panels ?? []) map.set(p.id, p)
     return map
   }, [panels])
@@ -183,7 +183,7 @@ export function OperatorMapPage() {
       .slice(0, 5)
   }, [panels, search])
 
-  function flyToPanel(panel: Panel) {
+  function flyToPanel(panel: PanelWithLocation) {
     setViewState({ latitude: panel.lat, longitude: panel.lng, zoom: 17 })
     setSelectedPanel(panel)
     setShowSearch(false)
@@ -311,7 +311,7 @@ export function OperatorMapPage() {
             <div className="min-w-[200px] space-y-2.5 p-3">
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[14px] font-semibold">{(selectedPanel as any).locations?.name || selectedPanel.name || 'Panneau'}</p>
+                  <p className="text-[14px] font-semibold">{selectedPanel.locations?.name || selectedPanel.name || 'Panneau'}</p>
                   {(() => {
                     const hasIssue = selectedPanel.status === 'maintenance' || selectedPanel.status === 'missing'
                     const occupied = panelCampaigns.has(selectedPanel.id)
@@ -391,7 +391,7 @@ export function OperatorMapPage() {
                       style={{ backgroundColor: getPanelColor(panel, panelCampaigns) }}
                     />
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium">{(panel as any).locations?.name || panel.name || 'Panneau'}</p>
+                      <p className="text-[13px] font-medium">{panel.locations?.name || panel.name || 'Panneau'}</p>
                       {panel.city && (
                         <p className="truncate text-[11px] text-muted-foreground">{panel.zone_label ? `${panel.zone_label} · ${panel.city}` : panel.city}</p>
                       )}

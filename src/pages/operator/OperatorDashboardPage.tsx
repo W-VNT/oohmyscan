@@ -337,7 +337,7 @@ export function OperatorDashboardPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium">{(p as any).locations?.name || p.name || 'Panneau'}</p>
+                    <p className="truncate text-[13px] font-medium">{p.locations?.name || p.name || 'Panneau'}</p>
                     <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                       <span>{statusCfg?.label ?? p.status}</span>
                       {p.city && <><span>·</span><span>{p.zone_label ? `${p.zone_label} · ${p.city}` : p.city}</span></>}
@@ -362,7 +362,7 @@ export function OperatorDashboardPage() {
               </p>
               <div className="mt-2 flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-sm font-medium">{(lastInteractedPanel as any).locations?.name || lastInteractedPanel.name || 'Panneau'}</p>
+                  <p className="text-sm font-medium">{lastInteractedPanel.locations?.name || lastInteractedPanel.name || 'Panneau'}</p>
                   {(lastInteractedPanel.city || lastInteractedPanel.address) && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <MapPin className="size-3" />

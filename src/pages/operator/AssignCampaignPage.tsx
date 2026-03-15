@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2, CheckCircle, Megaphone } from 'lucide-react'
 import { usePanel } from '@/hooks/usePanels'
 import { useActiveCampaigns, useAssignCampaign } from '@/hooks/useCampaigns'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/shared/Toast'
 import { useAuth } from '@/hooks/useAuth'
 import { PhotoCapture } from '@/components/shared/PhotoCapture'
@@ -18,6 +19,7 @@ export function AssignCampaignPage() {
   const { data: panel, isLoading: panelLoading } = usePanel(panelId)
   const { data: campaigns, isLoading: campaignsLoading } = useActiveCampaigns()
   const assignCampaign = useAssignCampaign()
+  const queryClient = useQueryClient()
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
@@ -76,6 +78,14 @@ export function AssignCampaignPage() {
         })
         .eq('id', panelId)
 
+      // Re-invalidate after direct supabase calls (photo insert + panel status update)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['panels'] }),
+        queryClient.invalidateQueries({ queryKey: ['panel-photos', panelId] }),
+        queryClient.invalidateQueries({ queryKey: ['panel-assignments', panelId] }),
+        queryClient.invalidateQueries({ queryKey: ['campaign-visual'] }),
+      ])
+
       toast('Campagne assignée avec succès')
       navigate(`/app/panels/${panelId}`, { replace: true })
     } catch (err) {
@@ -113,7 +123,7 @@ export function AssignCampaignPage() {
       <div className="mx-4 mt-4 rounded-lg border border-border p-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">{(panel as any).locations?.name || panel.name || 'Panneau'}</p>
+            <p className="font-medium">{panel.locations?.name || panel.name || 'Panneau'}</p>
             <p className="text-sm text-muted-foreground">
               {panel.zone_label ? `${panel.zone_label} · ${panel.city}` : (panel.city || panel.address || '—')}
             </p>
@@ -193,7 +203,7 @@ export function AssignCampaignPage() {
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Panneau</span>
-                  <span className="font-medium">{(panel as any).locations?.name || panel.name || 'Panneau'}</span>
+                  <span className="font-medium">{panel.locations?.name || panel.name || 'Panneau'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Campagne</span>

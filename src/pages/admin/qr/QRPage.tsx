@@ -142,8 +142,7 @@ export function QRPage() {
       const blob = await pdf(<DymoQRPDF labels={labels} />).toBlob()
       saveAs(blob, `qr-dymo-${items.length}.pdf`)
       toast(`PDF généré — ${items.length} étiquette${items.length !== 1 ? 's' : ''}`)
-    } catch (err) {
-      console.error('Dymo PDF export error:', err)
+    } catch {
       toast('Erreur lors de la génération du PDF', 'error')
     } finally {
       setExporting(false)

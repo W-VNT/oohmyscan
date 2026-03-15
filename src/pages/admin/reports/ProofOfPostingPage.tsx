@@ -487,8 +487,7 @@ export function ProofOfPostingPage() {
       a.click()
       URL.revokeObjectURL(url)
       toast('PDF exporté')
-    } catch (err) {
-      console.error(err)
+    } catch {
       toast('Erreur lors de l\'export', 'error')
     } finally {
       setExporting(false)

@@ -104,9 +104,12 @@ export function useAssignCampaign() {
       if (error) throw error
       return data
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['panels'] })
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['panel-assignments', variables.panel_id] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-visual'] })
+      queryClient.invalidateQueries({ queryKey: ['panel-photos', variables.panel_id] })
     },
   })
 }

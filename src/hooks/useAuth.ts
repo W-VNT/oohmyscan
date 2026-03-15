@@ -45,13 +45,11 @@ export function useAuth() {
         .single()
 
       if (error) {
-        console.error('[AUTH] Profile fetch error:', error.message)
         setProfile(null)
       } else {
         setProfile(data)
       }
-    } catch (err) {
-      console.error('[AUTH] Profile fetch failed:', err)
+    } catch {
       setProfile(null)
     } finally {
       setLoading(false)

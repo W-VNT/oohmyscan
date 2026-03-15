@@ -17,3 +17,8 @@ export type PanelCampaign = Tables<'panel_campaigns'>
 export type Location = Tables<'locations'>
 export type PanelContract = Tables<'panel_contracts'>
 export type ContractAmendment = Tables<'contract_amendments'>
+
+/** Panel row with the joined `locations(name)` relation included by LIST_FIELDS */
+export type PanelWithLocation = Panel & {
+  locations: { name: string } | null
+}

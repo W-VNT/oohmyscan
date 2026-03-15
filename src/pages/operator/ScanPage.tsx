@@ -127,6 +127,14 @@ export function ScanPage() {
     route()
   }, [scannedId, isFetching, existingPanel, mode, alert, checkingCampaign])
 
+  // Auto-dismiss scan error after 4 seconds
+  useEffect(() => {
+    if (scanError) {
+      const timer = setTimeout(() => setScanError(null), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [scanError])
+
   const handleScan = useCallback((decodedText: string) => {
     const panelId = extractPanelId(decodedText)
     if (panelId) {

@@ -1,6 +1,6 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Panel, InsertTables, UpdateTables } from '@/types'
+import type { PanelWithLocation, InsertTables, UpdateTables } from '@/types'
 
 const PAGE_SIZE = 30
 
@@ -10,13 +10,13 @@ const LIST_FIELDS = 'id, name, reference, status, city, address, lat, lng, forma
 export function usePanels() {
   return useQuery({
     queryKey: ['panels'],
-    queryFn: async (): Promise<Panel[]> => {
+    queryFn: async (): Promise<PanelWithLocation[]> => {
       const { data, error } = await supabase
         .from('panels')
         .select(LIST_FIELDS)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as unknown as Panel[]
+      return data as unknown as PanelWithLocation[]
     },
   })
 }
@@ -24,7 +24,7 @@ export function usePanels() {
 export function useInfinitePanels(search: string) {
   return useInfiniteQuery({
     queryKey: ['panels-infinite', search],
-    queryFn: async ({ pageParam = 0 }): Promise<Panel[]> => {
+    queryFn: async ({ pageParam = 0 }): Promise<PanelWithLocation[]> => {
       let query = supabase
         .from('panels')
         .select(LIST_FIELDS)
@@ -38,7 +38,7 @@ export function useInfinitePanels(search: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return data as unknown as Panel[]
+      return data as unknown as PanelWithLocation[]
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
@@ -51,14 +51,14 @@ export function useInfinitePanels(search: string) {
 export function usePanel(id: string | undefined) {
   return useQuery({
     queryKey: ['panels', id],
-    queryFn: async (): Promise<Panel> => {
+    queryFn: async (): Promise<PanelWithLocation> => {
       const { data, error } = await supabase
         .from('panels')
-        .select('*')
+        .select('*, locations(name)')
         .eq('id', id!)
         .single()
       if (error) throw error
-      return data
+      return data as unknown as PanelWithLocation
     },
     enabled: !!id,
   })
@@ -67,14 +67,14 @@ export function usePanel(id: string | undefined) {
 export function usePanelByQrCode(qrCode: string | undefined) {
   return useQuery({
     queryKey: ['panels', 'qr', qrCode],
-    queryFn: async (): Promise<Panel | null> => {
+    queryFn: async (): Promise<PanelWithLocation | null> => {
       const { data, error } = await supabase
         .from('panels')
-        .select('*')
+        .select('*, locations(name)')
         .eq('qr_code', qrCode!)
         .maybeSingle()
       if (error) throw error
-      return data
+      return data as unknown as PanelWithLocation | null
     },
     enabled: !!qrCode,
   })

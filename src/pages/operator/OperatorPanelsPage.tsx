@@ -201,7 +201,7 @@ export function OperatorPanelsPage() {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-[13px] font-medium">{(panel as any).locations?.name || panel.name || 'Panneau'}</p>
+                        <p className="text-[13px] font-medium">{panel.locations?.name || panel.name || 'Panneau'}</p>
                         <Badge variant={cfg?.variant ?? 'secondary'} className="text-[10px] font-normal">
                           {cfg?.label ?? panel.status}
                         </Badge>
