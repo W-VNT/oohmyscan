@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation — OOH MY AD !</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAFAFA; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #FAFAFA; padding: 48px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 460px;">
+
+          <!-- Logo -->
+          <tr>
+            <td style="padding: 0 0 40px; text-align: center;">
+              <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #111111;">
+                OOH MY AD !
+              </span>
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td style="background-color: #ffffff; border: 1px solid #E5E5E5; border-radius: 12px; padding: 40px;">
+
+              <h2 style="margin: 0 0 8px; color: #111111; font-size: 20px; font-weight: 600;">
+                Vous avez été invité
+              </h2>
+
+              <p style="margin: 0 0 28px; color: #6B7280; font-size: 14px; line-height: 1.6;">
+                Un administrateur vous a ajouté à la plateforme.
+                Cliquez ci-dessous pour créer votre mot de passe et accéder à votre espace.
+              </p>
+
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding: 0 0 28px;">
+                    <a href="{{ .ConfirmationURL }}"
+                       style="display: inline-block; background-color: #F5C400; color: #0A0A0A; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 32px; border-radius: 999px; letter-spacing: 0.01em;">
+                      Accepter l'invitation
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback link -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #E5E5E5;">
+                <tr>
+                  <td style="padding: 20px 0 0;">
+                    <p style="margin: 0; color: #6B7280; font-size: 12px; line-height: 1.5;">
+                      Si le bouton ne fonctionne pas, copiez ce lien :
+                    </p>
+                    <p style="margin: 6px 0 0; word-break: break-all; color: #111111; font-size: 11px; font-family: monospace;">
+                      {{ .ConfirmationURL }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 32px 0 0; text-align: center;">
+              <p style="margin: 0 0 4px; color: #6B7280; font-size: 11px;">
+                Communication urbaine de proximité
+              </p>
+              <p style="margin: 0; color: #6B7280; font-size: 11px;">
+                Si vous n'attendiez pas cette invitation, ignorez cet email.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
