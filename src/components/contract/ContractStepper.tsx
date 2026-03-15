@@ -186,7 +186,7 @@ export function ContractStepper({ panel }: ContractStepperProps) {
     const base64 = dataUrl.split(',')[1]
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
     const blob = new Blob([bytes], { type: 'image/png' })
-    const path = `signatures/${prefix}-${Date.now()}.png`
+    const path = `signatures/${prefix}-${crypto.randomUUID()}.png`
     const { error: uploadErr } = await supabase.storage
       .from('panel-photos')
       .upload(path, blob, { contentType: 'image/png' })

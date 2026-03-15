@@ -32,9 +32,8 @@ export function PhotoCapture({
 
     try {
       // Upload to Supabase Storage
-      const timestamp = Date.now()
       const ext = compressed.name.split('.').pop() || 'jpg'
-      const path = `${folder}/${timestamp}.${ext}`
+      const path = `${folder}/${crypto.randomUUID()}.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from('panel-photos')

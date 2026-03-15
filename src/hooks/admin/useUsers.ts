@@ -114,15 +114,39 @@ export function useUpdateUser() {
   })
 }
 
+/**
+ * Generate a secure temporary password for new user accounts.
+ * The admin must communicate this password to the user out-of-band.
+ */
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%'
+  const array = new Uint8Array(16)
+  crypto.getRandomValues(array)
+  return Array.from(array, (b) => chars[b % chars.length]).join('')
+}
+
 export function useInviteUser() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ email, role, full_name }: { email: string; role: 'admin' | 'operator'; full_name: string }) => {
-      const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-        data: { full_name, role },
+      // NOTE: auth.admin.inviteUserByEmail() requires a service_role key which
+      // must NEVER be exposed in client-side code. We use auth.signUp() instead,
+      // which works with the anon key. The admin must share the temporary
+      // password with the user manually.
+      // TODO: Replace with a Supabase Edge Function that uses service_role
+      // server-side to send a proper invitation email.
+      const tempPassword = generateTempPassword()
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: tempPassword,
+        options: {
+          data: { full_name, role },
+        },
       })
       if (error) throw error
-      return data
+
+      return { ...data, tempPassword }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })

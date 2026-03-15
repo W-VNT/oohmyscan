@@ -23,6 +23,12 @@ export interface CompanySettings {
   legal_mentions: string | null
 }
 
+/**
+ * Fetches all company_settings fields including sensitive financial data (IBAN, BIC).
+ * All current consumers (SettingsPage, QuoteDetailPage, InvoiceDetailPage, ContractStepper,
+ * PotentialNewPage) need the full row. If a lightweight consumer is added later,
+ * create a separate hook with an explicit column list excluding iban/bic.
+ */
 export function useCompanySettings() {
   return useQuery({
     queryKey: ['company-settings'],

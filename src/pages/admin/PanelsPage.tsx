@@ -29,7 +29,10 @@ function usePaginatedPanels(
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
       if (debouncedSearch.trim()) {
-        const q = `%${debouncedSearch.trim()}%`
+        const escaped = debouncedSearch.trim()
+          .replace(/[%_\\]/g, (c) => `\\${c}`)
+          .replace(/[,()]/g, '')
+        const q = `%${escaped}%`
         query = query.or(`reference.ilike.${q},city.ilike.${q},name.ilike.${q},address.ilike.${q}`)
       }
       if (status !== 'all') query = query.eq('status', status)

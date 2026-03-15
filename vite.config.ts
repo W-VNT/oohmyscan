@@ -47,7 +47,7 @@ export default defineConfig({
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'supabase-storage',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 2 },
             },
           },
         ],

@@ -32,7 +32,10 @@ export function useInfinitePanels(search: string) {
         .range(pageParam, pageParam + PAGE_SIZE - 1)
 
       if (search.trim()) {
-        const q = `%${search.trim()}%`
+        const escaped = search.trim()
+          .replace(/[%_\\]/g, (c) => `\\${c}`)
+          .replace(/[,()]/g, '')
+        const q = `%${escaped}%`
         query = query.or(`reference.ilike.${q},city.ilike.${q},name.ilike.${q}`)
       }
 

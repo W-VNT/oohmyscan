@@ -1,10 +1,13 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Loader2, ScanLine } from 'lucide-react'
+
+const MAX_ATTEMPTS = 5
+const COOLDOWN_SECONDS = 30
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -14,15 +17,44 @@ export function LoginPage() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
 
+  // Client-side rate limiting
+  const failedAttempts = useRef(0)
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null)
+  const [cooldownRemaining, setCooldownRemaining] = useState(0)
+
+  useEffect(() => {
+    if (!lockedUntil) return
+    const tick = () => {
+      const remaining = Math.ceil((lockedUntil - Date.now()) / 1000)
+      if (remaining <= 0) {
+        setLockedUntil(null)
+        setCooldownRemaining(0)
+        failedAttempts.current = 0
+      } else {
+        setCooldownRemaining(remaining)
+      }
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [lockedUntil])
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (lockedUntil && Date.now() < lockedUntil) return
     setError('')
     setLoading(true)
 
     const { error } = await signIn(email, password)
 
     if (error) {
-      setError(error.message)
+      failedAttempts.current += 1
+      if (failedAttempts.current >= MAX_ATTEMPTS) {
+        setLockedUntil(Date.now() + COOLDOWN_SECONDS * 1000)
+        setError(`Trop de tentatives. Réessayez dans ${COOLDOWN_SECONDS} secondes.`)
+      } else {
+        setError('Email ou mot de passe incorrect')
+      }
       setLoading(false)
     } else {
       // Fetch profile to determine redirect destination
@@ -56,11 +88,15 @@ export function LoginPage() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-3">
-        {error && (
+        {lockedUntil && cooldownRemaining > 0 ? (
+          <div className="rounded-lg bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive">
+            Trop de tentatives. Réessayez dans {cooldownRemaining} seconde{cooldownRemaining > 1 ? 's' : ''}.
+          </div>
+        ) : error ? (
           <div className="rounded-lg bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive">
             {error}
           </div>
-        )}
+        ) : null}
 
         <Input
           type="email"
@@ -83,7 +119,7 @@ export function LoginPage() {
           className="h-12 text-[15px]"
         />
 
-        <Button type="submit" disabled={loading} className="h-12 w-full text-[15px]">
+        <Button type="submit" disabled={loading || (!!lockedUntil && Date.now() < lockedUntil)} className="h-12 w-full text-[15px]">
           {loading ? (
             <>
               <Loader2 className="size-4 animate-spin" />

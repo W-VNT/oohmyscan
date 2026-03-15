@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/shared/Toast'
-import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Filter, ArrowUpDown } from 'lucide-react'
+import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Filter, ArrowUpDown, Copy, Check } from 'lucide-react'
 
 type RoleFilter = 'all' | 'admin' | 'operator'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -36,6 +36,20 @@ function formatRelativeDate(dateStr: string): string {
   return date.toLocaleDateString('fr-FR')
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <Button variant="outline" size="icon" onClick={handleCopy} className="shrink-0 size-9">
+      {copied ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
+    </Button>
+  )
+}
+
 export function UsersPage() {
   const { data: users, isLoading } = useUsers()
   const { data: stats } = useOperatorStats()
@@ -62,6 +76,7 @@ export function UsersPage() {
   const [inviteName, setInviteName] = useState('')
   const [inviteRole, setInviteRole] = useState<'admin' | 'operator'>('operator')
   const [inviting, setInviting] = useState(false)
+  const [tempPasswordResult, setTempPasswordResult] = useState<{ email: string; password: string } | null>(null)
 
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
   const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
@@ -207,18 +222,19 @@ export function UsersPage() {
     setInviteErrors({})
     setInviting(true)
     try {
-      await inviteUser.mutateAsync({
+      const result = await inviteUser.mutateAsync({
         email: inviteEmail.trim(),
         full_name: inviteName.trim(),
         role: inviteRole,
       })
-      toast('Invitation envoyée')
+      toast('Utilisateur créé avec succès')
+      setTempPasswordResult({ email: inviteEmail.trim(), password: result.tempPassword })
       setInviteOpen(false)
       setInviteEmail('')
       setInviteName('')
       setInviteRole('operator')
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erreur lors de l\'invitation', 'error')
+      toast(err instanceof Error ? err.message : 'Erreur lors de la création', 'error')
     } finally {
       setInviting(false)
     }
@@ -550,12 +566,53 @@ export function UsersPage() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Un email d'invitation sera envoyé à l'adresse indiquée.
+              Un mot de passe temporaire sera généré. Vous devrez le communiquer manuellement au nouvel utilisateur.
             </p>
 
             <Button onClick={handleInvite} disabled={inviting} className="w-full">
               {inviting && <Loader2 className="mr-2 size-3.5 animate-spin" />}
-              Envoyer l'invitation
+              Créer le compte
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Temporary password result */}
+      <Sheet open={!!tempPasswordResult} onOpenChange={(open) => { if (!open) setTempPasswordResult(null) }}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Compte créé</SheetTitle>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Le compte a été créé. Communiquez ces identifiants au nouvel utilisateur :
+            </p>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Email</label>
+              <div className="rounded-md border border-input bg-muted/50 px-3 py-2 text-sm font-mono">
+                {tempPasswordResult?.email}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Mot de passe temporaire</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 rounded-md border border-input bg-muted/50 px-3 py-2 text-sm font-mono select-all">
+                  {tempPasswordResult?.password}
+                </div>
+                <CopyButton text={tempPasswordResult?.password ?? ''} />
+              </div>
+            </div>
+
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              Ce mot de passe ne sera plus affiché. Notez-le maintenant.
+              L'utilisateur devra le changer lors de sa première connexion.
+            </div>
+
+            <Button onClick={() => setTempPasswordResult(null)} className="w-full">
+              Fermer
             </Button>
           </div>
         </SheetContent>

@@ -261,7 +261,7 @@ export function OperatorPanelDetailPage() {
       })
 
       const ext = compressed.name.split('.').pop() || 'jpg'
-      const path = `${id}/${Date.now()}.${ext}`
+      const path = `${id}/${crypto.randomUUID()}.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from('panel-photos')

@@ -199,8 +199,8 @@ export function ProfilePage() {
   const [savingPassword, setSavingPassword] = useState(false)
 
   async function changePassword() {
-    if (newPassword.length < 6) {
-      toast('6 caractères minimum', 'error')
+    if (newPassword.length < 8) {
+      toast('8 caractères minimum', 'error')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -211,7 +211,7 @@ export function ProfilePage() {
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     setSavingPassword(false)
     if (error) {
-      toast(error.message, 'error')
+      toast('Erreur lors du changement de mot de passe', 'error')
     } else {
       toast('Mot de passe modifié')
       setShowPassword(false)
@@ -433,13 +433,16 @@ export function ProfilePage() {
             </button>
             {showPassword && (
               <div className="mt-2 space-y-2">
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Nouveau mot de passe"
-                  className="text-[13px]"
-                />
+                <div>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Nouveau mot de passe"
+                    className="text-[13px]"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">8 caractères minimum</p>
+                </div>
                 <Input
                   type="password"
                   value={confirmPassword}

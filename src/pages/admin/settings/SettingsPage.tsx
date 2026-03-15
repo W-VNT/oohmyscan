@@ -111,7 +111,7 @@ export function SettingsPage() {
     if (!file) return
     setUploadingLogo(true)
     try {
-      const path = `logo.${file.name.split('.').pop() || 'png'}`
+      const path = `logo-${crypto.randomUUID()}.${file.name.split('.').pop() || 'png'}`
       const { error: uploadError } = await supabase.storage
         .from('company-assets')
         .upload(path, file, { contentType: file.type, upsert: true })
