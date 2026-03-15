@@ -44,13 +44,13 @@ export function WhyUsSection() {
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/30">
+          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/40">
             Pourquoi nous
           </span>
           <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111] dark:text-white">
             Des chiffres qui
             <br />
-            <span className="text-[#9CA3AF] dark:text-white/30">parlent.</span>
+            <span className="text-[#9CA3AF] dark:text-white/40">parlent.</span>
           </h2>
         </motion.div>
 
@@ -78,7 +78,7 @@ export function WhyUsSection() {
                   '0'
                 )}
               </div>
-              <p className="mt-1 text-[12px] text-[#9CA3AF] dark:text-white/30">{kpi.label}</p>
+              <p className="mt-1 text-[12px] text-[#6B7280] dark:text-white/60">{kpi.label}</p>
             </motion.div>
           ))}
         </motion.div>
@@ -97,7 +97,7 @@ export function WhyUsSection() {
               >
                 <Icon className="h-4 w-4 text-[#F5C400]/50" />
                 <h3 className="mt-3 text-[13px] font-medium text-[#111111] dark:text-white">{feat.title}</h3>
-                <p className="mt-1 text-[12px] leading-relaxed text-[#9CA3AF] dark:text-white/30">{feat.desc}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-[#6B7280] dark:text-white/60">{feat.desc}</p>
               </motion.div>
             )
           })}

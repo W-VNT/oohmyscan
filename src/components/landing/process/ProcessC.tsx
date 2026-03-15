@@ -115,13 +115,13 @@ export function ProcessC() {
           transition={{ duration: 0.7 }}
           className="md:text-center"
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/30">
+          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/40">
             Comment ça marche
           </span>
           <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111] dark:text-white">
             De l'idée au terrain
             <br />
-            <span className="text-[#9CA3AF] dark:text-white/30">en 4 étapes.</span>
+            <span className="text-[#9CA3AF] dark:text-white/40">en 4 étapes.</span>
           </h2>
         </motion.div>
 
@@ -185,7 +185,7 @@ export function ProcessC() {
                     </div>
                     <h3
                       className={`mt-4 text-[17px] font-medium transition-colors duration-500 ${
-                        isActive ? 'text-[#111111] dark:text-white' : 'text-[#9CA3AF] dark:text-white/30'
+                        isActive ? 'text-[#111111] dark:text-white' : 'text-[#9CA3AF] dark:text-white/40'
                       }`}
                     >
                       {step.title}
@@ -257,7 +257,7 @@ export function ProcessC() {
                         <div className="flex items-center justify-between">
                           <h3
                             className={`text-[15px] font-medium transition-colors duration-500 ${
-                              isActive ? 'text-[#111111] dark:text-white' : 'text-[#9CA3AF] dark:text-white/30'
+                              isActive ? 'text-[#111111] dark:text-white' : 'text-[#9CA3AF] dark:text-white/40'
                             }`}
                           >
                             {step.title}

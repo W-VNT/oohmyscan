@@ -18,13 +18,13 @@ export function SupportsB() {
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/30">
+          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/40">
             Nos supports
           </span>
           <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111] dark:text-white">
             6 façons d'atteindre
             <br />
-            <span className="text-[#9CA3AF] dark:text-white/30">votre cible.</span>
+            <span className="text-[#9CA3AF] dark:text-white/40">votre cible.</span>
           </h2>
         </motion.div>
 
@@ -72,7 +72,7 @@ export function SupportsB() {
                   <h3 className="font-['Bebas_Neue'] text-lg tracking-tight text-[#111111] dark:text-white">
                     {support.name}
                   </h3>
-                  <p className="mt-0.5 text-[12px] text-[#6B7280] dark:text-white/40">{support.tagline}</p>
+                  <p className="mt-0.5 text-[12px] text-[#6B7280] dark:text-white/60">{support.tagline}</p>
                 </div>
                 <span className="text-[11px] tabular-nums text-[#F5C400]">
                   {support.contactDuration}
@@ -141,8 +141,8 @@ function TiltCard({
           <p className="mt-0.5 text-[11px] text-white/50 transition-colors duration-300 group-hover:text-white/60">{support.tagline}</p>
           <div className="mt-2 flex items-center gap-3 max-h-0 overflow-hidden opacity-0 transition-all duration-300 group-hover:max-h-10 group-hover:opacity-100">
             <span className="text-[11px] text-[#F5C400]">{support.contactDuration}</span>
-            <span className="text-[11px] text-white/30">·</span>
-            <span className="text-[11px] text-white/30">{support.network.split('—')[0]}</span>
+            <span className="text-[11px] text-white/50">·</span>
+            <span className="text-[11px] text-white/50">{support.network.split('—')[0]}</span>
           </div>
         </div>
       </div>

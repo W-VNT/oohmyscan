@@ -41,7 +41,7 @@ export function HeroC() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="mt-8 max-w-sm text-[15px] leading-relaxed text-white/50 md:text-[#6B7280] md:dark:text-white/40"
+            className="mt-8 max-w-sm text-[15px] leading-relaxed text-white/50 md:text-[#6B7280] md:dark:text-white/60"
           >
             Taxi, table, boulangerie, pharmacie.
             Des supports captifs déployés partout en France.
@@ -81,7 +81,7 @@ export function HeroC() {
             ].map((stat) => (
               <div key={stat.label}>
                 <span className="text-2xl font-semibold tabular-nums text-white md:text-[#111111] md:dark:text-white">{stat.value}</span>
-                <p className="mt-1 text-[11px] text-white/30 md:text-[#9CA3AF] md:dark:text-white/30">{stat.label}</p>
+                <p className="mt-1 text-[11px] text-white/50 md:text-[#9CA3AF] md:dark:text-white/50">{stat.label}</p>
               </div>
             ))}
           </motion.div>

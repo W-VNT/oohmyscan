@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Menu, X } from 'lucide-react'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 const NAV_LINKS = [
   { label: 'Concept', href: '#concept' },
@@ -18,10 +19,7 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  useEffect(() => {
-    document.body.style.overflow = mobileOpen ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
-  }, [mobileOpen])
+  useScrollLock(mobileOpen)
 
   return (
     <>

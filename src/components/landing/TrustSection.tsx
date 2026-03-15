@@ -22,7 +22,7 @@ export function TrustSection() {
         initial={{ opacity: 0 }}
         animate={inView ? { opacity: 1 } : {}}
         transition={{ duration: 0.6 }}
-        className="text-center text-[11px] font-medium uppercase tracking-[0.3em] text-[#D1D5DB] dark:text-white/20"
+        className="text-center text-[11px] font-medium uppercase tracking-[0.3em] text-[#9CA3AF] dark:text-white/40"
       >
         Ils nous font confiance
       </motion.p>
@@ -37,7 +37,7 @@ export function TrustSection() {
           {[...CLIENTS, ...CLIENTS, ...CLIENTS, ...CLIENTS].map((name, i) => (
             <span
               key={i}
-              className="mx-4 flex-shrink-0 rounded-lg border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium tracking-wide text-[#6B7280] dark:text-white/40"
+              className="mx-4 flex-shrink-0 rounded-lg border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium tracking-wide text-[#6B7280] dark:text-white/60"
             >
               {name}
             </span>

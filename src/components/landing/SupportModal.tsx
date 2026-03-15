@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, ArrowRight } from 'lucide-react'
 import type { Support } from '@/data/supports'
 import { useEffect } from 'react'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 interface SupportModalProps {
   support: Support | null
@@ -9,10 +10,7 @@ interface SupportModalProps {
 }
 
 export function SupportModal({ support, onClose }: SupportModalProps) {
-  useEffect(() => {
-    if (support) document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [support])
+  useScrollLock(!!support)
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }

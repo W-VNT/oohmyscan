@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, ArrowRight, Camera, MapPin, QrCode, CheckCircle2, FileText, BarChart3 } from 'lucide-react'
 import { useEffect } from 'react'
 import type { ProcessStep } from './process/ProcessC'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 interface ProcessModalProps {
   step: ProcessStep | null
@@ -12,12 +13,12 @@ interface ProcessModalProps {
 
 function MockupScan() {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.06]">
-      <div className="bg-[#0A0A0A] px-3 py-2 flex items-center gap-2">
+    <div className="overflow-hidden rounded-xl border border-[#E5E5E5] dark:border-white/[0.06]">
+      <div className="bg-[#F5F5F5] dark:bg-[#0A0A0A] px-3 py-2 flex items-center gap-2">
         <div className="h-2 w-2 rounded-full bg-[#F5C400]" />
-        <span className="text-[10px] font-medium text-white/50">OOHMYSCAN</span>
+        <span className="text-[10px] font-medium text-[#6B7280] dark:text-white/50">OOHMYSCAN</span>
       </div>
-      <div className="bg-[#111] p-4 space-y-3">
+      <div className="bg-white dark:bg-[#111] p-4 space-y-3">
         {/* Scan area mockup */}
         <div className="relative aspect-square max-h-28 mx-auto rounded-lg border-2 border-dashed border-[#F5C400]/30 flex items-center justify-center">
           <QrCode className="h-8 w-8 text-[#F5C400]/30" />
@@ -26,16 +27,16 @@ function MockupScan() {
         {/* Action buttons */}
         <div className="flex gap-2">
           <div className="flex-1 rounded-lg bg-[#F5C400] py-2 text-center text-[10px] font-medium text-[#0A0A0A]">Scanner</div>
-          <div className="flex-1 rounded-lg border border-white/[0.08] py-2 text-center text-[10px] text-white/40 flex items-center justify-center gap-1">
+          <div className="flex-1 rounded-lg border border-[#E5E5E5] dark:border-white/[0.08] py-2 text-center text-[10px] text-[#6B7280] dark:text-white/40 flex items-center justify-center gap-1">
             <Camera className="h-3 w-3" /> Photo
           </div>
         </div>
         {/* Recent scans */}
         <div className="space-y-1.5">
           {['Boulangerie Paul — 13001', 'Pharmacie Verte — 13006'].map((s) => (
-            <div key={s} className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-3 py-2">
+            <div key={s} className="flex items-center gap-2 rounded-lg bg-[#F5F5F5] dark:bg-white/[0.03] px-3 py-2">
               <CheckCircle2 className="h-3 w-3 text-green-500/60" />
-              <span className="text-[10px] text-white/40">{s}</span>
+              <span className="text-[10px] text-[#6B7280] dark:text-white/40">{s}</span>
             </div>
           ))}
         </div>
@@ -46,12 +47,12 @@ function MockupScan() {
 
 function MockupAdmin({ variant }: { variant: 'devis' | 'dashboard' | 'rapport' }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.06]">
-      <div className="bg-[#0A0A0A] px-3 py-2 flex items-center gap-2">
+    <div className="overflow-hidden rounded-xl border border-[#E5E5E5] dark:border-white/[0.06]">
+      <div className="bg-[#F5F5F5] dark:bg-[#0A0A0A] px-3 py-2 flex items-center gap-2">
         <div className="h-2 w-2 rounded-full bg-blue-500" />
-        <span className="text-[10px] font-medium text-white/50">OOHMYADMIN</span>
+        <span className="text-[10px] font-medium text-[#6B7280] dark:text-white/50">OOHMYADMIN</span>
       </div>
-      <div className="bg-[#111] p-3">
+      <div className="bg-white dark:bg-[#111] p-3">
         {variant === 'dashboard' && (
           <div className="space-y-2">
             {/* Stats row */}
@@ -61,16 +62,16 @@ function MockupAdmin({ variant }: { variant: 'devis' | 'dashboard' | 'rapport' }
                 { label: 'En cours', val: '38' },
                 { label: 'Validés', val: '104' },
               ].map((s) => (
-                <div key={s.label} className="rounded-lg bg-white/[0.03] p-2 text-center">
-                  <div className="text-[12px] font-semibold text-white/70">{s.val}</div>
-                  <div className="text-[9px] text-white/25">{s.label}</div>
+                <div key={s.label} className="rounded-lg bg-[#F5F5F5] dark:bg-white/[0.03] p-2 text-center">
+                  <div className="text-[12px] font-semibold text-[#111111] dark:text-white/70">{s.val}</div>
+                  <div className="text-[9px] text-[#9CA3AF] dark:text-white/25">{s.label}</div>
                 </div>
               ))}
             </div>
             {/* Map placeholder */}
-            <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-3 flex items-center justify-center h-20">
+            <div className="rounded-lg bg-[#FAFAFA] dark:bg-white/[0.02] border border-[#E5E5E5] dark:border-white/[0.04] p-3 flex items-center justify-center h-20">
               <MapPin className="h-5 w-5 text-blue-500/30" />
-              <span className="ml-2 text-[10px] text-white/20">Carte de suivi terrain</span>
+              <span className="ml-2 text-[10px] text-[#9CA3AF] dark:text-white/20">Carte de suivi terrain</span>
             </div>
           </div>
         )}
@@ -79,7 +80,7 @@ function MockupAdmin({ variant }: { variant: 'devis' | 'dashboard' | 'rapport' }
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="h-3.5 w-3.5 text-blue-500/50" />
-                <span className="text-[11px] font-medium text-white/50">Devis #D-2026-047</span>
+                <span className="text-[11px] font-medium text-[#6B7280] dark:text-white/50">Devis #D-2026-047</span>
               </div>
               <span className="rounded-full bg-[#F5C400]/10 px-2 py-0.5 text-[9px] text-[#F5C400]/70">En attente</span>
             </div>
@@ -90,15 +91,15 @@ function MockupAdmin({ variant }: { variant: 'devis' | 'dashboard' | 'rapport' }
                 { name: "TABLE'AD × 200", price: '800 €' },
                 { name: 'Déploiement', price: '400 €' },
               ].map((l) => (
-                <div key={l.name} className="flex justify-between rounded bg-white/[0.02] px-2.5 py-1.5">
-                  <span className="text-[10px] text-white/40">{l.name}</span>
-                  <span className="text-[10px] tabular-nums text-white/50">{l.price}</span>
+                <div key={l.name} className="flex justify-between rounded bg-[#FAFAFA] dark:bg-white/[0.02] px-2.5 py-1.5">
+                  <span className="text-[10px] text-[#6B7280] dark:text-white/40">{l.name}</span>
+                  <span className="text-[10px] tabular-nums text-[#111111] dark:text-white/50">{l.price}</span>
                 </div>
               ))}
             </div>
-            <div className="flex justify-between border-t border-white/[0.06] pt-2">
-              <span className="text-[10px] font-medium text-white/40">Total HT</span>
-              <span className="text-[11px] font-semibold tabular-nums text-white/70">2 400 €</span>
+            <div className="flex justify-between border-t border-[#E5E5E5] dark:border-white/[0.06] pt-2">
+              <span className="text-[10px] font-medium text-[#6B7280] dark:text-white/40">Total HT</span>
+              <span className="text-[11px] font-semibold tabular-nums text-[#111111] dark:text-white/70">2 400 €</span>
             </div>
           </div>
         )}
@@ -106,7 +107,7 @@ function MockupAdmin({ variant }: { variant: 'devis' | 'dashboard' | 'rapport' }
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <BarChart3 className="h-3.5 w-3.5 text-blue-500/50" />
-              <span className="text-[11px] font-medium text-white/50">Rapport campagne</span>
+              <span className="text-[11px] font-medium text-[#6B7280] dark:text-white/50">Rapport campagne</span>
             </div>
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2">
@@ -116,17 +117,17 @@ function MockupAdmin({ variant }: { variant: 'devis' | 'dashboard' | 'rapport' }
                 { label: 'Photos validées', val: '142' },
                 { label: 'Zones couvertes', val: '12' },
               ].map((s) => (
-                <div key={s.label} className="rounded-lg bg-white/[0.03] p-2">
-                  <div className="text-[11px] font-semibold tabular-nums text-white/60">{s.val}</div>
-                  <div className="text-[9px] text-white/25">{s.label}</div>
+                <div key={s.label} className="rounded-lg bg-[#F5F5F5] dark:bg-white/[0.03] p-2">
+                  <div className="text-[11px] font-semibold tabular-nums text-[#111111] dark:text-white/60">{s.val}</div>
+                  <div className="text-[9px] text-[#9CA3AF] dark:text-white/25">{s.label}</div>
                 </div>
               ))}
             </div>
             {/* Proof photos */}
             <div className="flex gap-1.5">
               {[1, 2, 3].map((n) => (
-                <div key={n} className="flex-1 aspect-square rounded bg-white/[0.04] flex items-center justify-center">
-                  <Camera className="h-3 w-3 text-white/15" />
+                <div key={n} className="flex-1 aspect-square rounded bg-[#F5F5F5] dark:bg-white/[0.04] flex items-center justify-center">
+                  <Camera className="h-3 w-3 text-[#D1D5DB] dark:text-white/15" />
                 </div>
               ))}
             </div>
@@ -160,10 +161,7 @@ const STEP_MOCKUPS: Record<string, React.ReactNode> = {
 /* ── Modal ──────────────────────────────────────────────── */
 
 export function ProcessModal({ step, onClose }: ProcessModalProps) {
-  useEffect(() => {
-    if (step) document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [step])
+  useScrollLock(!!step)
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }

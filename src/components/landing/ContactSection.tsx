@@ -27,7 +27,7 @@ export function ContactSection() {
   }
 
   const inputCls =
-    'w-full rounded-lg border border-[#E5E5E5] dark:border-white/[0.08] bg-white dark:bg-white/[0.04] px-4 py-3 text-[14px] text-[#111111] dark:text-white placeholder-[#9CA3AF] dark:placeholder-white/25 outline-none transition-all focus:border-[#F5C400]/30 focus:bg-[#F5F5F5] dark:focus:bg-white/[0.06]'
+    'w-full rounded-lg border border-[#E5E5E5] dark:border-white/[0.08] bg-white dark:bg-white/[0.04] px-4 py-3 text-[14px] text-[#111111] dark:text-white placeholder-[#9CA3AF] dark:placeholder-white/40 outline-none transition-all focus:border-[#F5C400]/30 focus:bg-[#F5F5F5] dark:focus:bg-white/[0.06]'
 
   const REASSURANCE = [
     { icon: UserCheck, text: 'Brief gratuit, sans engagement' },
@@ -48,7 +48,7 @@ export function ContactSection() {
           transition={{ duration: 0.7 }}
           className="text-center"
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/30">
+          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/40">
             Contact
           </span>
           <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111] dark:text-white">
@@ -56,7 +56,7 @@ export function ContactSection() {
             <br />
             <span className="text-[#F5C400]">campagne.</span>
           </h2>
-          <p className="mx-auto mt-4 max-w-md text-[15px] text-[#6B7280] dark:text-white/40">
+          <p className="mx-auto mt-4 max-w-md text-[15px] text-[#6B7280] dark:text-white/60">
             Décrivez votre projet, on revient vers vous sous 24h avec une proposition sur-mesure.
           </p>
         </motion.div>
@@ -82,7 +82,7 @@ export function ContactSection() {
             })}
 
             <div className="border-t border-[#E5E5E5] dark:border-white/[0.06] pt-6">
-              <p className="text-[12px] text-[#D1D5DB] dark:text-white/20">Ou directement</p>
+              <p className="text-[12px] text-[#6B7280] dark:text-white/50">Ou directement</p>
               <a
                 href="mailto:contact@oohmyad.com"
                 className="mt-1 text-[14px] font-medium text-[#111111] dark:text-white transition-colors hover:text-[#F5C400]"
@@ -105,7 +105,7 @@ export function ContactSection() {
                     <ArrowRight className="h-5 w-5 text-[#F5C400]" />
                   </div>
                   <p className="mt-4 text-lg font-medium text-[#111111] dark:text-white">Merci !</p>
-                  <p className="mt-2 text-[14px] text-[#6B7280] dark:text-white/40">On revient vers vous sous 24h.</p>
+                  <p className="mt-2 text-[14px] text-[#6B7280] dark:text-white/60">On revient vers vous sous 24h.</p>
                 </div>
               </div>
             ) : (
@@ -115,31 +115,47 @@ export function ContactSection() {
                   <input type="text" name="website" tabIndex={-1} autoComplete="off" value={form.website} onChange={set('website')} />
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  <input type="text" placeholder="Nom / Société" required maxLength={200} className={inputCls} value={form.name} onChange={set('name')} />
-                  <input type="email" inputMode="email" autoComplete="email" placeholder="Email" required maxLength={320} className={inputCls} value={form.email} onChange={set('email')} />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="contact-name" className="sr-only">Nom / Société</label>
+                    <input id="contact-name" type="text" placeholder="Nom / Société" required maxLength={200} className={inputCls} value={form.name} onChange={set('name')} />
+                  </div>
+                  <div>
+                    <label htmlFor="contact-email" className="sr-only">Email</label>
+                    <input id="contact-email" type="email" inputMode="email" autoComplete="email" placeholder="Email" required maxLength={320} className={inputCls} value={form.email} onChange={set('email')} />
+                  </div>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  <input type="text" placeholder="Ville cible" maxLength={200} className={inputCls} value={form.city} onChange={set('city')} />
-                  <select className={inputCls} value={form.support_interest} onChange={set('support_interest')}>
-                    <option value="">Support visé</option>
-                    <option value="all">Tous les supports</option>
-                    {SUPPORTS.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="contact-city" className="sr-only">Ville cible</label>
+                    <input id="contact-city" type="text" placeholder="Ville cible" maxLength={200} className={inputCls} value={form.city} onChange={set('city')} />
+                  </div>
+                  <div>
+                    <label htmlFor="contact-support" className="sr-only">Support visé</label>
+                    <select id="contact-support" className={inputCls} value={form.support_interest} onChange={set('support_interest')}>
+                      <option value="">Support visé</option>
+                      <option value="all">Tous les supports</option>
+                      {SUPPORTS.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <textarea
-                  placeholder="Votre message / budget indicatif"
-                  required
-                  maxLength={5000}
-                  rows={4}
-                  className={inputCls + ' resize-none'}
-                  value={form.message}
-                  onChange={set('message')}
-                />
+                <div>
+                  <label htmlFor="contact-message" className="sr-only">Votre message / budget indicatif</label>
+                  <textarea
+                    id="contact-message"
+                    placeholder="Votre message / budget indicatif"
+                    required
+                    maxLength={5000}
+                    rows={4}
+                    className={inputCls + ' resize-none'}
+                    value={form.message}
+                    onChange={set('message')}
+                  />
+                </div>
 
                 {error && <p className="text-[13px] text-red-400">{error}</p>}
 

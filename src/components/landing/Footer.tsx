@@ -14,7 +14,7 @@ export function Footer() {
               OOH MY AD !
             </span>
             <span className="hidden text-[#F3F4F6] dark:text-white/10 md:inline">·</span>
-            <span className="hidden text-[13px] text-[#9CA3AF] dark:text-white/25 md:inline">
+            <span className="hidden text-[13px] text-[#6B7280] dark:text-white/50 md:inline">
               Communication urbaine de proximité
             </span>
           </div>
@@ -24,7 +24,7 @@ export function Footer() {
               <a
                 key={link.href}
                 href={link.href}
-                className="text-[12px] text-[#9CA3AF] dark:text-white/15 transition-colors hover:text-[#6B7280] dark:hover:text-white/30"
+                className="text-[12px] text-[#6B7280] dark:text-white/50 transition-colors hover:text-[#374151] dark:hover:text-white/70"
               >
                 {link.label}
               </a>
@@ -32,7 +32,7 @@ export function Footer() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-[11px] text-[#9CA3AF] dark:text-white/10 md:text-left">
+        <p className="mt-6 text-center text-[11px] text-[#6B7280] dark:text-white/50 md:text-left">
           © {new Date().getFullYear()} OOH MY AD ! — Tous droits réservés
         </p>
       </div>

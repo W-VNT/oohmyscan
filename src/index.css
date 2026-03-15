@@ -133,6 +133,12 @@
     @apply font-sans;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
+
+  /* Keyboard-navigation focus ring (visible only on Tab, not on click) */
+  :focus-visible {
+    outline: 2px solid #F5C400;
+    outline-offset: 2px;
+  }
 }
 
 /* QR scanner — video fills container */

@@ -25,13 +25,13 @@ export function ConceptSection() {
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.7 }}
             >
-              <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/30">
+              <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#9CA3AF] dark:text-white/40">
                 Le problème
               </span>
               <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,64px)] leading-[0.95] text-[#111111] dark:text-white">
                 La pub traditionnelle,
                 <br />
-                <span className="text-[#9CA3AF] dark:text-white/30">on l'évite.</span>
+                <span className="text-[#9CA3AF] dark:text-white/40">on l'évite.</span>
               </h2>
             </motion.div>
 
@@ -39,7 +39,7 @@ export function ConceptSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="mt-6 max-w-sm text-[15px] leading-relaxed text-[#6B7280] dark:text-white/40"
+              className="mt-6 max-w-sm text-[15px] leading-relaxed text-[#6B7280] dark:text-white/60"
             >
               On zappe, on scrolle, on détourne le regard. Chez OOH MY AD !, votre message est lu dans
               des <span className="text-[#374151] dark:text-white/70">moments captifs</span> — quand le consommateur est
@@ -50,7 +50,7 @@ export function ConceptSection() {
               initial={{ opacity: 0 }}
               animate={inView ? { opacity: 1 } : {}}
               transition={{ duration: 0.6, delay: 0.7 }}
-              className="mt-8 text-[13px] text-[#D1D5DB] dark:text-white/20"
+              className="mt-8 text-[13px] text-[#6B7280] dark:text-white/50"
             >
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#F5C400] mr-2 align-middle" />
               Temps de contact réel mesuré sur le terrain
@@ -65,7 +65,7 @@ export function ConceptSection() {
             className="overflow-hidden rounded-2xl border border-[#E5E5E5] dark:border-white/[0.06]"
           >
             {/* Header row */}
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-5 py-3 text-[11px] uppercase tracking-[0.15em] text-[#9CA3AF] dark:text-white/25">
+            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-5 py-3 text-[11px] uppercase tracking-[0.15em] text-[#9CA3AF] dark:text-white/40">
               <span>Média</span>
               <span className="text-right">Durée</span>
               <span className="text-right">Attention</span>
@@ -86,14 +86,14 @@ export function ConceptSection() {
                   {!row.evitable && (
                     <div className="h-1.5 w-1.5 rounded-full bg-[#F5C400]" />
                   )}
-                  <span className={`text-[13px] ${row.evitable ? 'text-[#9CA3AF] dark:text-white/30 line-through decoration-[#E5E5E5] dark:decoration-white/10' : 'text-[#111111] dark:text-white font-medium'}`}>
+                  <span className={`text-[13px] ${row.evitable ? 'text-[#9CA3AF] dark:text-white/40 line-through decoration-[#E5E5E5] dark:decoration-white/10' : 'text-[#111111] dark:text-white font-medium'}`}>
                     {row.media}
                   </span>
                 </div>
-                <span className={`text-right text-[13px] tabular-nums ${row.evitable ? 'text-[#D1D5DB] dark:text-white/20' : 'text-[#F5C400]'}`}>
+                <span className={`text-right text-[13px] tabular-nums ${row.evitable ? 'text-[#9CA3AF] dark:text-white/40' : 'text-[#F5C400]'}`}>
                   {row.duration}
                 </span>
-                <span className={`text-right text-[13px] ${row.evitable ? 'text-[#D1D5DB] dark:text-white/20' : 'text-[#4B5563] dark:text-white/60'}`}>
+                <span className={`text-right text-[13px] ${row.evitable ? 'text-[#9CA3AF] dark:text-white/40' : 'text-[#4B5563] dark:text-white/60'}`}>
                   {row.attention}
                 </span>
               </motion.div>
