@@ -10,13 +10,15 @@ import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { supabase } from '@/lib/supabase'
+import { isValidUUID } from '@/lib/utils'
 import type { PanelStatus } from '@/lib/constants'
 
 export function AssignCampaignPage() {
   const { panelId } = useParams<{ panelId: string }>()
   const navigate = useNavigate()
   const { session } = useAuth()
-  const { data: panel, isLoading: panelLoading } = usePanel(panelId)
+  const validPanelId = isValidUUID(panelId) ? panelId : undefined
+  const { data: panel, isLoading: panelLoading } = usePanel(validPanelId)
   const { data: campaigns, isLoading: campaignsLoading } = useActiveCampaigns()
   const assignCampaign = useAssignCampaign()
   const queryClient = useQueryClient()
@@ -26,6 +28,15 @@ export function AssignCampaignPage() {
   const [photoPath, setPhotoPath] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  if (!validPanelId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-sm text-muted-foreground">Identifiant de panneau invalide</p>
+        <button onClick={() => navigate('/app/scan')} className="mt-2 text-sm text-primary underline">Retour</button>
+      </div>
+    )
+  }
 
   if (panelLoading || campaignsLoading) return <LoadingScreen />
 

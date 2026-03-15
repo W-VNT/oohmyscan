@@ -8,7 +8,7 @@ export function HeroC() {
 
       {/* Mobile background image — always dark overlay for text readability */}
       <div className="absolute inset-0 md:hidden">
-        <img src="/images/supports/hero.png" alt="" className="h-full w-full object-cover" loading="eager" />
+        <img src="/images/supports/hero.png" alt="Supports publicitaires OOH MY AD" className="h-full w-full object-cover" loading="eager" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/60 to-black/30" />
       </div>
 
@@ -96,7 +96,7 @@ export function HeroC() {
         >
           <img
             src="/images/supports/hero.png"
-            alt=""
+            alt="Supports publicitaires OOH MY AD"
             className="h-full w-full object-cover"
             loading="eager"
           />

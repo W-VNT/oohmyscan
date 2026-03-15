@@ -4,13 +4,24 @@ import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Landmark, Phone, Mail, PanelTop, FileCheck, Download, Loader2 } from 'lucide-react'
 import { PANEL_ZONES, PANEL_STATUS_CONFIG } from '@/lib/constants'
 import type { PanelStatus } from '@/lib/constants'
+import { isValidUUID } from '@/lib/utils'
 
 export function OperatorLocationPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { data: location, isLoading } = useLocationData(id)
-  const { data: panels } = useLocationPanels(id)
-  const { data: contract } = useLocationContract(id)
+  const validId = isValidUUID(id) ? id : undefined
+  const { data: location, isLoading } = useLocationData(validId)
+  const { data: panels } = useLocationPanels(validId)
+  const { data: contract } = useLocationContract(validId)
+
+  if (!validId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-sm text-muted-foreground">Identifiant de lieu invalide</p>
+        <button onClick={() => navigate(-1)} className="mt-2 text-sm text-primary underline">Retour</button>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (

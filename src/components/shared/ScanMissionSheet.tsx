@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -14,6 +14,15 @@ export function ScanMissionSheet({ open, onClose }: ScanMissionSheetProps) {
   const navigate = useNavigate()
   const { session } = useAuth()
   const [showCampaigns, setShowCampaigns] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [open, onClose])
 
   const { data: campaigns, isLoading } = useQuery({
     queryKey: ['my-active-campaigns-sheet', session?.user.id],

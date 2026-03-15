@@ -305,7 +305,7 @@ function PhotosBlock({
             >
               <img
                 src={getPhotoUrl(photo.storage_path)}
-                alt=""
+                alt={`Preuve de pose — ${photo.photo_type}`}
                 className="size-full object-cover"
                 loading="lazy"
               />

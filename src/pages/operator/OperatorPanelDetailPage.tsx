@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/shared/Toast'
-import { PANEL_FORMATS, PANEL_TYPES, PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS, PANEL_ZONES, PANEL_PROBLEMS } from '@/lib/constants'
+import { PANEL_FORMATS, PANEL_TYPES, PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS, PANEL_ZONES, PANEL_PROBLEMS, ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
 import { searchPlaces, type PlaceSuggestion } from '@/lib/google-places'
 import { isValidUUID } from '@/lib/utils'
@@ -242,6 +242,15 @@ export function OperatorPanelDetailPage() {
     const file = e.target.files?.[0]
     if (!file || !session || !id) return
     if (photoInputRef.current) photoInputRef.current.value = ''
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast('Format non supporté. Utilisez JPG, PNG ou WebP.', 'error')
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast('Fichier trop volumineux (max 20 Mo)', 'error')
+      return
+    }
 
     setUploadingPhoto(true)
     try {
@@ -793,7 +802,7 @@ export function OperatorPanelDetailPage() {
                     className="group relative aspect-square overflow-hidden rounded-lg bg-muted text-left"
                   >
                     {url ? (
-                      <img src={url} alt="" className="size-full object-cover" />
+                      <img src={url} alt={PHOTO_TYPE_LABELS[photo.photo_type as PhotoType] ?? 'Photo du panneau'} className="size-full object-cover" />
                     ) : (
                       <div className="flex size-full items-center justify-center">
                         <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
@@ -1114,7 +1123,7 @@ export function OperatorPanelDetailPage() {
               <img
                 key={currentPhoto.id}
                 src={currentUrl}
-                alt=""
+                alt={PHOTO_TYPE_LABELS[currentPhoto.photo_type as PhotoType] ?? 'Photo du panneau'}
                 className="max-h-full max-w-full rounded-lg object-contain"
               />
             ) : (

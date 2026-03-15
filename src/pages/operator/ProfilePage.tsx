@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from '@/components/shared/Toast'
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
 import imageCompression from 'browser-image-compression'
 import {
   LogOut,
@@ -105,6 +106,15 @@ export function ProfilePage() {
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !session) return
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast('Format non supporté. Utilisez JPG, PNG ou WebP.', 'error')
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast('Fichier trop volumineux (max 20 Mo)', 'error')
+      return
+    }
 
     setUploadingAvatar(true)
     try {

@@ -243,7 +243,7 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         .from('panels')
         .update({
           location_id: location.id,
-          zone_label: selectedZone as any,
+          zone_label: selectedZone,
           updated_at: now,
         })
         .eq('id', panel.id)

@@ -1,3 +1,7 @@
+// Image upload validation
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+export const MAX_IMAGE_SIZE = 20 * 1024 * 1024 // 20MB before compression
+
 export const PANEL_STATUSES = ['active', 'vacant', 'missing', 'maintenance'] as const
 export type PanelStatus = (typeof PANEL_STATUSES)[number]
 

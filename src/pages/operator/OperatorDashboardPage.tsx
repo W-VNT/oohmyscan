@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Megaphone, Camera, PanelTop, ChevronRight, MapPin, CheckCircle2, AlertTriangle, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from '@/components/shared/Toast'
 import { PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS } from '@/lib/constants'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
 
@@ -105,7 +106,7 @@ export function OperatorDashboardPage() {
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       (pos) => setDeviceCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {},
+      () => toast('Position GPS indisponible', 'error'),
       { enableHighAccuracy: false, timeout: 5000, maximumAge: 120000 },
     )
   }, [])

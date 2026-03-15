@@ -312,7 +312,7 @@ export function UsersPage() {
                             {user.avatar_url ? (
                               <img
                                 src={user.avatar_url}
-                                alt=""
+                                alt={`Photo de profil de ${user.full_name}`}
                                 className="size-7 shrink-0 rounded-full object-cover"
                               />
                             ) : (

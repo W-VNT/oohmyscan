@@ -3,6 +3,7 @@ import { Camera, X, Loader2, RotateCcw } from 'lucide-react'
 import imageCompression from 'browser-image-compression'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
 
 interface PhotoCaptureProps {
   onPhotoUploaded: (storagePath: string) => void
@@ -22,8 +23,8 @@ export function PhotoCapture({
   const inputRef = useRef<HTMLInputElement>(null)
   const pendingFileRef = useRef<File | null>(null)
 
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
-  const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB before compression
+  const ALLOWED_TYPES = ALLOWED_IMAGE_TYPES
+  const MAX_FILE_SIZE = MAX_IMAGE_SIZE
 
   async function uploadFile(compressed: File) {
     setError(null)
