@@ -1,6 +1,52 @@
+export type AuditAction = 'create' | 'update' | 'delete'
+
+export interface AuditLog {
+  id: string
+  actor_id: string | null
+  action: AuditAction
+  table_name: string
+  record_id: string | null
+  old_data: Record<string, unknown> | null
+  new_data: Record<string, unknown> | null
+  created_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          id: string
+          actor_id: string | null
+          action: AuditAction
+          table_name: string
+          record_id: string | null
+          old_data: Record<string, unknown> | null
+          new_data: Record<string, unknown> | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          actor_id?: string | null
+          action: string
+          table_name: string
+          record_id?: string | null
+          old_data?: Record<string, unknown> | null
+          new_data?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          actor_id?: string | null
+          action?: string
+          table_name?: string
+          record_id?: string | null
+          old_data?: Record<string, unknown> | null
+          new_data?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           id: string

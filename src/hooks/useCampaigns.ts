@@ -1,10 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Campaign, InsertTables } from '@/types'
+import type { Campaign, CampaignWithClient, InsertTables } from '@/types'
 
-export type CampaignWithClient = Campaign & {
-  clients: { id: string; company_name: string } | null
-}
+export type { CampaignWithClient }
 
 export function useCampaigns() {
   return useQuery({

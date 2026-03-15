@@ -6,6 +6,7 @@ import { useClients } from '@/hooks/admin/useClients'
 import { useAuth } from '@/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { Loader2, Plus, X, Megaphone, Search, Filter, ArrowUpDown } from 'lucide-react'
 import { toast } from '@/components/shared/Toast'
 import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_CONFIG, type CampaignStatus } from '@/lib/constants'
@@ -316,12 +317,11 @@ export function CampaignsPage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : !filtered.length ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <Megaphone className="h-12 w-12" />
-          <p className="mt-4">
-            {debouncedSearch || statusFilter !== 'all' ? 'Aucune campagne trouvée' : 'Aucune campagne'}
-          </p>
-        </div>
+        <EmptyState
+          icon={Megaphone}
+          title={debouncedSearch || statusFilter !== 'all' ? 'Aucune campagne trouvée' : 'Aucune campagne'}
+          action={!debouncedSearch && statusFilter === 'all' ? { label: 'Nouvelle campagne', onClick: () => setShowForm(true) } : undefined}
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((campaign) => {

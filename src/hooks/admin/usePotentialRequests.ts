@@ -1,24 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { PotentialSpot } from '@/lib/potential-search'
+import type { PotentialRequest } from '@/types'
 
-export interface PotentialRequest {
-  id: string
-  reference: string
-  prospect_name: string
-  city: string
-  radius_km: number
-  support_type: string | null
-  lat: number | null
-  lng: number | null
-  existing_panels_count: number
-  potential_spots_count: number
-  existing_panel_ids: string[]
-  potential_spots: PotentialSpot[]
-  status: 'draft' | 'sent'
-  created_by: string | null
-  created_at: string
-}
+export type { PotentialRequest }
 
 export function usePotentialRequests() {
   return useQuery({
@@ -29,7 +13,7 @@ export function usePotentialRequests() {
         .select('*')
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as unknown as PotentialRequest[]
+      return data as PotentialRequest[]
     },
   })
 }
@@ -44,7 +28,7 @@ export function usePotentialRequest(id: string | undefined) {
         .eq('id', id!)
         .single()
       if (error) throw error
-      return data as unknown as PotentialRequest
+      return data as PotentialRequest
     },
     enabled: !!id,
   })
@@ -62,7 +46,7 @@ export function useCreatePotentialRequest() {
         .select()
         .single()
       if (error) throw error
-      return data as unknown as PotentialRequest
+      return data as PotentialRequest
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['potential-requests'] })
@@ -81,7 +65,7 @@ export function useUpdatePotentialRequest() {
         .select()
         .single()
       if (error) throw error
-      return data as unknown as PotentialRequest
+      return data as PotentialRequest
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['potential-requests'] })

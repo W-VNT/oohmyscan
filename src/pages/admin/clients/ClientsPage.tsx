@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/shared/Toast'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone } from 'lucide-react'
 
 type ClientForm = Omit<Client, 'id' | 'created_at' | 'updated_at'>
@@ -305,9 +306,12 @@ export function ClientsPage() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
-                      <Building2 className="mx-auto mb-2 size-8" />
-                      {debouncedSearch || statusFilter !== 'all' ? 'Aucun client trouvé' : 'Aucun client pour le moment'}
+                    <td colSpan={6}>
+                      <EmptyState
+                        icon={Building2}
+                        title={debouncedSearch || statusFilter !== 'all' ? 'Aucun client trouvé' : 'Aucun client pour le moment'}
+                        action={!debouncedSearch && statusFilter === 'all' ? { label: 'Nouveau client', onClick: openCreate } : undefined}
+                      />
                     </td>
                   </tr>
                 ) : (

@@ -1,36 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { Quote, QuoteLine, QuoteWithClient } from '@/types'
 
-export interface Quote {
-  id: string
-  quote_number: string
-  client_id: string
-  campaign_id: string | null
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'cancelled'
-  issued_at: string
-  valid_until: string
-  notes: string | null
-  total_ht: number
-  total_tva: number
-  total_ttc: number
-  created_by: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface QuoteLine {
-  id: string
-  quote_id: string
-  description: string
-  quantity: number
-  unit: string
-  unit_price: number
-  tva_rate: number
-  total_ht: number
-  sort_order: number
-}
-
-export type QuoteWithClient = Quote & { clients: { company_name: string } | null }
+export type { Quote, QuoteLine, QuoteWithClient }
 
 export function useQuotes() {
   return useQuery({

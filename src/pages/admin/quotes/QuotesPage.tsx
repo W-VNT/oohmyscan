@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle } from 'lucide-react'
 import { QUOTE_STATUSES, QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
 
@@ -174,9 +175,12 @@ export function QuotesPage() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
-                      <FileText className="mx-auto mb-2 size-8" />
-                      {debouncedSearch || statusFilter !== 'all' ? 'Aucun devis trouvé' : 'Aucun devis pour le moment'}
+                    <td colSpan={6}>
+                      <EmptyState
+                        icon={FileText}
+                        title={debouncedSearch || statusFilter !== 'all' ? 'Aucun devis trouvé' : 'Aucun devis pour le moment'}
+                        action={!debouncedSearch && statusFilter === 'all' ? { label: 'Nouveau devis', onClick: () => navigate('/admin/quotes/new') } : undefined}
+                      />
                     </td>
                   </tr>
                 ) : (

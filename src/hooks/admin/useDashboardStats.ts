@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { CampaignWithClientName, PhotoWithJoins, AssignmentWithJoins } from '@/types'
 
 interface PanelStats {
   total: number
@@ -47,8 +48,9 @@ export function usePanelStats() {
         .select('status')
       if (error) throw error
 
+      const rows = data as Pick<{ status: string }, 'status'>[]
       const stats: PanelStats = { total: 0, active: 0, vacant: 0, maintenance: 0, missing: 0 }
-      for (const p of data) {
+      for (const p of rows) {
         stats.total++
         if (p.status === 'active') stats.active++
         else if (p.status === 'vacant') stats.vacant++
@@ -71,10 +73,7 @@ export function useCampaignStats() {
         .order('end_date', { ascending: true })
       if (error) throw error
 
-      const rows = data as unknown as Array<{
-        id: string; name: string; status: string; end_date: string
-        clients: { company_name: string } | null
-      }>
+      const rows = data as unknown as CampaignWithClientName[]
 
       const total = rows.length
       const active = rows.filter((c) => c.status === 'active')
@@ -106,6 +105,7 @@ export function useInvoiceStats() {
         .select('status, total_ttc, paid_at')
       if (error) throw error
 
+      const rows = data as Pick<{ status: string; total_ttc: number; paid_at: string | null }, 'status' | 'total_ttc' | 'paid_at'>[]
       const now = new Date()
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
@@ -116,7 +116,7 @@ export function useInvoiceStats() {
         monthPaidTTC: 0, monthPaidCount: 0,
       }
 
-      for (const inv of data) {
+      for (const inv of rows) {
         if (inv.status === 'paid') {
           stats.totalPaidTTC += inv.total_ttc
           stats.totalPaidCount++
@@ -139,19 +139,6 @@ export function useInvoiceStats() {
   })
 }
 
-type PhotoRow = {
-  id: string; photo_type: string; taken_at: string
-  panels: { id: string; name: string | null; reference: string } | null
-  profiles: { full_name: string } | null
-}
-
-type AssignmentRow = {
-  id: string; assigned_at: string
-  panels: { id: string; name: string | null; reference: string } | null
-  campaigns: { name: string } | null
-  profiles: { full_name: string } | null
-}
-
 export function useRecentActivity() {
   return useQuery({
     queryKey: ['dashboard', 'recent-activity'],
@@ -163,7 +150,7 @@ export function useRecentActivity() {
         .order('taken_at', { ascending: false })
         .limit(10)
       if (photosError) throw photosError
-      const photos = (rawPhotos ?? []) as unknown as PhotoRow[]
+      const photos = (rawPhotos ?? []) as unknown as PhotoWithJoins[]
 
       // Fetch recent assignments
       const { data: rawAssign, error: assignError } = await supabase
@@ -172,7 +159,7 @@ export function useRecentActivity() {
         .order('assigned_at', { ascending: false })
         .limit(10)
       if (assignError) throw assignError
-      const assignments = (rawAssign ?? []) as unknown as AssignmentRow[]
+      const assignments = (rawAssign ?? []) as unknown as AssignmentWithJoins[]
 
       const PHOTO_LABELS: Record<string, string> = {
         installation: 'Installation',

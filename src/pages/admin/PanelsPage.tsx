@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { Search, Filter, Loader2, PanelTop, ChevronLeft, ChevronRight, Megaphone, Download } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import { usePanelFormats } from '@/hooks/admin/usePanelFormats'
@@ -200,10 +201,10 @@ export function PanelsPage() {
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       ) : panels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <PanelTop className="size-12" />
-          <p className="mt-4">Aucun panneau trouvé</p>
-        </div>
+        <EmptyState
+          icon={PanelTop}
+          title={debouncedSearch || statusFilter !== 'all' || formatFilter ? 'Aucun panneau trouvé' : 'Aucun panneau'}
+        />
       ) : (
         <>
           <div className="overflow-hidden rounded-xl border border-border">

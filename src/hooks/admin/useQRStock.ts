@@ -1,16 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { QRStockItem, QRStockWithPanel } from '@/types'
 
-export interface QRStockItem {
-  id: string
-  uuid_code: string
-  is_assigned: boolean
-  panel_id: string | null
-  generated_at: string
-  assigned_at: string | null
-}
-
-export type QRStockWithPanel = QRStockItem & { panels: { reference: string } | null }
+export type { QRStockItem, QRStockWithPanel }
 
 export function useQRStock() {
   return useQuery({
@@ -34,8 +26,9 @@ export function useQRStockStats() {
         .from('qr_stock')
         .select('is_assigned')
       if (error) throw error
-      const total = data.length
-      const assigned = data.filter((d) => d.is_assigned).length
+      const items = data as Pick<QRStockItem, 'is_assigned'>[]
+      const total = items.length
+      const assigned = items.filter((d) => d.is_assigned).length
       return { total, assigned, available: total - assigned }
     },
   })
