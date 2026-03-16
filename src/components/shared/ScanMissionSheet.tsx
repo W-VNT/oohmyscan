@@ -29,10 +29,10 @@ export function ScanMissionSheet({ open, onClose }: ScanMissionSheetProps) {
     queryFn: async () => {
       const { data: campaigns, error } = await supabase
         .from('campaigns')
-        .select('id, name, client')
+        .select('id, name, client_id, clients(company_name)')
         .eq('status', 'active')
       if (error) throw error
-      return campaigns ?? []
+      return (campaigns ?? []) as unknown as { id: string; name: string; client_id: string | null; clients: { company_name: string } | null }[]
     },
     enabled: !!session && open && showCampaigns,
   })
@@ -123,7 +123,7 @@ export function ScanMissionSheet({ open, onClose }: ScanMissionSheetProps) {
                       </div>
                       <div className="min-w-0">
                         <p className="text-[13px] font-medium">{campaign.name}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">{campaign.client}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{campaign.clients?.company_name ?? ''}</p>
                       </div>
                     </button>
                   ))}

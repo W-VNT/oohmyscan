@@ -180,6 +180,20 @@ export function ReportsPage() {
     saveAs(blob, `oohmyscan-factures-${startDate}-${endDate}.csv`)
   }
 
+  function exportClientsCSV() {
+    if (!clients) return
+    const headers = ['company_name', 'contact_name', 'contact_email', 'contact_phone', 'address', 'postal_code', 'city', 'siret', 'tva_number', 'is_active']
+    const rows = clients.map((c) =>
+      headers.map((h) => {
+        const val = c[h as keyof typeof c]
+        return val != null ? String(val) : ''
+      })
+    )
+    const csv = [headers.join(','), ...rows.map((r) => r.map((v) => `"${v}"`).join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    saveAs(blob, `oohmyscan-clients-${todayStr}.csv`)
+  }
+
   if (panelsLoading || campaignsLoading || invoicesLoading) {
     return (
       <div className="flex justify-center py-20">
@@ -200,6 +214,10 @@ export function ReportsPage() {
           <Button variant="outline" onClick={exportFinancialCSV}>
             <Download className="mr-1.5 size-4" />
             Export factures
+          </Button>
+          <Button variant="outline" onClick={exportClientsCSV}>
+            <Download className="mr-1.5 size-4" />
+            Export clients
           </Button>
         </div>
       </div>

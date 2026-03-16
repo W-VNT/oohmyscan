@@ -3,11 +3,15 @@ import { Link } from 'react-router-dom'
 import { useCampaigns, useCreateCampaign } from '@/hooks/useCampaigns'
 import type { CampaignWithClient } from '@/hooks/useCampaigns'
 import { useClients } from '@/hooks/admin/useClients'
+import { usePanelFormats } from '@/hooks/admin/usePanelFormats'
 import { useAuth } from '@/hooks/useAuth'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { Loader2, Plus, X, Megaphone, Search, Filter, ArrowUpDown } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Loader2, Plus, Megaphone, Search, Filter, ArrowUpDown, Upload, Trash2, Image as ImageIcon } from 'lucide-react'
 import { toast } from '@/components/shared/Toast'
 import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_CONFIG, type CampaignStatus } from '@/lib/constants'
 
@@ -20,6 +24,34 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'start_date', label: 'Date début' },
   { value: 'end_date', label: 'Date fin' },
 ]
+
+interface CampaignForm {
+  name: string
+  client_id: string
+  description: string
+  start_date: string
+  end_date: string
+  budget: string
+  target_panel_count: string
+  notes: string
+}
+
+interface StagedVisual {
+  file: File
+  formatId: string
+  preview: string
+}
+
+const emptyForm: CampaignForm = {
+  name: '',
+  client_id: '',
+  description: '',
+  start_date: '',
+  end_date: '',
+  budget: '',
+  target_panel_count: '',
+  notes: '',
+}
 
 function getTimeIndicator(campaign: CampaignWithClient): string | null {
   const now = new Date()
@@ -52,17 +84,18 @@ function getTimeIndicator(campaign: CampaignWithClient): string | null {
 export function CampaignsPage() {
   const { data: campaigns, isLoading } = useCampaigns()
   const { data: clients } = useClients()
+  const { data: panelFormats } = usePanelFormats()
   const createCampaign = useCreateCampaign()
+  const queryClient = useQueryClient()
   const { session } = useAuth()
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({
-    name: '',
-    client_id: '',
-    description: '',
-    start_date: '',
-    end_date: '',
-  })
+
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [form, setForm] = useState<CampaignForm>(emptyForm)
+  const [stagedVisuals, setStagedVisuals] = useState<StagedVisual[]>([])
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'all'>('all')
@@ -86,7 +119,6 @@ export function CampaignsPage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  // Debounce search
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -99,7 +131,6 @@ export function CampaignsPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [])
 
-  // Status counts
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const c of campaigns ?? []) {
@@ -108,7 +139,6 @@ export function CampaignsPage() {
     return counts
   }, [campaigns])
 
-  // Filter + search + sort
   const filtered = useMemo(() => {
     if (!campaigns) return []
     let result = campaigns
@@ -120,7 +150,7 @@ export function CampaignsPage() {
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase()
       result = result.filter((c) => {
-        const clientName = c.clients?.company_name ?? c.client
+        const clientName = c.clients?.company_name ?? ''
         return (
           c.name.toLowerCase().includes(q) ||
           clientName?.toLowerCase().includes(q)
@@ -142,33 +172,117 @@ export function CampaignsPage() {
     return result
   }, [campaigns, statusFilter, debouncedSearch, sort])
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
+  function openCreate() {
+    setForm(emptyForm)
+    setStagedVisuals([])
+    setError(null)
+    setSheetOpen(true)
+  }
+
+  function handleAddVisuals(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files) return
+    const newVisuals: StagedVisual[] = Array.from(files).map((file) => ({
+      file,
+      formatId: '',
+      preview: URL.createObjectURL(file),
+    }))
+    setStagedVisuals((prev) => [...prev, ...newVisuals])
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function removeVisual(index: number) {
+    setStagedVisuals((prev) => {
+      URL.revokeObjectURL(prev[index].preview)
+      return prev.filter((_, i) => i !== index)
+    })
+  }
+
+  function updateVisualFormat(index: number, formatId: string) {
+    setStagedVisuals((prev) =>
+      prev.map((v, i) => (i === index ? { ...v, formatId } : v)),
+    )
+  }
+
+  // Cleanup previews on unmount
+  useEffect(() => {
+    return () => {
+      stagedVisuals.forEach((v) => URL.revokeObjectURL(v.preview))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function handleCreate() {
     setError(null)
 
-    if (form.end_date && form.start_date && form.end_date < form.start_date) {
+    if (!form.name.trim()) {
+      setError('Le nom est requis')
+      return
+    }
+    if (!form.client_id) {
+      setError('Le client est requis')
+      return
+    }
+    if (!form.start_date || !form.end_date) {
+      setError('Les dates de début et fin sont requises')
+      return
+    }
+    if (form.end_date < form.start_date) {
       setError('La date de fin doit être après la date de début')
       return
     }
 
-    const selectedClient = clients?.find((c) => c.id === form.client_id)
-
+    setSaving(true)
     try {
-      await createCampaign.mutateAsync({
+      // 1. Create campaign
+      const campaign = await createCampaign.mutateAsync({
         name: form.name,
-        client: selectedClient?.company_name ?? '',
         client_id: form.client_id || null,
         description: form.description || null,
         start_date: form.start_date,
         end_date: form.end_date,
+        budget: form.budget ? parseFloat(form.budget) : null,
+        target_panel_count: form.target_panel_count ? parseInt(form.target_panel_count, 10) : null,
+        notes: form.notes || null,
         status: 'draft',
         created_by: session?.user?.id,
       })
-      toast('Campagne créée')
-      setShowForm(false)
-      setForm({ name: '', client_id: '', description: '', start_date: '', end_date: '' })
+
+      // 2. Upload staged visuals
+      if (stagedVisuals.length > 0) {
+        for (let i = 0; i < stagedVisuals.length; i++) {
+          const visual = stagedVisuals[i]
+          const ext = visual.file.name.split('.').pop()
+          const path = `${campaign.id}/${crypto.randomUUID()}.${ext}`
+
+          const { error: uploadError } = await supabase.storage
+            .from('campaign-visuals')
+            .upload(path, visual.file)
+          if (uploadError) throw uploadError
+
+          const { error: insertError } = await supabase
+            .from('campaign_visuals')
+            .insert({
+              campaign_id: campaign.id,
+              storage_path: path,
+              file_name: visual.file.name,
+              panel_format_id: visual.formatId || null,
+              sort_order: i + 1,
+            })
+          if (insertError) throw insertError
+        }
+        queryClient.invalidateQueries({ queryKey: ['campaign-visuals', campaign.id] })
+      }
+
+      toast(`Campagne créée${stagedVisuals.length ? ` avec ${stagedVisuals.length} visuel${stagedVisuals.length > 1 ? 's' : ''}` : ''}`)
+      setSheetOpen(false)
+      // Cleanup previews
+      stagedVisuals.forEach((v) => URL.revokeObjectURL(v.preview))
+      setStagedVisuals([])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de création')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -181,105 +295,21 @@ export function CampaignsPage() {
             {filtered.length}{statusFilter !== 'all' || debouncedSearch ? ` / ${campaigns?.length ?? 0}` : ''} campagne{(campaigns?.length ?? 0) !== 1 ? 's' : ''}
           </span>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {showForm ? 'Annuler' : 'Nouvelle campagne'}
-        </button>
+        <Button onClick={openCreate}>
+          <Plus className="mr-1.5 size-4" />
+          Nouvelle campagne
+        </Button>
       </div>
-
-      {/* Create form */}
-      {showForm && (
-        <form
-          onSubmit={handleCreate}
-          className="space-y-4 rounded-xl border border-border bg-card p-6"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nom *</label>
-              <input
-                type="text"
-                required
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Ex: Campagne été 2026"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Client *</label>
-              <select
-                required
-                value={form.client_id}
-                onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Sélectionner un client</option>
-                {clients?.filter((c) => c.is_active).map((c) => (
-                  <option key={c.id} value={c.id}>{c.company_name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date début *</label>
-              <input
-                type="date"
-                required
-                value={form.start_date}
-                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date fin *</label>
-              <input
-                type="date"
-                required
-                value={form.end_date}
-                min={form.start_date || undefined}
-                onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Description de la campagne..."
-              rows={2}
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-            />
-          </div>
-          {error && (
-            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={createCampaign.isPending}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {createCampaign.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Créer la campagne
-          </button>
-        </form>
-      )}
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
+          <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom ou client..."
-            className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="pl-10 text-sm"
           />
         </div>
         <div className="relative">
@@ -320,13 +350,13 @@ export function CampaignsPage() {
         <EmptyState
           icon={Megaphone}
           title={debouncedSearch || statusFilter !== 'all' ? 'Aucune campagne trouvée' : 'Aucune campagne'}
-          action={!debouncedSearch && statusFilter === 'all' ? { label: 'Nouvelle campagne', onClick: () => setShowForm(true) } : undefined}
+          action={!debouncedSearch && statusFilter === 'all' ? { label: 'Nouvelle campagne', onClick: openCreate } : undefined}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((campaign) => {
             const status = CAMPAIGN_STATUS_CONFIG[campaign.status as CampaignStatus]
-            const clientName = campaign.clients?.company_name ?? campaign.client
+            const clientName = campaign.clients?.company_name ?? ''
             const timeIndicator = getTimeIndicator(campaign)
             const panelCount = panelCounts.get(campaign.id) ?? 0
             return (
@@ -369,6 +399,212 @@ export function CampaignsPage() {
           })}
         </div>
       )}
+
+      {/* Create Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Nouvelle campagne</SheetTitle>
+          </SheetHeader>
+
+          <div className="mt-6 flex-1 space-y-6">
+            {/* Basic info */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Informations</p>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Nom *</label>
+                  <Input
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Ex: Campagne été 2026"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Client *</label>
+                  <select
+                    value={form.client_id}
+                    onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Sélectionner un client</option>
+                    {clients?.filter((c) => c.is_active).map((c) => (
+                      <option key={c.id} value={c.id}>{c.company_name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Période</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Début *</label>
+                  <Input
+                    type="date"
+                    value={form.start_date}
+                    onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Fin *</label>
+                  <Input
+                    type="date"
+                    value={form.end_date}
+                    min={form.start_date || undefined}
+                    onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Budget & target */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Objectifs</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Budget (€)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.budget}
+                    onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))}
+                    placeholder="0.00"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Panneaux cible</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={form.target_panel_count}
+                    onChange={(e) => setForm((f) => ({ ...f, target_panel_count: e.target.value }))}
+                    placeholder="0"
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Description & notes */}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Description de la campagne..."
+                  rows={2}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Notes internes</label>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Notes..."
+                  rows={2}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                />
+              </div>
+            </div>
+
+            {/* Visuels */}
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Visuels ({stagedVisuals.length})
+                </p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Upload className="size-3" />
+                  Ajouter
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleAddVisuals}
+                />
+              </div>
+
+              {stagedVisuals.length === 0 ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-8 text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                >
+                  <ImageIcon className="size-8" />
+                  <p className="text-xs">Cliquer pour ajouter des visuels</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {stagedVisuals.map((visual, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-3 rounded-lg border border-border p-2"
+                    >
+                      <img
+                        src={visual.preview}
+                        alt={visual.file.name}
+                        className="size-14 shrink-0 rounded object-cover"
+                      />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <p className="truncate text-xs font-medium">{visual.file.name}</p>
+                        <select
+                          value={visual.formatId}
+                          onChange={(e) => updateVisualFormat(idx, e.target.value)}
+                          className="h-7 w-full rounded border border-input bg-background px-2 text-[11px]"
+                        >
+                          <option value="">Tous formats</option>
+                          {panelFormats?.filter((f) => f.is_active).map((f) => (
+                            <option key={f.id} value={f.id}>{f.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        onClick={() => removeVisual(idx)}
+                        className="shrink-0 rounded p-1.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="flex gap-3">
+              <Button onClick={handleCreate} disabled={saving} className="flex-1">
+                {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+                Créer la campagne
+              </Button>
+              <Button variant="outline" onClick={() => setSheetOpen(false)}>
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

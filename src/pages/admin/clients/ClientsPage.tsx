@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/shared/Toast'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone } from 'lucide-react'
+import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone, SearchCheck } from 'lucide-react'
 
 type ClientForm = Omit<Client, 'id' | 'created_at' | 'updated_at'>
 
@@ -51,6 +51,7 @@ export function ClientsPage() {
   const [saving, setSaving] = useState(false)
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ClientForm, string>>>({})
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null)
+  const [siretLoading, setSiretLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   // Campaign counts per client
@@ -83,6 +84,49 @@ export function ClientsPage() {
   useEffect(() => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [])
+
+  async function lookupSiret() {
+    const raw = form.siret?.replace(/\s/g, '')
+    if (!raw || raw.length !== 14) {
+      setFormErrors((prev) => ({ ...prev, siret: 'Le SIRET doit contenir 14 chiffres' }))
+      return
+    }
+    setSiretLoading(true)
+    try {
+      const res = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${raw}&page=1&per_page=1`)
+      if (!res.ok) throw new Error('API indisponible')
+      const json = await res.json()
+      const company = json.results?.[0]
+      if (!company) {
+        setFormErrors((prev) => ({ ...prev, siret: 'Aucune entreprise trouvée' }))
+        return
+      }
+      const siege = company.siege
+      // Compute TVA intra from SIREN if API doesn't provide it
+      let tva = company.numero_tva_intra || null
+      if (!tva && raw.length >= 9) {
+        const siren = parseInt(raw.slice(0, 9), 10)
+        if (!isNaN(siren)) {
+          const key = (12 + 3 * (siren % 97)) % 97
+          tva = `FR${String(key).padStart(2, '0')}${raw.slice(0, 9)}`
+        }
+      }
+      setForm((f) => ({
+        ...f,
+        company_name: company.nom_complet || f.company_name,
+        address: siege?.adresse ? `${siege.numero_voie ?? ''} ${siege.type_voie ?? ''} ${siege.libelle_voie ?? ''}`.trim() : f.address,
+        city: siege?.libelle_commune || f.city,
+        postal_code: siege?.code_postal || f.postal_code,
+        tva_number: tva || f.tva_number,
+      }))
+      setFormErrors((prev) => { const next = { ...prev }; delete next.siret; return next })
+      toast('Informations entreprise importées')
+    } catch {
+      setFormErrors((prev) => ({ ...prev, siret: 'Erreur lors de la recherche' }))
+    } finally {
+      setSiretLoading(false)
+    }
+  }
 
   // Status counts
   const statusCounts = useMemo(() => {
@@ -429,7 +473,33 @@ export function ClientsPage() {
               <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Société</p>
               <div className="space-y-3">
                 {field('company_name', 'Nom de la société *', 'ACME Corp')}
-                {field('siret', 'SIRET', '123 456 789 00012')}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">SIRET</label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={(form.siret as string) ?? ''}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, siret: e.target.value || null }))
+                        if (formErrors.siret) setFormErrors((prev) => { const next = { ...prev }; delete next.siret; return next })
+                      }}
+                      placeholder="123 456 789 00012"
+                      className={`flex-1 text-sm ${formErrors.siret ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={lookupSiret}
+                      disabled={siretLoading}
+                      title="Rechercher l'entreprise"
+                      className="shrink-0"
+                    >
+                      {siretLoading ? <Loader2 className="size-4 animate-spin" /> : <SearchCheck className="size-4" />}
+                    </Button>
+                  </div>
+                  {formErrors.siret && <p className="text-[11px] text-red-500">{formErrors.siret}</p>}
+                  <p className="text-[10px] text-muted-foreground">Saisissez un SIRET et cliquez pour auto-remplir les infos entreprise</p>
+                </div>
                 {field('tva_number', 'Numéro TVA', 'FR12345678901')}
               </div>
             </div>

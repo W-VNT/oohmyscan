@@ -19,7 +19,8 @@ type Tab = 'panels' | 'campaigns'
 interface CampaignWithStats {
   id: string
   name: string
-  client: string
+  client_id: string | null
+  clients: { company_name: string } | null
   status: string
   start_date: string
   end_date: string
@@ -91,14 +92,21 @@ export function OperatorPanelsPage() {
 
       const { data: campaignData, error: cErr } = await supabase
         .from('campaigns')
-        .select('id, name, client, status, start_date, end_date, target_panel_count')
+        .select('id, name, client_id, clients(company_name), status, start_date, end_date, target_panel_count')
         .in('id', campaignIds)
         .order('start_date', { ascending: false })
       if (cErr) throw cErr
       if (!campaignData?.length) return []
 
+      const typed = campaignData as unknown as {
+        id: string; name: string; client_id: string | null;
+        clients: { company_name: string } | null;
+        status: string; start_date: string; end_date: string;
+        target_panel_count: number | null;
+      }[]
+
       const results: CampaignWithStats[] = await Promise.all(
-        campaignData.map(async (c) => {
+        typed.map(async (c) => {
           const totalRes = await supabase
             .from('panel_campaigns')
             .select('id', { count: 'exact', head: true })
@@ -270,7 +278,7 @@ export function OperatorPanelsPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-[14px] font-semibold">{campaign.name}</p>
-                            <p className="text-[12px] text-muted-foreground">{campaign.client}</p>
+                            <p className="text-[12px] text-muted-foreground">{campaign.clients?.company_name ?? ''}</p>
                           </div>
                           {isDone ? (
                             <div className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1">

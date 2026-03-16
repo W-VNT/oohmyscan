@@ -24,7 +24,8 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'outline' | 'des
 interface CampaignWithStats {
   id: string
   name: string
-  client: string
+  client_id: string | null
+  clients: { company_name: string } | null
   status: string
   start_date: string
   end_date: string
@@ -51,15 +52,21 @@ export function MyCampaignsPage() {
 
       const { data: campaignData, error: cErr } = await supabase
         .from('campaigns')
-        .select('id, name, client, status, start_date, end_date')
+        .select('id, name, client_id, clients(company_name), status, start_date, end_date')
         .in('id', campaignIds)
         .order('start_date', { ascending: false })
       if (cErr) throw cErr
       if (!campaignData?.length) return []
 
+      const typed = campaignData as unknown as {
+        id: string; name: string; client_id: string | null;
+        clients: { company_name: string } | null;
+        status: string; start_date: string; end_date: string;
+      }[]
+
       // Count panels per campaign (total + mine)
       const results: CampaignWithStats[] = await Promise.all(
-        campaignData.map(async (c) => {
+        typed.map(async (c) => {
           const [totalRes, myRes] = await Promise.all([
             supabase
               .from('panel_campaigns')
@@ -123,7 +130,7 @@ export function MyCampaignsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-[14px] font-semibold">{campaign.name}</p>
-                      <p className="text-[12px] text-muted-foreground">{campaign.client}</p>
+                      <p className="text-[12px] text-muted-foreground">{campaign.clients?.company_name ?? ''}</p>
                     </div>
                     <Badge
                       variant={STATUS_VARIANTS[campaign.status] ?? 'secondary'}

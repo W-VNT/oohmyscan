@@ -128,7 +128,7 @@ export function CampaignDetailPage() {
     )
   }
 
-  const clientName = campaign.clients?.company_name ?? campaign.client
+  const clientName = campaign.clients?.company_name ?? ''
   const assignedCount = assignments?.length ?? 0
   const target = campaign.target_panel_count
   const progressPct = target && target > 0 ? Math.min((assignedCount / target) * 100, 100) : null

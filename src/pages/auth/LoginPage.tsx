@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Loader2, ScanLine } from 'lucide-react'
+import { Loader2, ScanLine, MapPin, BarChart3, QrCode } from 'lucide-react'
 
 const MAX_ATTEMPTS = 5
 const COOLDOWN_SECONDS = 30
@@ -73,67 +73,106 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background px-6 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-      {/* Top spacer — push content to ~1/3 */}
-      <div className="flex-1" />
-
-      {/* Logo + branding */}
-      <div className="mb-10 text-center">
-        <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-foreground">
-          <ScanLine className="size-7 text-background" strokeWidth={1.5} />
+    <div className="flex min-h-screen bg-background">
+      {/* Left panel — branding (desktop only) */}
+      <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-between bg-foreground p-12 text-background">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-background/10">
+              <ScanLine className="size-5 text-background" strokeWidth={1.5} />
+            </div>
+            <span className="text-lg font-bold tracking-tight">OOHMYSCAN</span>
+          </div>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">OOHMYSCAN</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">Gestion terrain OOH</p>
+
+        <div className="space-y-8">
+          <h2 className="text-4xl font-bold leading-tight tracking-tight">
+            Gérez votre parc<br />publicitaire OOH
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 text-background/70">
+              <MapPin className="size-5 shrink-0" />
+              <span className="text-[15px]">Cartographie et suivi terrain en temps réel</span>
+            </div>
+            <div className="flex items-center gap-3 text-background/70">
+              <QrCode className="size-5 shrink-0" />
+              <span className="text-[15px]">Scan QR et gestion des panneaux sur le terrain</span>
+            </div>
+            <div className="flex items-center gap-3 text-background/70">
+              <BarChart3 className="size-5 shrink-0" />
+              <span className="text-[15px]">Campagnes, devis et facturation centralisés</span>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-sm text-background/40">OOHMYAD &mdash; Plateforme de gestion OOH</p>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-3">
-        {lockedUntil && cooldownRemaining > 0 ? (
-          <div className="rounded-lg bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive">
-            Trop de tentatives. Réessayez dans {cooldownRemaining} seconde{cooldownRemaining > 1 ? 's' : ''}.
+      {/* Right panel — form */}
+      <div className="flex flex-1 flex-col px-6 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+        {/* Top spacer — push content to ~1/3 */}
+        <div className="flex-1" />
+
+        <div className="mx-auto w-full max-w-sm">
+          {/* Logo + branding (mobile only on mobile, always on form side) */}
+          <div className="mb-10 text-center">
+            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-foreground lg:bg-primary">
+              <ScanLine className="size-7 text-background lg:text-primary-foreground" strokeWidth={1.5} />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">OOHMYSCAN</h1>
+            <p className="mt-1 text-[13px] text-muted-foreground">Gestion terrain OOH</p>
           </div>
-        ) : error ? (
-          <div className="rounded-lg bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive">
-            {error}
-          </div>
-        ) : null}
 
-        <Input
-          type="email"
-          inputMode="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          placeholder="Email"
-          autoComplete="email"
-          className="h-12 text-[15px]"
-        />
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {lockedUntil && cooldownRemaining > 0 ? (
+              <div className="rounded-lg bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive">
+                Trop de tentatives. Réessayez dans {cooldownRemaining} seconde{cooldownRemaining > 1 ? 's' : ''}.
+              </div>
+            ) : error ? (
+              <div className="rounded-lg bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive">
+                {error}
+              </div>
+            ) : null}
 
-        <Input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          placeholder="Mot de passe"
-          autoComplete="current-password"
-          className="h-12 text-[15px]"
-        />
+            <Input
+              type="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="Email"
+              autoComplete="email"
+              className="h-12 text-[15px]"
+            />
 
-        <Button type="submit" disabled={loading || (!!lockedUntil && Date.now() < lockedUntil)} className="h-12 w-full text-[15px]">
-          {loading ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Connexion...
-            </>
-          ) : (
-            'Se connecter'
-          )}
-        </Button>
-      </form>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Mot de passe"
+              autoComplete="current-password"
+              className="h-12 text-[15px]"
+            />
 
-      {/* Bottom spacer + version */}
-      <div className="flex-[2]" />
-      <p className="pb-4 text-center text-[11px] text-muted-foreground">v1.0.0</p>
+            <Button type="submit" disabled={loading || (!!lockedUntil && Date.now() < lockedUntil)} className="h-12 w-full text-[15px]">
+              {loading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Connexion...
+                </>
+              ) : (
+                'Se connecter'
+              )}
+            </Button>
+          </form>
+        </div>
+
+        {/* Bottom spacer + version */}
+        <div className="flex-[2]" />
+        <p className="pb-4 text-center text-[11px] text-muted-foreground">v1.0.0</p>
+      </div>
     </div>
   )
 }

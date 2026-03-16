@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Search, Filter, Loader2, PanelTop, ChevronLeft, ChevronRight, Megaphone, Download } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import { usePanelFormats } from '@/hooks/admin/usePanelFormats'
-import type { Panel } from '@/types'
+import type { PanelWithLocation } from '@/types'
 
 const PAGE_SIZE = 25
 
@@ -24,7 +24,7 @@ function usePaginatedPanels(
     queryFn: async () => {
       let query = supabase
         .from('panels')
-        .select('*', { count: 'exact' })
+        .select('*, locations(name)', { count: 'exact' })
         .order(sortCol, { ascending: sortAsc })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
@@ -40,7 +40,7 @@ function usePaginatedPanels(
 
       const { data, error, count } = await query
       if (error) throw error
-      return { panels: data as Panel[], total: count ?? 0 }
+      return { panels: data as unknown as PanelWithLocation[], total: count ?? 0 }
     },
     placeholderData: (prev) => prev,
   })
@@ -240,7 +240,7 @@ export function PanelsPage() {
                           to={`/admin/panels/${panel.id}`}
                           className="font-medium text-primary hover:underline"
                         >
-                          {panel.name || panel.reference}
+                          {panel.locations?.name || panel.name || panel.reference}
                         </Link>
                         {panelCampaigns.has(panel.id) && (
                           <span title="Campagne active"><Megaphone className="size-3.5 shrink-0 text-red-500" /></span>

@@ -46,11 +46,11 @@ export function OperatorCampaignDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaigns')
-        .select('id, name, client, description, status, start_date, end_date, target_panel_count, notes')
+        .select('id, name, client_id, clients(company_name), description, status, start_date, end_date, target_panel_count, notes')
         .eq('id', id!)
         .single()
       if (error) throw error
-      return data
+      return data as unknown as typeof data & { clients: { company_name: string } | null }
     },
     enabled: !!id,
   })
@@ -173,7 +173,7 @@ export function OperatorCampaignDetailPage() {
           <CardContent className="space-y-3">
             <div>
               <p className="text-[14px] font-semibold">{campaign.name}</p>
-              <p className="text-[12px] text-muted-foreground">{campaign.client}</p>
+              <p className="text-[12px] text-muted-foreground">{campaign.clients?.company_name ?? ''}</p>
             </div>
 
             {campaign.description && (

@@ -33,6 +33,23 @@ export function useActiveCampaigns() {
   })
 }
 
+export function useClientCampaigns(clientId: string | undefined) {
+  return useQuery({
+    queryKey: ['campaigns', 'client', clientId],
+    queryFn: async (): Promise<CampaignWithClient[]> => {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*, clients(id, company_name)')
+        .eq('client_id', clientId!)
+        .in('status', ['draft', 'active', 'cancelled'])
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data as unknown as CampaignWithClient[]
+    },
+    enabled: !!clientId,
+  })
+}
+
 export function useCampaign(id: string | undefined) {
   return useQuery({
     queryKey: ['campaigns', id],

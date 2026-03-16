@@ -120,7 +120,7 @@ export function OperatorPanelDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('panel_campaigns')
-        .select('*, campaigns(name, client, start_date, end_date)')
+        .select('*, campaigns(name, client_id, clients:clients(company_name), start_date, end_date)')
         .eq('panel_id', id!)
         .is('unassigned_at', null)
         .order('assigned_at', { ascending: false })
@@ -602,7 +602,8 @@ export function OperatorPanelDetailPage() {
                 {assignments.map((a) => {
                   const campaign = (a as Record<string, unknown>).campaigns as {
                     name: string
-                    client: string
+                    client_id: string | null
+                    clients: { company_name: string } | null
                     start_date: string
                     end_date: string
                   } | null
@@ -615,7 +616,7 @@ export function OperatorPanelDetailPage() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-medium">{campaign?.name ?? '—'}</p>
                           <p className="text-[11px] text-muted-foreground">
-                            {campaign?.client}
+                            {campaign?.clients?.company_name ?? ''}
                             {campaign?.start_date && (
                               <> · {new Date(campaign.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                               {' → '}

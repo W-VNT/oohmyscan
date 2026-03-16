@@ -56,7 +56,7 @@ export function OperatorDashboardPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('panel_campaigns')
-        .select('*, panels(reference, name), campaigns(name, client)')
+        .select('*, panels(reference, name), campaigns(name, client_id, clients(company_name))')
         .eq('assigned_by', session!.user.id)
         .order('assigned_at', { ascending: false })
         .limit(10)
@@ -73,12 +73,19 @@ export function OperatorDashboardPage() {
       // 1. Get active campaigns
       const { data: campaigns, error: cErr } = await supabase
         .from('campaigns')
-        .select('id, name, client, start_date, end_date, target_panel_count')
+        .select('id, name, client_id, clients(company_name), start_date, end_date, target_panel_count')
         .eq('status', 'active')
       if (cErr) throw cErr
       if (!campaigns?.length) return []
 
-      const campaignIds = campaigns.map((c) => c.id)
+      const typed = campaigns as unknown as {
+        id: string; name: string; client_id: string | null;
+        clients: { company_name: string } | null;
+        start_date: string; end_date: string;
+        target_panel_count: number | null;
+      }[]
+
+      const campaignIds = typed.map((c) => c.id)
 
       // 2. Get active assignments for these campaigns (single query)
       const { data: allAssignments } = await supabase
@@ -93,7 +100,7 @@ export function OperatorDashboardPage() {
         totalCounts.set(a.campaign_id, (totalCounts.get(a.campaign_id) ?? 0) + 1)
       }
 
-      return campaigns.map((c) => ({
+      return typed.map((c) => ({
         ...c,
         totalPanels: totalCounts.get(c.id) ?? 0,
       }))
@@ -191,7 +198,7 @@ export function OperatorDashboardPage() {
     }),
     ...(recentAssignments ?? []).map((a) => {
       const panel = (a as Record<string, unknown>).panels as { reference: string; name: string | null } | null
-      const campaign = (a as Record<string, unknown>).campaigns as { name: string; client: string } | null
+      const campaign = (a as Record<string, unknown>).campaigns as { name: string; client_id: string | null; clients: { company_name: string } | null } | null
       return {
         id: a.id,
         panelId: a.panel_id,
@@ -246,7 +253,7 @@ export function OperatorDashboardPage() {
                         Mission en cours
                       </p>
                       <p className="mt-1 text-sm font-semibold">{campaign.name}</p>
-                      <p className="text-[12px] text-muted-foreground">{campaign.client}</p>
+                      <p className="text-[12px] text-muted-foreground">{campaign.clients?.company_name ?? ''}</p>
                     </div>
                     {isDone ? (
                       <div className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1">

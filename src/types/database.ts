@@ -180,7 +180,6 @@ export interface Database {
         Row: {
           id: string
           name: string
-          client: string
           client_id: string | null
           description: string | null
           start_date: string
@@ -195,7 +194,6 @@ export interface Database {
         Insert: {
           id?: string
           name: string
-          client: string
           client_id?: string | null
           description?: string | null
           start_date: string
@@ -210,7 +208,6 @@ export interface Database {
         Update: {
           id?: string
           name?: string
-          client?: string
           client_id?: string | null
           description?: string | null
           start_date?: string
@@ -446,7 +443,7 @@ export interface Database {
           quote_number: string
           client_id: string
           campaign_id: string | null
-          status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'cancelled'
+          status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted' | 'cancelled'
           issued_at: string
           valid_until: string
           notes: string | null
@@ -462,7 +459,7 @@ export interface Database {
           quote_number: string
           client_id: string
           campaign_id?: string | null
-          status?: 'draft' | 'sent' | 'accepted' | 'rejected' | 'cancelled'
+          status?: 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted' | 'cancelled'
           issued_at?: string
           valid_until?: string
           notes?: string | null
@@ -478,7 +475,7 @@ export interface Database {
           quote_number?: string
           client_id?: string
           campaign_id?: string | null
-          status?: 'draft' | 'sent' | 'accepted' | 'rejected' | 'cancelled'
+          status?: 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted' | 'cancelled'
           issued_at?: string
           valid_until?: string
           notes?: string | null
@@ -495,6 +492,7 @@ export interface Database {
         Row: {
           id: string
           quote_id: string
+          service_catalog_id: string | null
           description: string
           quantity: number
           unit: string
@@ -506,6 +504,7 @@ export interface Database {
         Insert: {
           id?: string
           quote_id: string
+          service_catalog_id?: string | null
           description: string
           quantity?: number
           unit?: string
@@ -517,6 +516,7 @@ export interface Database {
         Update: {
           id?: string
           quote_id?: string
+          service_catalog_id?: string | null
           description?: string
           quantity?: number
           unit?: string
@@ -588,6 +588,7 @@ export interface Database {
         Row: {
           id: string
           invoice_id: string
+          service_catalog_id: string | null
           description: string
           quantity: number
           unit: string
@@ -599,6 +600,7 @@ export interface Database {
         Insert: {
           id?: string
           invoice_id: string
+          service_catalog_id?: string | null
           description: string
           quantity?: number
           unit?: string
@@ -610,6 +612,7 @@ export interface Database {
         Update: {
           id?: string
           invoice_id?: string
+          service_catalog_id?: string | null
           description?: string
           quantity?: number
           unit?: string

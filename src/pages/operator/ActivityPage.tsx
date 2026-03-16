@@ -31,7 +31,7 @@ export function ActivityPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('panel_campaigns')
-        .select('*, panels(reference, name), campaigns(name, client)')
+        .select('*, panels(reference, name), campaigns(name, client_id, clients(company_name))')
         .eq('assigned_by', session!.user.id)
         .order('assigned_at', { ascending: false })
         .limit(20)
@@ -77,7 +77,7 @@ export function ActivityPage() {
     }),
     ...(recentAssignments ?? []).map((a) => {
       const panel = (a as Record<string, unknown>).panels as { reference: string; name?: string } | null
-      const campaign = (a as Record<string, unknown>).campaigns as { name: string; client: string } | null
+      const campaign = (a as Record<string, unknown>).campaigns as { name: string; client_id: string | null; clients: { company_name: string } | null } | null
       return {
         id: a.id,
         panelId: a.panel_id,

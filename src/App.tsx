@@ -41,6 +41,7 @@ const PanelDetailPage = lazy(() => import('@/pages/admin/PanelDetailPage').then(
 const CampaignsPage = lazy(() => import('@/pages/admin/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
 const CampaignDetailPage = lazy(() => import('@/pages/admin/CampaignDetailPage').then((m) => ({ default: m.CampaignDetailPage })))
 const ClientsPage = lazy(() => import('@/pages/admin/clients/ClientsPage').then((m) => ({ default: m.ClientsPage })))
+const ClientDetailPage = lazy(() => import('@/pages/admin/clients/ClientDetailPage').then((m) => ({ default: m.ClientDetailPage })))
 const QuotesPage = lazy(() => import('@/pages/admin/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })))
 const InvoicesPage = lazy(() => import('@/pages/admin/invoices/InvoicesPage').then((m) => ({ default: m.InvoicesPage })))
 const QRPage = lazy(() => import('@/pages/admin/qr/QRPage').then((m) => ({ default: m.QRPage })))
@@ -51,6 +52,7 @@ const PotentialPage = lazy(() => import('@/pages/admin/potential/PotentialPage')
 const PotentialNewPage = lazy(() => import('@/pages/admin/potential/PotentialNewPage').then((m) => ({ default: m.PotentialNewPage })))
 const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 const ProofOfPostingPage = lazy(() => import('@/pages/admin/reports/ProofOfPostingPage').then((m) => ({ default: m.ProofOfPostingPage })))
+const AdminProfilePage = lazy(() => import('@/pages/admin/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const LocationsPage = lazy(() => import('@/pages/admin/locations/LocationsPage').then((m) => ({ default: m.LocationsPage })))
 const LocationDetailPage = lazy(() => import('@/pages/admin/locations/LocationDetailPage').then((m) => ({ default: m.LocationDetailPage })))
@@ -131,6 +133,7 @@ export default function App() {
                   <Route path="campaigns" element={<CampaignsPage />} />
                   <Route path="campaigns/:id" element={<CampaignDetailPage />} />
                   <Route path="clients" element={<ClientsPage />} />
+                  <Route path="clients/:id" element={<ClientDetailPage />} />
                   <Route path="quotes" element={<QuotesPage />} />
                   <Route path="quotes/:id" element={<QuoteDetailPage />} />
                   <Route path="invoices" element={<InvoicesPage />} />
@@ -142,6 +145,7 @@ export default function App() {
                   <Route path="users" element={<UsersPage />} />
                   <Route path="reports" element={<ReportsPage />} />
                   <Route path="reports/:campaignId" element={<ProofOfPostingPage />} />
+                  <Route path="profile" element={<AdminProfilePage />} />
                   <Route path="settings" element={<SettingsPage />} />
                 </Route>
               </Route>

@@ -8,6 +8,13 @@ export function useInvoices() {
   return useQuery({
     queryKey: ['invoices'],
     queryFn: async (): Promise<InvoiceWithClient[]> => {
+      // Auto-mark overdue: sent invoices past due date
+      await supabase
+        .from('invoices')
+        .update({ status: 'overdue', updated_at: new Date().toISOString() })
+        .eq('status', 'sent')
+        .lt('due_at', new Date().toISOString().split('T')[0])
+
       const { data, error } = await supabase
         .from('invoices')
         .select('*, clients(company_name)')

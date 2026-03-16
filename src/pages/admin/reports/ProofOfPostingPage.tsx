@@ -141,7 +141,7 @@ function SortableBlock({
   block: ProofBlock
   onRemove: (id: string) => void
   onUpdate: (id: string, updates: Record<string, unknown>) => void
-  campaign: { name: string; client: string; start_date: string; end_date: string } | undefined
+  campaign: { name: string; clients?: { company_name: string } | null; start_date: string; end_date: string } | undefined
   assignments: PanelAssignment[]
   photos: CampaignPhoto[]
 }) {
@@ -211,7 +211,7 @@ function HeaderBlock({
   campaign,
   panelCount,
 }: {
-  campaign: { name: string; client: string; start_date: string; end_date: string }
+  campaign: { name: string; clients?: { company_name: string } | null; start_date: string; end_date: string }
   panelCount: number
 }) {
   return (
@@ -223,7 +223,7 @@ function HeaderBlock({
       <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
         <div>
           <span className="text-muted-foreground">Client : </span>
-          <span className="font-medium">{campaign.client}</span>
+          <span className="font-medium">{campaign.clients?.company_name ?? ''}</span>
         </div>
         <div>
           <span className="text-muted-foreground">Période : </span>
@@ -362,7 +362,7 @@ function MapBlock({ assignments }: { assignments: PanelAssignment[] }) {
 
 // Build proof data for PDF
 function buildProofData(
-  campaign: { name: string; client: string; start_date: string; end_date: string },
+  campaign: { name: string; clients?: { company_name: string } | null; start_date: string; end_date: string },
   blocks: ProofBlock[],
   assignments: PanelAssignment[],
   photos: CampaignPhoto[],
@@ -383,7 +383,7 @@ function buildProofData(
 
   return {
     campaignName: campaign.name,
-    clientName: campaign.client,
+    clientName: campaign.clients?.company_name ?? '',
     startDate: campaign.start_date,
     endDate: campaign.end_date,
     panels: assignments.map((a) => ({

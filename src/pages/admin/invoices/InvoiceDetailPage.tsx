@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useInvoice, useInvoiceLines, useCreateInvoice, useUpdateInvoice, useSaveInvoiceLines, type InvoiceLine } from '@/hooks/admin/useInvoices'
-import { useQuote, useQuoteLines } from '@/hooks/admin/useQuotes'
+import { useQuote, useQuoteLines, useUpdateQuote } from '@/hooks/admin/useQuotes'
 import { useClients, useClient } from '@/hooks/admin/useClients'
-import { useCampaigns } from '@/hooks/useCampaigns'
+import { useClientCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
+import { useAppStore } from '@/store/app.store'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText, Eye, X } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { InvoicePDF } from '@/lib/pdf/InvoicePDF'
@@ -24,6 +25,7 @@ type EditableLine = Omit<InvoiceLine, 'id' | 'invoice_id'> & { _key: string }
 function newLine(sortOrder: number): EditableLine {
   return {
     _key: crypto.randomUUID(),
+    service_catalog_id: null,
     description: '',
     quantity: 1,
     unit: 'unité',
@@ -46,21 +48,24 @@ export function InvoiceDetailPage() {
   const { data: sourceQuote } = useQuote(fromQuoteId ?? invoice?.quote_id ?? undefined)
   const { data: sourceQuoteLines } = useQuoteLines(fromQuoteId ?? undefined)
   const { data: clients } = useClients()
-  const { data: campaigns } = useCampaigns()
   const { data: services } = useServiceCatalog()
   const { data: settings } = useCompanySettings()
 
   const createInvoice = useCreateInvoice()
   const updateInvoice = useUpdateInvoice()
+  const updateQuote = useUpdateQuote()
   const saveLines = useSaveInvoiceLines()
+  const profile = useAppStore((s) => s.profile)
 
   const [clientId, setClientId] = useState('')
+  const { data: clientCampaigns } = useClientCampaigns(clientId || undefined)
   const [campaignId, setCampaignId] = useState('')
   const [quoteId, setQuoteId] = useState('')
   const [notes, setNotes] = useState('')
   const [dueAt, setDueAt] = useState('')
   const [lines, setLines] = useState<EditableLine[]>([newLine(0)])
   const [saving, setSaving] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const { data: clientData } = useClient(clientId || undefined)
 
@@ -98,6 +103,7 @@ export function InvoiceDetailPage() {
     if (sourceQuoteLines && sourceQuoteLines.length > 0 && isNew) {
       setLines(sourceQuoteLines.map((l) => ({
         _key: crypto.randomUUID(),
+        service_catalog_id: l.service_catalog_id ?? null,
         description: l.description,
         quantity: l.quantity,
         unit: l.unit,
@@ -108,6 +114,18 @@ export function InvoiceDetailPage() {
       })))
     }
   }, [sourceQuoteLines, isNew])
+
+  // Reset campaign when client changes (except on initial load)
+  const [clientInitialized, setClientInitialized] = useState(false)
+  useEffect(() => {
+    if (!clientInitialized && clientId) {
+      setClientInitialized(true)
+      return
+    }
+    if (clientInitialized) {
+      setCampaignId('')
+    }
+  }, [clientId])
 
   // Default due date +30 days
   useEffect(() => {
@@ -145,6 +163,7 @@ export function InvoiceDetailPage() {
       ...prev,
       {
         _key: crypto.randomUUID(),
+        service_catalog_id: service.id,
         description: service.name,
         quantity: 1,
         unit: service.unit,
@@ -197,6 +216,10 @@ export function InvoiceDetailPage() {
       toast('Veuillez sélectionner un client', 'error')
       return
     }
+    if (!campaignId) {
+      toast('Veuillez sélectionner une campagne', 'error')
+      return
+    }
 
     setSaving(true)
     try {
@@ -216,21 +239,26 @@ export function InvoiceDetailPage() {
         const result = await createInvoice.mutateAsync({
           invoice_number: finalNumber,
           client_id: clientId,
-          campaign_id: campaignId || null,
+          campaign_id: campaignId,
           quote_id: quoteId || null,
           status: 'draft',
           issued_at: new Date().toISOString(),
           due_at: dueAt || new Date(Date.now() + 30 * 86400000).toISOString(),
           paid_at: null,
           notes: notes || null,
-          created_by: null,
+          created_by: profile?.id ?? null,
         })
         invoiceId = result.id
+
+        // Auto-convert source quote status to 'converted'
+        if (quoteId) {
+          await updateQuote.mutateAsync({ id: quoteId, status: 'converted' })
+        }
       } else {
         await updateInvoice.mutateAsync({
           id: invoiceId,
           client_id: clientId,
-          campaign_id: campaignId || null,
+          campaign_id: campaignId,
           notes: notes || null,
           due_at: dueAt || undefined,
         })
@@ -242,6 +270,7 @@ export function InvoiceDetailPage() {
           .filter((l) => l.description.trim())
           .map((l, i) => ({
             invoice_id: invoiceId,
+            service_catalog_id: l.service_catalog_id ?? null,
             description: l.description,
             quantity: l.quantity,
             unit: l.unit,
@@ -306,6 +335,40 @@ export function InvoiceDetailPage() {
     }
   }
 
+  async function handlePreviewPDF() {
+    if (!invoice || !clientData || !settings) {
+      toast('Données manquantes pour le PDF', 'error')
+      return
+    }
+    try {
+      const blob = await pdf(
+        <InvoicePDF
+          invoice={invoice}
+          quoteNumber={sourceQuote?.quote_number}
+          client={clientData}
+          lines={lines.filter((l) => l.description.trim()).map((l) => ({
+            description: l.description,
+            quantity: l.quantity,
+            unit: l.unit,
+            unit_price: l.unit_price,
+            tva_rate: l.tva_rate,
+            total_ht: l.total_ht,
+          }))}
+          company={{
+            ...settings,
+            logo_url: settings.logo_path
+              ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
+              : null,
+          }}
+        />,
+      ).toBlob()
+      const url = URL.createObjectURL(blob)
+      setPreviewUrl(url)
+    } catch {
+      toast('Erreur lors de la génération du PDF', 'error')
+    }
+  }
+
   function handleMailto() {
     if (!invoice || !clientData || !settings) return
     const subject = encodeURIComponent(`Facture ${invoice.invoice_number}`)
@@ -351,6 +414,9 @@ export function InvoiceDetailPage() {
         </div>
         {!isNew && invoice && (
           <>
+            <Button size="sm" variant="outline" onClick={handlePreviewPDF}>
+              <Eye className="mr-1.5 size-3.5" /> Aperçu
+            </Button>
             <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
               <Download className="mr-1.5 size-3.5" /> PDF
             </Button>
@@ -365,6 +431,21 @@ export function InvoiceDetailPage() {
           </>
         )}
       </div>
+
+      {/* PDF Preview Dialog */}
+      {previewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null) }}>
+          <div className="relative h-[90vh] w-[90vw] max-w-4xl rounded-lg bg-background shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <p className="text-sm font-medium">Aperçu — {invoice?.invoice_number}</p>
+              <Button size="sm" variant="ghost" onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null) }}>
+                <X className="size-4" />
+              </Button>
+            </div>
+            <iframe src={previewUrl} className="h-[calc(100%-3.5rem)] w-full rounded-b-lg" />
+          </div>
+        </div>
+      )}
 
       {/* Locked banner */}
       {isLocked && (
@@ -426,16 +507,24 @@ export function InvoiceDetailPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Campagne</label>
+            <label className="text-xs font-medium text-muted-foreground">Campagne *</label>
             <select
               value={campaignId}
               onChange={(e) => setCampaignId(e.target.value)}
-              disabled={isLocked}
+              disabled={isLocked || !clientId}
               className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
-              <option value="">Aucune</option>
-              {campaigns?.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              <option value="">
+                {!clientId
+                  ? 'Sélectionner un client d\u2019abord'
+                  : clientCampaigns?.length === 0
+                    ? 'Aucune campagne pour ce client'
+                    : 'Sélectionner...'}
+              </option>
+              {clientCampaigns?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.status === 'draft' ? 'Brouillon' : c.status === 'active' ? 'Active' : 'Annulée'})
+                </option>
               ))}
             </select>
           </div>

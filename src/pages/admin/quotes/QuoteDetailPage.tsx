@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuote, useQuoteLines, useCreateQuote, useUpdateQuote, useSaveQuoteLines, type QuoteLine } from '@/hooks/admin/useQuotes'
 import { useClients, useClient } from '@/hooks/admin/useClients'
-import { useCampaigns } from '@/hooks/useCampaigns'
+import { useClientCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
+import { useAppStore } from '@/store/app.store'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download, Copy, Ban } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download, Copy, Ban, Eye } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { QuotePDF } from '@/lib/pdf/QuotePDF'
@@ -23,6 +24,7 @@ type EditableLine = Omit<QuoteLine, 'id' | 'quote_id'> & { _key: string }
 function newLine(sortOrder: number): EditableLine {
   return {
     _key: crypto.randomUUID(),
+    service_catalog_id: null,
     description: '',
     quantity: 1,
     unit: 'unité',
@@ -41,20 +43,22 @@ export function QuoteDetailPage() {
   const { data: quote, isLoading: quoteLoading } = useQuote(isNew ? undefined : id)
   const { data: existingLines, isLoading: linesLoading } = useQuoteLines(isNew ? undefined : id)
   const { data: clients } = useClients()
-  const { data: campaigns } = useCampaigns()
   const { data: services } = useServiceCatalog()
   const { data: settings } = useCompanySettings()
 
   const createQuote = useCreateQuote()
   const updateQuote = useUpdateQuote()
   const saveLines = useSaveQuoteLines()
+  const profile = useAppStore((s) => s.profile)
 
   const [clientId, setClientId] = useState('')
+  const { data: clientCampaigns } = useClientCampaigns(clientId || undefined)
   const [campaignId, setCampaignId] = useState('')
   const [notes, setNotes] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [lines, setLines] = useState<EditableLine[]>([newLine(0)])
   const [saving, setSaving] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const { data: clientData } = useClient(clientId || undefined)
 
@@ -76,6 +80,18 @@ export function QuoteDetailPage() {
       setLines(existingLines.map((l) => ({ ...l, _key: l.id })))
     }
   }, [existingLines])
+
+  // Reset campaign when client changes (except on initial load from existing quote)
+  const [clientInitialized, setClientInitialized] = useState(false)
+  useEffect(() => {
+    if (!clientInitialized && clientId) {
+      setClientInitialized(true)
+      return
+    }
+    if (clientInitialized) {
+      setCampaignId('')
+    }
+  }, [clientId])
 
   // Default valid_until to +30 days for new quotes
   useEffect(() => {
@@ -113,6 +129,7 @@ export function QuoteDetailPage() {
       ...prev,
       {
         _key: crypto.randomUUID(),
+        service_catalog_id: service.id,
         description: service.name,
         quantity: 1,
         unit: service.unit,
@@ -165,6 +182,10 @@ export function QuoteDetailPage() {
       toast('Veuillez sélectionner un client', 'error')
       return
     }
+    if (!campaignId) {
+      toast('Veuillez sélectionner une campagne', 'error')
+      return
+    }
     if (lines.length === 0 || lines.every((l) => !l.description.trim())) {
       toast('Ajoutez au moins une ligne', 'error')
       return
@@ -190,19 +211,19 @@ export function QuoteDetailPage() {
         const result = await createQuote.mutateAsync({
           quote_number: finalNumber,
           client_id: clientId,
-          campaign_id: campaignId || null,
+          campaign_id: campaignId,
           status: 'draft',
           issued_at: new Date().toISOString(),
           valid_until: validUntil || new Date(Date.now() + 30 * 86400000).toISOString(),
           notes: notes || null,
-          created_by: null,
+          created_by: profile?.id ?? null,
         })
         quoteId = result.id
       } else {
         await updateQuote.mutateAsync({
           id: quoteId,
           client_id: clientId,
-          campaign_id: campaignId || null,
+          campaign_id: campaignId,
           notes: notes || null,
           valid_until: validUntil || undefined,
         })
@@ -214,6 +235,7 @@ export function QuoteDetailPage() {
           .filter((l) => l.description.trim())
           .map((l, i) => ({
             quote_id: quoteId,
+            service_catalog_id: l.service_catalog_id ?? null,
             description: l.description,
             quantity: l.quantity,
             unit: l.unit,
@@ -275,6 +297,39 @@ export function QuoteDetailPage() {
     }
   }
 
+  async function handlePreviewPDF() {
+    if (!quote || !clientData || !settings) {
+      toast('Données manquantes pour le PDF', 'error')
+      return
+    }
+    try {
+      const blob = await pdf(
+        <QuotePDF
+          quote={quote}
+          client={clientData}
+          lines={lines.filter((l) => l.description.trim()).map((l) => ({
+            description: l.description,
+            quantity: l.quantity,
+            unit: l.unit,
+            unit_price: l.unit_price,
+            tva_rate: l.tva_rate,
+            total_ht: l.total_ht,
+          }))}
+          company={{
+            ...settings,
+            logo_url: settings.logo_path
+              ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
+              : null,
+          }}
+        />,
+      ).toBlob()
+      const url = URL.createObjectURL(blob)
+      setPreviewUrl(url)
+    } catch {
+      toast('Erreur lors de la génération du PDF', 'error')
+    }
+  }
+
   if (!isNew && (quoteLoading || linesLoading)) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -300,6 +355,9 @@ export function QuoteDetailPage() {
         </div>
         {!isNew && quote && (
           <>
+            <Button size="sm" variant="outline" onClick={handlePreviewPDF}>
+              <Eye className="mr-1.5 size-3.5" /> Aperçu
+            </Button>
             <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
               <Download className="mr-1.5 size-3.5" /> PDF
             </Button>
@@ -309,6 +367,21 @@ export function QuoteDetailPage() {
           </>
         )}
       </div>
+
+      {/* PDF Preview Dialog */}
+      {previewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null) }}>
+          <div className="relative h-[90vh] w-[90vw] max-w-4xl rounded-lg bg-background shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <p className="text-sm font-medium">Aperçu — {quote?.quote_number}</p>
+              <Button size="sm" variant="ghost" onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null) }}>
+                <X className="size-4" />
+              </Button>
+            </div>
+            <iframe src={previewUrl} className="h-[calc(100%-3.5rem)] w-full rounded-b-lg" />
+          </div>
+        </div>
+      )}
 
       {/* Locked banner */}
       {isLocked && (
@@ -367,16 +440,24 @@ export function QuoteDetailPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Campagne</label>
+            <label className="text-xs font-medium text-muted-foreground">Campagne *</label>
             <select
               value={campaignId}
               onChange={(e) => setCampaignId(e.target.value)}
-              disabled={isLocked}
+              disabled={isLocked || !clientId}
               className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
-              <option value="">Aucune</option>
-              {campaigns?.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              <option value="">
+                {!clientId
+                  ? 'Sélectionner un client d\u2019abord'
+                  : clientCampaigns?.length === 0
+                    ? 'Aucune campagne pour ce client'
+                    : 'Sélectionner...'}
+              </option>
+              {clientCampaigns?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.status === 'draft' ? 'Brouillon' : c.status === 'active' ? 'Active' : 'Annulée'})
+                </option>
               ))}
             </select>
           </div>

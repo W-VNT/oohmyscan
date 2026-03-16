@@ -172,7 +172,7 @@ export function AssignCampaignPage() {
                       <div>
                         <p className="font-medium">{campaign.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {campaign.client}
+                          {campaign.clients?.company_name ?? ''}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {new Date(campaign.start_date).toLocaleDateString('fr-FR')} →{' '}
@@ -222,7 +222,7 @@ export function AssignCampaignPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Client</span>
-                  <span>{selectedCampaign?.client}</span>
+                  <span>{selectedCampaign?.clients?.company_name ?? ''}</span>
                 </div>
                 <div className="flex items-center gap-1 text-green-600">
                   <CheckCircle className="h-3.5 w-3.5" />

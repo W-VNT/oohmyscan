@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Filter, Loader2, Locate, MapPinOff } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
-import type { Panel } from '@/types'
+import type { Panel, PanelWithLocation } from '@/types'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
@@ -37,7 +37,7 @@ export function MapPage() {
   const { data: panels, isLoading } = usePanels()
   const mapRef = useRef<MapRef>(null)
   const [searchParams, setSearchParams] = useSearchParams()
-  const [selectedPanel, setSelectedPanel] = useState<Panel | null>(null)
+  const [selectedPanel, setSelectedPanel] = useState<PanelWithLocation | null>(null)
   const [viewState, setViewState] = useState(DEFAULT_VIEW)
   const initialCenteredRef = useRef(false)
 
@@ -113,7 +113,7 @@ export function MapPage() {
 
   // Lookup panel by id
   const panelMap = useMemo(() => {
-    const map = new globalThis.Map<string, Panel>()
+    const map = new globalThis.Map<string, PanelWithLocation>()
     for (const p of panels ?? []) map.set(p.id, p)
     return map
   }, [panels])
@@ -204,7 +204,23 @@ export function MapPage() {
         </div>
         <select
           value={cityFilter ?? ''}
-          onChange={(e) => setFilter('city', e.target.value || null)}
+          onChange={(e) => {
+            setFilter('city', e.target.value || null)
+            // Auto-center on the selected city's panels
+            if (!panels) return
+            const cityPanels = e.target.value
+              ? panels.filter((p) => p.city === e.target.value)
+              : panels
+            if (cityPanels.length) {
+              const lats = cityPanels.map((p) => p.lat)
+              const lngs = cityPanels.map((p) => p.lng)
+              setViewState({
+                latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
+                longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+                zoom: estimateZoom(cityPanels),
+              })
+            }
+          }}
           className="flex h-9 appearance-none rounded-md border border-input bg-background px-3 py-1 text-sm"
         >
           <option value="">Toutes les villes</option>
@@ -217,7 +233,7 @@ export function MapPage() {
           className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm transition-colors hover:bg-accent"
         >
           <Locate className="size-4" />
-          Centrer
+          Recentrer
         </button>
         <span className="ml-auto text-xs text-muted-foreground">
           {filteredPanels.length} panneau{filteredPanels.length !== 1 ? 'x' : ''}
@@ -310,7 +326,7 @@ export function MapPage() {
                 <div className="min-w-[220px] space-y-2.5 p-3">
                   <div>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[14px] font-semibold">{selectedPanel.name || selectedPanel.reference}</p>
+                      <p className="text-[14px] font-semibold">{selectedPanel.locations?.name || selectedPanel.name || selectedPanel.reference}</p>
                       <StatusBadge status={selectedPanel.status as PanelStatus} />
                     </div>
                     <p className="mt-0.5 text-[12px] text-muted-foreground">

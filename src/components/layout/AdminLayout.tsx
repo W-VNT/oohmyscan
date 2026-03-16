@@ -21,6 +21,9 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/app.store'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -36,6 +39,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/users': 'Utilisateurs',
   '/admin/potential': 'Potentiel',
   '/admin/reports': 'Rapports',
+  '/admin/profile': 'Profil',
   '/admin/settings': 'Paramètres',
 }
 
@@ -83,6 +87,26 @@ export function AdminLayout() {
   const { signOut, profile } = useAuth()
   const { sidebarOpen, toggleSidebar } = useAppStore()
   const { pathname } = useLocation()
+
+  const { data: avatarUrl } = useQuery({
+    queryKey: ['avatar-url', profile?.avatar_url],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .createSignedUrl(profile!.avatar_url!, 3600)
+      if (error) throw error
+      return data.signedUrl
+    },
+    enabled: !!profile?.avatar_url,
+    staleTime: 30 * 60 * 1000,
+  })
+
+  const initials = (profile?.full_name ?? '?')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
 
   // Match exact path or parent path for detail pages
   const pageTitle = PAGE_TITLES[pathname] ?? (
@@ -144,10 +168,20 @@ export function AdminLayout() {
 
         {/* User + actions */}
         <div className="border-t border-border px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="mb-2 px-2.5">
-            <p className="truncate text-[13px] font-medium">{profile?.full_name}</p>
-            <p className="text-[11px] text-muted-foreground">Administrateur</p>
-          </div>
+          <NavLink
+            to="/admin/profile"
+            onClick={() => useAppStore.setState({ sidebarOpen: false })}
+            className="mb-2 flex items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors hover:bg-muted"
+          >
+            <Avatar size="sm">
+              {avatarUrl && <AvatarImage src={avatarUrl} alt="Avatar" />}
+              <AvatarFallback className="text-[10px] font-semibold">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium">{profile?.full_name}</p>
+              <p className="text-[11px] text-muted-foreground">Administrateur</p>
+            </div>
+          </NavLink>
           <NavLink
             to="/app/dashboard"
             className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
