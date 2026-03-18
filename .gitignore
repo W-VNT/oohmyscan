@@ -31,3 +31,9 @@ dist-ssr
 
 # Database backups
 backups/
+
+# Supabase CLI temp
+supabase/.temp/
+
+# Temp migration files
+ALL_MIGRATIONS*.sql
