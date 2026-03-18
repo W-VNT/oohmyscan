@@ -171,10 +171,18 @@ export function PotentialNewPage() {
 
   // --- CSV Import ---
   function handleImport() {
-    const parsed = importText
-      .split(/[,;\n]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
+    const lines = importText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
+    const parsed: string[] = []
+    for (const line of lines) {
+      // Support formats: "Ville; 69000" or "Ville, 69000" or just "Ville"
+      const parts = line.split(/[;,]/).map((s) => s.trim()).filter((s) => s.length > 0)
+      if (parts.length >= 2) {
+        // "Nom Ville" + "Code Postal" → combine for precise geocoding
+        parsed.push(`${parts[0]} ${parts[1]}`)
+      } else if (parts.length === 1) {
+        parsed.push(parts[0])
+      }
+    }
     if (parsed.length === 0) {
       toast('Aucune commune trouvée', 'error')
       return
@@ -583,12 +591,12 @@ export function PotentialNewPage() {
               </button>
             </div>
             <p className="mb-3 text-xs text-muted-foreground">
-              Collez une liste de communes — une par ligne, ou séparées par des virgules / points-virgules.
+              Une commune par ligne, au format <strong>Nom; Code Postal</strong>. Le code postal permet un géocodage précis.
             </p>
             <textarea
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
-              placeholder={"Lyon\nMarseille\nToulouse\n\nou: Lyon, Marseille, Toulouse"}
+              placeholder={"Lyon; 69000\nMarseille; 13000\nToulouse; 31000\n\nFormat : Ville; Code Postal (une par ligne)"}
               rows={8}
               className="mb-4 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
               autoFocus
