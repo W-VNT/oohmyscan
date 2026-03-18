@@ -303,7 +303,7 @@ export function ClientsPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom, contact, email, ville..."
-            className="pl-9 text-sm"
+            className="h-9 pl-9 text-sm"
           />
         </div>
         <div className="relative">
@@ -311,7 +311,7 @@ export function ClientsPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             <option value="all">Tous ({clients?.length ?? 0})</option>
             <option value="active">Actifs ({statusCounts.active})</option>
@@ -323,7 +323,7 @@ export function ClientsPage() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -533,7 +533,7 @@ export function ClientsPage() {
                 value={form.notes ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value || null }))}
                 rows={3}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
                 placeholder="Notes internes..."
               />
             </div>

@@ -323,7 +323,7 @@ export function SettingsPage() {
                 value={form.legal_mentions ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, legal_mentions: e.target.value }))}
                 rows={3}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
                 placeholder="SARL au capital de 156 970 € - APE 7311Z"
               />
             </div>
@@ -337,7 +337,7 @@ export function SettingsPage() {
                 value={form.late_penalty_text ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, late_penalty_text: e.target.value }))}
                 rows={3}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
                 placeholder="Pénalités de retard : selon articles L.441-10 et suivants du code du commerce, taux appliqué : 12,15% par an. Une indemnité forfaitaire de 40 € sera due de plein droit dès le premier jour de retard de paiement (Article D. 441-5 du code du commerce)."
               />
             </div>

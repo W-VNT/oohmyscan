@@ -257,7 +257,7 @@ export function UsersPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom ou téléphone..."
-            className="pl-9 text-sm"
+            className="h-9 pl-9 text-sm"
           />
         </div>
         <div className="relative">
@@ -265,7 +265,7 @@ export function UsersPage() {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             <option value="all">Tous les rôles ({users?.length ?? 0})</option>
             <option value="admin">Admins ({roleCounts.admin})</option>
@@ -275,7 +275,7 @@ export function UsersPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
         >
           <option value="all">Tous</option>
           <option value="active">Actifs ({roleCounts.active})</option>
@@ -286,7 +286,7 @@ export function UsersPage() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -462,7 +462,7 @@ export function UsersPage() {
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'admin' | 'operator')}
                 disabled={editingUser?.id === currentUserId}
-                className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="operator">Opérateur</option>
                 <option value="admin">Administrateur</option>
@@ -542,7 +542,7 @@ export function UsersPage() {
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as 'admin' | 'operator')}
-                className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm"
               >
                 <option value="operator">Opérateur</option>
                 <option value="admin">Administrateur</option>

@@ -474,7 +474,7 @@ export function PotentialNewPage() {
               <select
                 value={supportType}
                 onChange={(e) => setSupportType(e.target.value as SupportType)}
-                className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-9 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm"
               >
                 {SUPPORT_TYPES.map((s) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
@@ -598,7 +598,7 @@ export function PotentialNewPage() {
               onChange={(e) => setImportText(e.target.value)}
               placeholder={"Lyon; 69000\nMarseille; 13000\nToulouse; 31000\n\nFormat : Ville; Code Postal (une par ligne)"}
               rows={8}
-              className="mb-4 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              className="mb-4 flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
               autoFocus
             />
             <div className="flex justify-end gap-2">

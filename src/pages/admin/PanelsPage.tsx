@@ -142,14 +142,14 @@ export function PanelsPage() {
         <div className="flex items-center gap-3">
           <Link
             to="/admin/qr"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm transition-colors hover:bg-accent"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors hover:bg-accent"
           >
             Générer des QR
           </Link>
           <button
             onClick={handleExportCSV}
             disabled={!panels.length}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm transition-colors hover:bg-accent disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors hover:bg-accent disabled:opacity-50"
           >
             <Download className="size-3.5" />
             CSV
@@ -169,7 +169,7 @@ export function PanelsPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom, ville, référence..."
-            className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-9 w-full rounded-lg border border-input bg-background pl-10 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="relative">
@@ -177,7 +177,7 @@ export function PanelsPage() {
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value as PanelStatus | 'all'); resetPage() }}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             <option value="all">Tous les statuts</option>
             {PANEL_STATUSES.map((s) => (
@@ -188,7 +188,7 @@ export function PanelsPage() {
         <select
           value={formatFilter}
           onChange={(e) => { setFormatFilter(e.target.value); resetPage() }}
-          className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
         >
           <option value="">Tous les types</option>
           {typeNames.map((t) => (
@@ -279,14 +279,14 @@ export function PanelsPage() {
                   <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={page === 0}
-                    className="inline-flex items-center rounded-md border border-input px-3 py-1.5 text-sm disabled:opacity-50"
+                    className="inline-flex items-center rounded-lg border border-input px-3 py-1.5 text-sm disabled:opacity-50"
                   >
                     <ChevronLeft className="size-4" />
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                     disabled={page >= totalPages - 1}
-                    className="inline-flex items-center rounded-md border border-input px-3 py-1.5 text-sm disabled:opacity-50"
+                    className="inline-flex items-center rounded-lg border border-input px-3 py-1.5 text-sm disabled:opacity-50"
                   >
                     <ChevronRight className="size-4" />
                   </button>

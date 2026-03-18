@@ -400,7 +400,7 @@ export function PanelDetailPage() {
               <select
                 value={editForm.status}
                 onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
-                className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm"
               >
                 {PANEL_STATUSES.map((s) => (
                   <option key={s} value={s}>{PANEL_STATUS_CONFIG[s].label}</option>
@@ -425,7 +425,7 @@ export function PanelDetailPage() {
                 value={editForm.notes}
                 onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
                 rows={3}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
                 placeholder="Notes internes..."
               />
             </div>

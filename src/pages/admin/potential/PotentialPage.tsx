@@ -107,7 +107,7 @@ export function PotentialPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par prospect, ville ou référence..."
-            className="pl-9 text-sm"
+            className="h-9 pl-9 text-sm"
           />
         </div>
         <div className="relative">
@@ -115,7 +115,7 @@ export function PotentialPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as PotentialStatus | 'all')}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             <option value="all">Tous les statuts ({requests?.length ?? 0})</option>
             {POTENTIAL_STATUSES.map((s) => (
@@ -130,7 +130,7 @@ export function PotentialPage() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>

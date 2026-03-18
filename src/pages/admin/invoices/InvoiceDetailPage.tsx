@@ -905,7 +905,7 @@ export function InvoiceDetailPage() {
                 value={campaignId}
                 onChange={(e) => setCampaignId(e.target.value)}
                 disabled={isStructureLocked || !clientId}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
               >
                 <option value="">
                   {!clientId ? 'Sélectionner un client d\u2019abord' : campaignsLoading ? 'Chargement...' : 'Aucune (optionnel)'}
@@ -1010,7 +1010,7 @@ export function InvoiceDetailPage() {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Conditions de paiement</label>
-              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)} disabled={isStructureLocked} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50">
+              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)} disabled={isStructureLocked} className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50">
                 {PAYMENT_TERMS.map((t) => (
                   <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
                 ))}
@@ -1029,7 +1029,7 @@ export function InvoiceDetailPage() {
           {/* Notes — full width */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Notes</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={isCancelled} placeholder="Notes internes ou visibles sur le PDF..." rows={2} className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50" />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={isCancelled} placeholder="Notes internes ou visibles sur le PDF..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50" />
           </div>
         </CardContent>
       </Card>
@@ -1123,7 +1123,7 @@ export function InvoiceDetailPage() {
                             value={line.discount_type ?? ''}
                             onChange={(e) => updateLine(line._key, 'discount_type', e.target.value || null)}
                             disabled={isStructureLocked}
-                            className="h-8 w-12 rounded-md border border-input bg-background px-1 text-xs disabled:opacity-50"
+                            className="h-8 w-12 rounded-lg border border-input bg-background px-1 text-xs disabled:opacity-50"
                           >
                             <option value="">—</option>
                             <option value="percent">%</option>
@@ -1137,7 +1137,7 @@ export function InvoiceDetailPage() {
                         value={line.tva_rate}
                         onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))}
                         disabled={isStructureLocked}
-                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
+                        className="flex h-8 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                       >
                         <option value={0}>0%</option>
                         <option value={5.5}>5,5%</option>
@@ -1293,7 +1293,7 @@ export function InvoiceDetailPage() {
                     <select
                       value={paymentForm.method}
                       onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value as Payment['payment_method'] }))}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                     >
                       {Object.entries(PAYMENT_METHOD_LABELS).map(([k, v]) => (
                         <option key={k} value={k}>{v}</option>

@@ -271,7 +271,7 @@ export function CampaignDetailPage() {
                 <select
                   value={uploadFormatId}
                   onChange={(e) => setUploadFormatId(e.target.value)}
-                  className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                  className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
                 >
                   <option value="">Tous types</option>
                   {panelTypes?.filter((t) => t.is_active).map((t) => (
@@ -354,7 +354,7 @@ export function CampaignDetailPage() {
                 <button
                   onClick={() => updateStatus.mutate('cancelled')}
                   disabled={updateStatus.isPending}
-                  className="w-full rounded-md border border-input px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-accent disabled:opacity-50"
+                  className="w-full rounded-lg border border-input px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-accent disabled:opacity-50"
                 >
                   Annuler la campagne
                 </button>
@@ -362,7 +362,7 @@ export function CampaignDetailPage() {
               {(campaign.status === 'active' || campaign.status === 'completed') && (
                 <Link
                   to={`/admin/reports/${id}`}
-                  className="flex w-full items-center justify-center gap-2 rounded-md border border-input px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
                 >
                   <FileText className="size-4" />
                   Proof of Posting

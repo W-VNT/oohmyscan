@@ -296,7 +296,7 @@ export function QRPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher UUID ou panneau..."
-            className="pl-9 text-sm"
+            className="h-9 pl-9 text-sm"
           />
         </div>
         <div className="flex gap-1">
@@ -319,7 +319,7 @@ export function QRPage() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>

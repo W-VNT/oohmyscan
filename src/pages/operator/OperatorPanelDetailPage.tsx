@@ -742,7 +742,7 @@ export function OperatorPanelDetailPage() {
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value.slice(0, 500) }))}
                   placeholder="Observations..."
                   rows={2}
-                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground"
+                  className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground"
                 />
               </div>
               <Button
@@ -1027,7 +1027,7 @@ export function OperatorPanelDetailPage() {
                     onChange={(e) => setReportNote(e.target.value.slice(0, 200))}
                     placeholder="Coin supérieur droit fissuré..."
                     rows={2}
-                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground"
+                    className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground"
                     maxLength={200}
                   />
                 </div>

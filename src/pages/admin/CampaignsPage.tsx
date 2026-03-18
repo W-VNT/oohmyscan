@@ -309,7 +309,7 @@ export function CampaignsPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom ou client..."
-            className="pl-10 text-sm"
+            className="h-9 pl-10 text-sm"
           />
         </div>
         <div className="relative">
@@ -317,7 +317,7 @@ export function CampaignsPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as CampaignStatus | 'all')}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             <option value="all">Tous les statuts ({campaigns?.length ?? 0})</option>
             {CAMPAIGN_STATUSES.map((s) => (
@@ -332,7 +332,7 @@ export function CampaignsPage() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -426,7 +426,7 @@ export function CampaignsPage() {
                   <select
                     value={form.client_id}
                     onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                   >
                     <option value="">Sélectionner un client</option>
                     {clients?.filter((c) => c.is_active).map((c) => (
@@ -502,7 +502,7 @@ export function CampaignsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Description de la campagne..."
                   rows={2}
-                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                  className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
                 />
               </div>
               <div className="space-y-1">
@@ -512,7 +512,7 @@ export function CampaignsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="Notes..."
                   rows={2}
-                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                  className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
                 />
               </div>
             </div>

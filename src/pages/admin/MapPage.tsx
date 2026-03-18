@@ -192,7 +192,7 @@ export function MapPage() {
           <select
             value={statusFilter ?? ''}
             onChange={(e) => setFilter('status', e.target.value || null)}
-            className="flex h-9 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-1 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-1 text-sm"
           >
             <option value="">Tous les statuts ({panels?.length ?? 0})</option>
             {PANEL_STATUSES.map((s) => (
@@ -221,7 +221,7 @@ export function MapPage() {
               })
             }
           }}
-          className="flex h-9 appearance-none rounded-md border border-input bg-background px-3 py-1 text-sm"
+          className="flex h-9 appearance-none rounded-lg border border-input bg-background px-3 py-1 text-sm"
         >
           <option value="">Toutes les villes</option>
           {cities.map((c) => (
@@ -230,7 +230,7 @@ export function MapPage() {
         </select>
         <button
           onClick={handleCenterOnPanels}
-          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm transition-colors hover:bg-accent"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors hover:bg-accent"
         >
           <Locate className="size-4" />
           Recentrer

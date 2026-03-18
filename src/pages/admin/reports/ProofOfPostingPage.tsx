@@ -335,7 +335,7 @@ function TextBlock({ content, onChange }: { content: string; onChange: (v: strin
         onChange={(e) => onChange(e.target.value)}
         placeholder="Saisir un commentaire..."
         rows={3}
-        className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm"
+        className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm"
       />
     </div>
   )

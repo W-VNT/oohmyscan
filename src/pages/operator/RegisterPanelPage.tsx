@@ -365,7 +365,7 @@ export function RegisterPanelPage() {
                     onChange={(e) => setManualName(e.target.value)}
                     placeholder="Nom du lieu"
                     maxLength={100}
-                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
+                    className="flex h-11 w-full rounded-lg border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
                   />
                   <input
                     type="text"
@@ -373,7 +373,7 @@ export function RegisterPanelPage() {
                     onChange={(e) => setManualAddress(e.target.value)}
                     placeholder="Adresse"
                     maxLength={150}
-                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
+                    className="flex h-11 w-full rounded-lg border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
                   />
                   <input
                     type="text"
@@ -381,7 +381,7 @@ export function RegisterPanelPage() {
                     onChange={(e) => setManualCity(e.target.value)}
                     placeholder="Ville"
                     maxLength={80}
-                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
+                    className="flex h-11 w-full rounded-lg border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
                   />
                 </div>
               </div>
@@ -429,7 +429,7 @@ export function RegisterPanelPage() {
                 onChange={(e) => setContactPhone(e.target.value)}
                 placeholder="Ex: 01 23 45 67 89"
                 maxLength={20}
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
+                className="flex h-11 w-full rounded-lg border border-input bg-background px-3 text-sm placeholder:text-muted-foreground"
               />
               <p className="text-[11px] text-muted-foreground">
                 Optionnel — utile pour recontacter le commerce
@@ -466,7 +466,7 @@ export function RegisterPanelPage() {
                 placeholder="Observations..."
                 rows={2}
                 maxLength={500}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
               />
             </div>
 

@@ -127,7 +127,7 @@ export function LocationsPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom, ville, adresse, bailleur..."
-            className="pl-9 text-sm"
+            className="h-9 pl-9 text-sm"
           />
         </div>
         <div className="relative">
@@ -135,7 +135,7 @@ export function LocationsPage() {
           <select
             value={contractFilter}
             onChange={(e) => setContractFilter(e.target.value as ContractFilter)}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             <option value="all">Tous ({locations?.length ?? 0})</option>
             <option value="with_contract">Avec contrat ({statusCounts.withContract})</option>
@@ -147,7 +147,7 @@ export function LocationsPage() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-10 appearance-none rounded-md border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>

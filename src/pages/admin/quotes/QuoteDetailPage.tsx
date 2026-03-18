@@ -606,7 +606,7 @@ export function QuoteDetailPage() {
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
               disabled={isLocked}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+              className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
               <option value="">Sélectionner...</option>
               {activeClients.map((c) => (
@@ -620,7 +620,7 @@ export function QuoteDetailPage() {
               value={campaignId}
               onChange={(e) => setCampaignId(e.target.value)}
               disabled={isLocked || !clientId}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+              className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
               <option value="">
                 {!clientId
@@ -674,7 +674,7 @@ export function QuoteDetailPage() {
               disabled={isLocked}
               placeholder="Notes..."
               rows={2}
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50"
+              className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50"
             />
           </div>
         </CardContent>
@@ -690,7 +690,7 @@ export function QuoteDetailPage() {
                 {templates && templates.length > 0 && (
                   <select
                     onChange={(e) => { if (e.target.value) handleLoadTemplate(e.target.value); e.target.value = '' }}
-                    className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+                    className="h-7 rounded-lg border border-input bg-background px-2 text-xs"
                   >
                     <option value="">
                       <Bookmark className="inline size-3" /> Modèles...
@@ -792,7 +792,7 @@ export function QuoteDetailPage() {
                           value={line.discount_type ?? ''}
                           onChange={(e) => updateLine(line._key, 'discount_type', e.target.value || null)}
                           disabled={isLocked}
-                          className="h-8 w-12 rounded-md border border-input bg-background px-1 text-xs disabled:opacity-50"
+                          className="h-8 w-12 rounded-lg border border-input bg-background px-1 text-xs disabled:opacity-50"
                         >
                           <option value="">—</option>
                           <option value="percent">%</option>
@@ -805,7 +805,7 @@ export function QuoteDetailPage() {
                         value={line.tva_rate}
                         onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))}
                         disabled={isLocked}
-                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
+                        className="flex h-8 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                       >
                         <option value={0}>0%</option>
                         <option value={5.5}>5,5%</option>
