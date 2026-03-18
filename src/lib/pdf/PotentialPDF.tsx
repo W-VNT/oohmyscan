@@ -268,9 +268,6 @@ export function PotentialPDF({
               Document établi par {company.company_name ?? 'OOHMYAD'} — Confidentiel
               {company.siret ? ` — SIRET ${company.siret}` : ''}
             </Text>
-            {company.legal_mentions && (
-              <Text style={s.footerText}>{company.legal_mentions}</Text>
-            )}
           </View>
         </View>
       </Page>
