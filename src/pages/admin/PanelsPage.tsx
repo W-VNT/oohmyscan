@@ -54,6 +54,8 @@ export function PanelsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<PanelStatus | 'all'>('all')
   const [formatFilter, setFormatFilter] = useState('')
+  const [campaignFilter, setCampaignFilter] = useState<'all' | 'with' | 'without'>('all')
+  const [locationFilter, setLocationFilter] = useState<'all' | 'with' | 'without'>('all')
   const [sortCol, setSortCol] = useState<SortCol>('updated_at')
   const [sortAsc, setSortAsc] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -74,7 +76,15 @@ export function PanelsPage() {
   const { data: panelTypes } = usePanelTypes()
   const { data, isLoading } = usePaginatedPanels(page, debouncedSearch, statusFilter, formatFilter, sortCol, sortAsc)
 
-  const panels = data?.panels ?? []
+  const rawPanels = data?.panels ?? []
+  const panels = useMemo(() => {
+    let list = rawPanels
+    if (campaignFilter === 'with') list = list.filter((p) => panelCampaigns.has(p.id))
+    if (campaignFilter === 'without') list = list.filter((p) => !panelCampaigns.has(p.id))
+    if (locationFilter === 'with') list = list.filter((p) => p.location_id != null)
+    if (locationFilter === 'without') list = list.filter((p) => p.location_id == null)
+    return list
+  }, [rawPanels, campaignFilter, panelCampaigns, locationFilter])
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -112,12 +122,15 @@ export function PanelsPage() {
   // CSV export
   function handleExportCSV() {
     if (!panels.length) return
-    const headers = ['Nom', 'Référence', 'Ville', 'Adresse', 'Type', 'Statut', 'Campagne', 'Mis à jour']
+    const headers = ['Nom', 'Référence', 'Ville', 'Adresse', 'Latitude', 'Longitude', 'Lieu', 'Type', 'Statut', 'Campagne', 'Mis à jour']
     const rows = panels.map((p) => [
       p.name || '',
       p.reference,
       p.city || '',
       p.address || '',
+      p.lat != null ? String(p.lat) : '',
+      p.lng != null ? String(p.lng) : '',
+      p.locations?.name || '',
       p.type || '',
       PANEL_STATUS_CONFIG[p.status as PanelStatus]?.label ?? p.status,
       panelCampaigns.has(p.id) ? 'Oui' : 'Non',
@@ -195,6 +208,24 @@ export function PanelsPage() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        <select
+          value={campaignFilter}
+          onChange={(e) => { setCampaignFilter(e.target.value as 'all' | 'with' | 'without'); resetPage() }}
+          className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">Toutes</option>
+          <option value="with">Avec campagne</option>
+          <option value="without">Sans campagne</option>
+        </select>
+        <select
+          value={locationFilter}
+          onChange={(e) => { setLocationFilter(e.target.value as 'all' | 'with' | 'without'); resetPage() }}
+          className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">Tous</option>
+          <option value="with">Avec lieu</option>
+          <option value="without">Sans lieu</option>
+        </select>
       </div>
 
       {/* List */}
@@ -205,7 +236,7 @@ export function PanelsPage() {
       ) : panels.length === 0 ? (
         <EmptyState
           icon={PanelTop}
-          title={debouncedSearch || statusFilter !== 'all' || formatFilter ? 'Aucun panneau trouvé' : 'Aucun panneau'}
+          title={debouncedSearch || statusFilter !== 'all' || formatFilter || campaignFilter !== 'all' || locationFilter !== 'all' ? 'Aucun panneau trouvé' : 'Aucun panneau'}
         />
       ) : (
         <>
@@ -215,6 +246,9 @@ export function PanelsPage() {
                 <tr className="border-b border-border bg-muted/50">
                   <th className="cursor-pointer px-4 py-3 text-left font-medium" onClick={() => handleSort('reference')}>
                     Panneau<SortIcon col="reference" />
+                  </th>
+                  <th className="hidden cursor-pointer px-4 py-3 text-left font-medium sm:table-cell" onClick={() => handleSort('reference')}>
+                    Référence<SortIcon col="reference" />
                   </th>
                   <th className="hidden cursor-pointer px-4 py-3 text-left font-medium sm:table-cell" onClick={() => handleSort('city')}>
                     Ville<SortIcon col="city" />
@@ -246,6 +280,9 @@ export function PanelsPage() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground sm:hidden">{panel.city || '—'}</p>
+                    </td>
+                    <td className="hidden px-4 py-3 sm:table-cell">
+                      <code className="font-mono text-xs text-muted-foreground">{panel.reference}</code>
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                       {panel.city || '—'}

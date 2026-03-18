@@ -2,11 +2,12 @@ import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { usePanel, useUpdatePanel } from '@/hooks/usePanels'
 import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
+import { useLocations } from '@/hooks/useLocations'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { supabase } from '@/lib/supabase'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -26,15 +27,23 @@ import {
   Pencil,
   Loader2,
   ExternalLink,
+  Copy,
+  Trash2,
 } from 'lucide-react'
+import Map, { Marker } from 'react-map-gl/mapbox'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import type { PanelStatus } from '@/lib/constants'
 import type { PanelPhoto, PanelCampaign } from '@/types'
 
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
+
 export function PanelDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const queryClient = useQueryClient()
   const { data: panel, isLoading } = usePanel(id)
   const updatePanel = useUpdatePanel()
   const { data: panelTypes } = useActivePanelTypes()
+  const { data: locations } = useLocations()
   const { data: companySettings } = useCompanySettings()
   const defaultTypeName = useMemo(() => {
     if (!companySettings?.default_panel_type_id || !panelTypes) return ''
@@ -43,7 +52,18 @@ export function PanelDetailPage() {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [contractPdfUrl, setContractPdfUrl] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', address: '', city: '', type: '', status: '', notes: '' })
+  const [editForm, setEditForm] = useState({
+    name: '',
+    address: '',
+    city: '',
+    type: '',
+    status: '',
+    notes: '',
+    location_id: '',
+    zone_label: '',
+    lat: '',
+    lng: '',
+  })
   const [saving, setSaving] = useState(false)
 
   const { data: photos } = useQuery({
@@ -98,12 +118,35 @@ export function PanelDetailPage() {
       type: panel.type || defaultTypeName || '',
       status: panel.status,
       notes: panel.notes || '',
+      location_id: panel.location_id ?? '',
+      zone_label: panel.zone_label ?? '',
+      lat: panel.lat != null ? String(panel.lat) : '',
+      lng: panel.lng != null ? String(panel.lng) : '',
     })
     setEditOpen(true)
   }
 
   async function handleSavePanel() {
     if (!panel) return
+
+    // Validation: at least name or address must be filled
+    if (!editForm.name.trim() && !editForm.address.trim()) {
+      toast('Le nom ou l\'adresse est obligatoire', 'error')
+      return
+    }
+
+    // Validate lat/lng if provided
+    const latVal = editForm.lat.trim() ? Number(editForm.lat) : null
+    const lngVal = editForm.lng.trim() ? Number(editForm.lng) : null
+    if (editForm.lat.trim() && (isNaN(latVal!) || latVal! < -90 || latVal! > 90)) {
+      toast('Latitude invalide (entre -90 et 90)', 'error')
+      return
+    }
+    if (editForm.lng.trim() && (isNaN(lngVal!) || lngVal! < -180 || lngVal! > 180)) {
+      toast('Longitude invalide (entre -180 et 180)', 'error')
+      return
+    }
+
     setSaving(true)
     try {
       await updatePanel.mutateAsync({
@@ -114,6 +157,10 @@ export function PanelDetailPage() {
         type: editForm.type || null,
         status: (editForm.status || panel.status) as PanelStatus,
         notes: editForm.notes || null,
+        location_id: editForm.location_id || null,
+        zone_label: editForm.zone_label || null,
+        ...(latVal != null ? { lat: latVal } : {}),
+        ...(lngVal != null ? { lng: lngVal } : {}),
       })
       toast('Panneau mis à jour')
       setEditOpen(false)
@@ -121,6 +168,25 @@ export function PanelDetailPage() {
       toast('Erreur lors de la sauvegarde', 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDeletePhoto(photo: PanelPhoto) {
+    if (!confirm('Supprimer cette photo ?')) return
+    try {
+      const { error: storageErr } = await supabase.storage
+        .from('panel-photos')
+        .remove([photo.storage_path])
+      if (storageErr) throw storageErr
+      const { error: dbErr } = await supabase
+        .from('panel_photos')
+        .delete()
+        .eq('id', photo.id)
+      if (dbErr) throw dbErr
+      queryClient.invalidateQueries({ queryKey: ['panel-photos', id] })
+      toast('Photo supprimée')
+    } catch {
+      toast('Erreur lors de la suppression', 'error')
     }
   }
 
@@ -180,8 +246,24 @@ export function PanelDetailPage() {
               <InfoRow icon={MapPin} label="Adresse" value={panel.address || '—'} />
               <InfoRow icon={MapPin} label="Ville" value={panel.city || '—'} />
               <InfoRow icon={Calendar} label="Type" value={panel.type || defaultTypeName || '—'} />
+              {panel.zone_label && (
+                <InfoRow icon={MapPin} label="Zone" value={PANEL_ZONES.find((z) => z.value === panel.zone_label)?.label ?? panel.zone_label ?? '—'} />
+              )}
               <InfoRow icon={Calendar} label="Installé le" value={panel.installed_at ? new Date(panel.installed_at).toLocaleDateString('fr-FR') : '—'} />
               <InfoRow icon={Calendar} label="Dernière vérification" value={panel.last_checked_at ? new Date(panel.last_checked_at).toLocaleDateString('fr-FR') : '—'} />
+              {panel.qr_code && (
+                <div className="flex items-center gap-2">
+                  <InfoRow icon={Calendar} label="QR Code" value="" />
+                  <code className="flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">{panel.qr_code}</code>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(panel.qr_code); toast('QR copié') }}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title="Copier"
+                  >
+                    <Copy className="size-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
             {panel.notes && (
               <div className="mt-4 rounded-lg bg-muted/50 p-3">
@@ -189,6 +271,23 @@ export function PanelDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Mini-map */}
+          {MAPBOX_TOKEN && panel.lat && panel.lng && (
+            <div className="overflow-hidden rounded-xl border border-border" style={{ height: 200 }}>
+              <Map
+                initialViewState={{ latitude: panel.lat, longitude: panel.lng, zoom: 15 }}
+                mapboxAccessToken={MAPBOX_TOKEN}
+                mapStyle="mapbox://styles/mapbox/light-v11"
+                style={{ width: '100%', height: '100%' }}
+                interactive={false}
+              >
+                <Marker latitude={panel.lat} longitude={panel.lng}>
+                  <div className="size-4 rounded-full border-2 border-white bg-primary shadow" />
+                </Marker>
+              </Map>
+            </div>
+          )}
 
           {/* Campaign history */}
           <div className="rounded-xl border border-border bg-card p-6">
@@ -252,6 +351,13 @@ export function PanelDetailPage() {
                       alt={photo.photo_type}
                       className="h-32 w-full object-cover transition-transform group-hover:scale-105"
                     />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo) }}
+                      className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity hover:bg-red-600 group-hover:opacity-100"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
                     <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-black/60 px-2 py-1">
                       <p className="text-xs text-white">{photo.photo_type}</p>
                       <p className="text-xs text-white/70">
@@ -400,7 +506,7 @@ export function PanelDetailPage() {
               <select
                 value={editForm.status}
                 onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
-                className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
               >
                 {PANEL_STATUSES.map((s) => (
                   <option key={s} value={s}>{PANEL_STATUS_CONFIG[s].label}</option>
@@ -416,8 +522,72 @@ export function PanelDetailPage() {
               <Input value={editForm.city} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} placeholder="Ville" className="text-sm" />
             </div>
             <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Lieu</label>
+              <select
+                value={editForm.location_id}
+                onChange={(e) => setEditForm((f) => ({ ...f, location_id: e.target.value }))}
+                className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Aucun lieu</option>
+                {locations?.map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name}{loc.city ? ` — ${loc.city}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Zone</label>
+              <select
+                value={editForm.zone_label}
+                onChange={(e) => setEditForm((f) => ({ ...f, zone_label: e.target.value }))}
+                className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Aucune zone</option>
+                {PANEL_ZONES.map((z) => (
+                  <option key={z.value} value={z.value}>{z.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Coordonnées GPS</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Latitude</label>
+                  <Input
+                    type="number"
+                    step="0.000001"
+                    value={editForm.lat}
+                    onChange={(e) => setEditForm((f) => ({ ...f, lat: e.target.value }))}
+                    placeholder="48.856614"
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Longitude</label>
+                  <Input
+                    type="number"
+                    step="0.000001"
+                    value={editForm.lng}
+                    onChange={(e) => setEditForm((f) => ({ ...f, lng: e.target.value }))}
+                    placeholder="2.352222"
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Format</label>
-              <Input value={editForm.type} onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))} placeholder="Type" className="text-sm" />
+              <select
+                value={editForm.type}
+                onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}
+                className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Sélectionner...</option>
+                {panelTypes?.map((pt) => (
+                  <option key={pt.id} value={pt.name}>{pt.name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Notes</label>
