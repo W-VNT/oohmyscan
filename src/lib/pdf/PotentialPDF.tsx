@@ -21,7 +21,7 @@ const c = {
 }
 
 const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 9, fontFamily: 'Helvetica', color: c.primary },
+  page: { paddingTop: 40, paddingHorizontal: 40, paddingBottom: 60, fontSize: 9, fontFamily: 'Helvetica', color: c.primary },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
   companyBlock: { maxWidth: 240 },
   companyName: { fontSize: 14, fontWeight: 'bold', marginBottom: 4 },
