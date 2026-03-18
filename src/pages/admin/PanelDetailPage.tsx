@@ -33,7 +33,7 @@ export function PanelDetailPage() {
   const updatePanel = useUpdatePanel()
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [editOpen, setEditOpen] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', address: '', city: '', format: '', status: '', notes: '' })
+  const [editForm, setEditForm] = useState({ name: '', address: '', city: '', type: '', status: '', notes: '' })
   const [saving, setSaving] = useState(false)
 
   const { data: photos } = useQuery({
@@ -85,7 +85,7 @@ export function PanelDetailPage() {
       name: panel.name || '',
       address: panel.address || '',
       city: panel.city || '',
-      format: panel.format || '',
+      type: panel.type || '',
       status: panel.status,
       notes: panel.notes || '',
     })
@@ -101,7 +101,7 @@ export function PanelDetailPage() {
         name: editForm.name || null,
         address: editForm.address || null,
         city: editForm.city || null,
-        format: editForm.format || null,
+        type: editForm.type || null,
         status: (editForm.status || panel.status) as PanelStatus,
         notes: editForm.notes || null,
       })
@@ -169,7 +169,6 @@ export function PanelDetailPage() {
               <InfoRow icon={MapPin} label="Coordonnées" value={`${panel.lat.toFixed(6)}, ${panel.lng.toFixed(6)}`} />
               <InfoRow icon={MapPin} label="Adresse" value={panel.address || '—'} />
               <InfoRow icon={MapPin} label="Ville" value={panel.city || '—'} />
-              <InfoRow icon={Calendar} label="Format" value={panel.format || '—'} />
               <InfoRow icon={Calendar} label="Type" value={panel.type || '—'} />
               <InfoRow icon={Calendar} label="Installé le" value={panel.installed_at ? new Date(panel.installed_at).toLocaleDateString('fr-FR') : '—'} />
               <InfoRow icon={Calendar} label="Dernière vérification" value={panel.last_checked_at ? new Date(panel.last_checked_at).toLocaleDateString('fr-FR') : '—'} />
@@ -408,7 +407,7 @@ export function PanelDetailPage() {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Format</label>
-              <Input value={editForm.format} onChange={(e) => setEditForm((f) => ({ ...f, format: e.target.value }))} placeholder="Format" className="text-sm" />
+              <Input value={editForm.type} onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))} placeholder="Type" className="text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Notes</label>

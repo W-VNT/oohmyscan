@@ -18,6 +18,49 @@ export function useQuotes() {
   })
 }
 
+const PAGE_SIZE = 25
+
+export function usePaginatedQuotes(
+  page: number,
+  search: string,
+  status: string,
+  sort: string,
+  showArchived: boolean,
+) {
+  return useQuery({
+    queryKey: ['quotes', 'paginated', page, search, status, sort, showArchived],
+    queryFn: async () => {
+      let query = supabase
+        .from('quotes')
+        .select('*, clients(company_name)', { count: 'exact' })
+
+      if (!showArchived) query = query.eq('is_archived', false)
+      if (status && status !== 'all') query = query.eq('status', status as 'draft')
+      if (search.trim()) {
+        const q = `%${search.trim()}%`
+        query = query.or(`quote_number.ilike.${q}`)
+      }
+
+      // Sort
+      switch (sort) {
+        case 'oldest': query = query.order('issued_at', { ascending: true }); break
+        case 'amount_desc': query = query.order('total_ttc', { ascending: false }); break
+        case 'amount_asc': query = query.order('total_ttc', { ascending: true }); break
+        case 'number': query = query.order('quote_number', { ascending: true }); break
+        default: query = query.order('created_at', { ascending: false }); break
+      }
+
+      const from = page * PAGE_SIZE
+      query = query.range(from, from + PAGE_SIZE - 1)
+
+      const { data, error, count } = await query
+      if (error) throw error
+      return { quotes: data as unknown as QuoteWithClient[], total: count ?? 0 }
+    },
+    placeholderData: (prev) => prev,
+  })
+}
+
 export function useQuote(id: string | undefined) {
   return useQuery({
     queryKey: ['quotes', id],
@@ -53,7 +96,7 @@ export function useQuoteLines(quoteId: string | undefined) {
 export function useCreateQuote() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (quote: Omit<Quote, 'id' | 'created_at' | 'updated_at' | 'total_ht' | 'total_tva' | 'total_ttc'>) => {
+    mutationFn: async (quote: Omit<Quote, 'id' | 'created_at' | 'updated_at' | 'total_ht' | 'total_tva' | 'total_ttc' | 'is_archived' | 'include_terms' | 'currency' | 'custom_fields' | 'public_token'>) => {
       const { data, error } = await supabase
         .from('quotes')
         .insert(quote)

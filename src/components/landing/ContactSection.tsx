@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
-import { SUPPORTS } from '@/data/supports'
+import { FAMILLE_OPTIONS } from '@/data/familles'
 import { useContactForm } from '@/hooks/landing/useContactForm'
 import { ArrowRight, Mail, Clock, UserCheck } from 'lucide-react'
 
@@ -132,12 +132,11 @@ export function ContactSection() {
                     <input id="contact-city" type="text" placeholder="Ville cible" maxLength={200} className={inputCls} value={form.city} onChange={set('city')} />
                   </div>
                   <div>
-                    <label htmlFor="contact-support" className="sr-only">Support visé</label>
+                    <label htmlFor="contact-support" className="sr-only">Famille de supports</label>
                     <select id="contact-support" className={inputCls} value={form.support_interest} onChange={set('support_interest')}>
-                      <option value="">Support visé</option>
-                      <option value="all">Tous les supports</option>
-                      {SUPPORTS.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
+                      <option value="">Famille de supports</option>
+                      {FAMILLE_OPTIONS.map((f) => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
                       ))}
                     </select>
                   </div>

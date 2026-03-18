@@ -1,12 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuotes } from '@/hooks/admin/useQuotes'
+import { useQuotes, usePaginatedQuotes } from '@/hooks/admin/useQuotes'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle } from 'lucide-react'
+import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive } from 'lucide-react'
 import { QUOTE_STATUSES, QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
 
 type SortOption = 'newest' | 'oldest' | 'amount_desc' | 'amount_asc' | 'number'
@@ -25,11 +25,14 @@ function formatCurrency(amount: number) {
 
 export function QuotesPage() {
   const navigate = useNavigate()
-  const { data: quotes, isLoading } = useQuotes()
+  const { data: quotes } = useQuotes() // for status counts
+  const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'all'>('all')
   const [sort, setSort] = useState<SortOption>('newest')
+  const [showArchived, setShowArchived] = useState(false)
+  const { data: paginatedData, isLoading } = usePaginatedQuotes(page, debouncedSearch, statusFilter, sort, showArchived)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const handleSearchChange = useCallback((value: string) => {
@@ -53,38 +56,13 @@ export function QuotesPage() {
     return counts
   }, [quotes])
 
-  const filtered = useMemo(() => {
-    if (!quotes) return []
-    let result = quotes
+  const filtered = paginatedData?.quotes ?? []
+  const total = paginatedData?.total ?? 0
+  const totalPages = Math.ceil(total / 25)
 
-    if (statusFilter !== 'all') {
-      result = result.filter((q) => q.status === statusFilter)
-    }
+  // Reset page when filters change
+  useEffect(() => { setPage(0) }, [debouncedSearch, statusFilter, sort, showArchived])
 
-    if (debouncedSearch.trim()) {
-      const q = debouncedSearch.toLowerCase()
-      result = result.filter(
-        (quote) =>
-          quote.quote_number.toLowerCase().includes(q) ||
-          quote.clients?.company_name.toLowerCase().includes(q),
-      )
-    }
-
-    result = [...result].sort((a, b) => {
-      switch (sort) {
-        case 'newest': return new Date(b.issued_at).getTime() - new Date(a.issued_at).getTime()
-        case 'oldest': return new Date(a.issued_at).getTime() - new Date(b.issued_at).getTime()
-        case 'amount_desc': return b.total_ttc - a.total_ttc
-        case 'amount_asc': return a.total_ttc - b.total_ttc
-        case 'number': return a.quote_number.localeCompare(b.quote_number)
-        default: return 0
-      }
-    })
-
-    return result
-  }, [quotes, debouncedSearch, statusFilter, sort])
-
-  // Cumulated total
   const filteredTotal = useMemo(() => {
     return filtered.reduce((sum, q) => sum + q.total_ttc, 0)
   }, [filtered])
@@ -93,6 +71,28 @@ export function QuotesPage() {
     if (quote.status !== 'draft' && quote.status !== 'sent') return false
     if (!quote.valid_until) return false
     return new Date(quote.valid_until) < new Date()
+  }
+
+  function handleExportCSV() {
+    if (!filtered.length) return
+    const headers = ['Numéro', 'Client', 'Date', 'Validité', 'Statut', 'Total HT', 'Total TTC']
+    const rows = filtered.map((q) => [
+      q.quote_number,
+      q.clients?.company_name ?? '',
+      new Date(q.issued_at).toLocaleDateString('fr-FR'),
+      q.valid_until ? new Date(q.valid_until).toLocaleDateString('fr-FR') : '',
+      QUOTE_STATUS_CONFIG[q.status as QuoteStatus]?.label ?? q.status,
+      q.total_ht?.toFixed(2) ?? '0.00',
+      q.total_ttc?.toFixed(2) ?? '0.00',
+    ])
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `devis-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   if (isLoading) {
@@ -112,10 +112,15 @@ export function QuotesPage() {
             {filtered.length}{(statusFilter !== 'all' || debouncedSearch) ? ` / ${quotes?.length ?? 0}` : ''} devis
           </span>
         </div>
-        <Button onClick={() => navigate('/admin/quotes/new')}>
-          <Plus className="mr-1.5 size-4" />
-          Nouveau devis
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
+            <Download className="mr-1.5 size-3.5" /> CSV
+          </Button>
+          <Button onClick={() => navigate('/admin/quotes/new')}>
+            <Plus className="mr-1.5 size-4" />
+            Nouveau devis
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -156,6 +161,13 @@ export function QuotesPage() {
             ))}
           </select>
         </div>
+        <button
+          onClick={() => setShowArchived((v) => !v)}
+          className={`inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors ${showArchived ? 'border-primary bg-primary/10 text-primary' : 'border-input text-muted-foreground hover:text-foreground'}`}
+        >
+          <Archive className="size-3.5" />
+          Archives
+        </button>
       </div>
 
       <Card>
@@ -227,14 +239,30 @@ export function QuotesPage() {
         </CardContent>
       </Card>
 
-      {filtered.length > 0 && (
+      {total > 0 && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            {filtered.length} devis{(debouncedSearch || statusFilter !== 'all') && ` sur ${quotes?.length ?? 0}`}
+            {total} devis · Total page : {formatCurrency(filteredTotal)}
           </span>
-          <span className="font-medium">
-            Total : {formatCurrency(filteredTotal)}
-          </span>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="rounded border border-input px-2 py-1 text-xs disabled:opacity-50"
+              >
+                ←
+              </button>
+              <span>{page + 1} / {totalPages}</span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="rounded border border-input px-2 py-1 text-xs disabled:opacity-50"
+              >
+                →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

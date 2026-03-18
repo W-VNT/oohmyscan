@@ -1,12 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useInvoices } from '@/hooks/admin/useInvoices'
+import { useInvoices, usePaginatedInvoices } from '@/hooks/admin/useInvoices'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Receipt, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Clock } from 'lucide-react'
-import { INVOICE_STATUSES, INVOICE_STATUS_CONFIG, type InvoiceStatus } from '@/lib/constants'
+import { Receipt, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Clock, Download, Archive } from 'lucide-react'
+import { INVOICE_STATUSES, INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, type InvoiceStatus, type InvoiceType } from '@/lib/constants'
 
 type SortOption = 'newest' | 'oldest' | 'due_date' | 'amount_desc' | 'amount_asc' | 'number'
 
@@ -38,11 +38,14 @@ function getDueIndicator(inv: { status: string; due_at: string }): { text: strin
 
 export function InvoicesPage() {
   const navigate = useNavigate()
-  const { data: invoices, isLoading } = useInvoices()
+  const { data: invoices } = useInvoices() // for status counts
+  const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>('all')
   const [sort, setSort] = useState<SortOption>('newest')
+  const [showArchived, setShowArchived] = useState(false)
+  const { data: paginatedData, isLoading } = usePaginatedInvoices(page, debouncedSearch, statusFilter, sort, showArchived)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const handleSearchChange = useCallback((value: string) => {
@@ -66,41 +69,39 @@ export function InvoicesPage() {
     return counts
   }, [invoices])
 
-  const filtered = useMemo(() => {
-    if (!invoices) return []
-    let result = invoices
+  const filtered = paginatedData?.invoices ?? []
+  const total = paginatedData?.total ?? 0
+  const totalPages = Math.ceil(total / 25)
 
-    if (statusFilter !== 'all') {
-      result = result.filter((i) => i.status === statusFilter)
-    }
-
-    if (debouncedSearch.trim()) {
-      const q = debouncedSearch.toLowerCase()
-      result = result.filter(
-        (inv) =>
-          inv.invoice_number.toLowerCase().includes(q) ||
-          inv.clients?.company_name.toLowerCase().includes(q),
-      )
-    }
-
-    result = [...result].sort((a, b) => {
-      switch (sort) {
-        case 'newest': return new Date(b.issued_at).getTime() - new Date(a.issued_at).getTime()
-        case 'oldest': return new Date(a.issued_at).getTime() - new Date(b.issued_at).getTime()
-        case 'due_date': return new Date(a.due_at).getTime() - new Date(b.due_at).getTime()
-        case 'amount_desc': return b.total_ttc - a.total_ttc
-        case 'amount_asc': return a.total_ttc - b.total_ttc
-        case 'number': return a.invoice_number.localeCompare(b.invoice_number)
-        default: return 0
-      }
-    })
-
-    return result
-  }, [invoices, debouncedSearch, statusFilter, sort])
+  // Reset page when filters change
+  useEffect(() => { setPage(0) }, [debouncedSearch, statusFilter, sort, showArchived])
 
   const filteredTotal = useMemo(() => {
     return filtered.reduce((sum, inv) => sum + inv.total_ttc, 0)
   }, [filtered])
+
+  function handleExportCSV() {
+    if (!filtered.length) return
+    const headers = ['Numéro', 'Type', 'Client', 'Date', 'Échéance', 'Statut', 'Total HT', 'Total TTC']
+    const rows = filtered.map((inv) => [
+      inv.invoice_number,
+      INVOICE_TYPE_LABELS[(inv.invoice_type as InvoiceType) ?? 'standard'] ?? 'Facture',
+      inv.clients?.company_name ?? '',
+      new Date(inv.issued_at).toLocaleDateString('fr-FR'),
+      new Date(inv.due_at).toLocaleDateString('fr-FR'),
+      INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.label ?? inv.status,
+      inv.total_ht?.toFixed(2) ?? '0.00',
+      inv.total_ttc?.toFixed(2) ?? '0.00',
+    ])
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `factures-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   if (isLoading) {
     return (
@@ -119,10 +120,15 @@ export function InvoicesPage() {
             {filtered.length}{(statusFilter !== 'all' || debouncedSearch) ? ` / ${invoices?.length ?? 0}` : ''} facture{(invoices?.length ?? 0) !== 1 ? 's' : ''}
           </span>
         </div>
-        <Button onClick={() => navigate('/admin/invoices/new')}>
-          <Plus className="mr-1.5 size-4" />
-          Nouvelle facture
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
+            <Download className="mr-1.5 size-3.5" /> CSV
+          </Button>
+          <Button onClick={() => navigate('/admin/invoices/new')}>
+            <Plus className="mr-1.5 size-4" />
+            Nouvelle facture
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -163,6 +169,13 @@ export function InvoicesPage() {
             ))}
           </select>
         </div>
+        <button
+          onClick={() => setShowArchived((v) => !v)}
+          className={`inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors ${showArchived ? 'border-primary bg-primary/10 text-primary' : 'border-input text-muted-foreground hover:text-foreground'}`}
+        >
+          <Archive className="size-3.5" />
+          Archives
+        </button>
       </div>
 
       <Card>
@@ -196,7 +209,15 @@ export function InvoicesPage() {
                         onClick={() => navigate(`/admin/invoices/${inv.id}`)}
                         className="cursor-pointer transition-colors hover:bg-muted/50"
                       >
-                        <td className="px-4 py-3 font-medium">{inv.invoice_number}</td>
+                        <td className="px-4 py-3 font-medium">
+                          {inv.invoice_number}
+                          {inv.invoice_type && inv.invoice_type !== 'standard' && (
+                            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                              {INVOICE_TYPE_LABELS[inv.invoice_type as InvoiceType]}
+                              {inv.invoice_type === 'acompte' && inv.deposit_percentage ? ` ${inv.deposit_percentage}%` : ''}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {inv.clients?.company_name ?? '—'}
                         </td>
@@ -234,14 +255,30 @@ export function InvoicesPage() {
         </CardContent>
       </Card>
 
-      {filtered.length > 0 && (
+      {total > 0 && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            {filtered.length} facture{filtered.length !== 1 ? 's' : ''}{(debouncedSearch || statusFilter !== 'all') && ` sur ${invoices?.length ?? 0}`}
+            {total} facture{total !== 1 ? 's' : ''} · Total page : {formatCurrency(filteredTotal)}
           </span>
-          <span className="font-medium">
-            Total : {formatCurrency(filteredTotal)}
-          </span>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="rounded border border-input px-2 py-1 text-xs disabled:opacity-50"
+              >
+                ←
+              </button>
+              <span>{page + 1} / {totalPages}</span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="rounded border border-input px-2 py-1 text-xs disabled:opacity-50"
+              >
+                →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

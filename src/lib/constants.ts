@@ -14,8 +14,8 @@ export type UserRole = (typeof USER_ROLES)[number]
 export const PHOTO_TYPES = ['installation', 'check', 'campaign', 'damage'] as const
 export type PhotoType = (typeof PHOTO_TYPES)[number]
 
-export const PANEL_FORMATS = ['4x3', 'Abribus', 'Bâche', '2m²', '8m²', '12m²'] as const
-export const PANEL_TYPES = ['Mural', 'Totem', 'Bâche', 'Digital', 'Déroulant', 'Autre'] as const
+// PANEL_FORMATS and PANEL_TYPES removed — now managed dynamically from panel_formats table
+// Use usePanelTypes() / useActivePanelTypes() from @/hooks/admin/usePanelTypes
 
 export const PANEL_STATUS_COLORS: Record<PanelStatus, string> = {
   active: '#22c55e',
@@ -73,6 +73,61 @@ export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, {
   paid: { label: 'Payée', variant: 'default' },
   overdue: { label: 'En retard', variant: 'destructive' },
   cancelled: { label: 'Annulée', variant: 'outline' },
+}
+
+export const INVOICE_TYPES = ['standard', 'acompte', 'solde', 'avoir'] as const
+export type InvoiceType = (typeof INVOICE_TYPES)[number]
+
+export const INVOICE_TYPE_LABELS: Record<InvoiceType, string> = {
+  standard: 'Facture',
+  acompte: 'Facture d\'acompte',
+  solde: 'Facture de solde',
+  avoir: 'Avoir',
+}
+
+export const PAYMENT_TERMS = ['on_receipt', '30_days', '30_days_eom', '60_days', '60_days_eom'] as const
+export type PaymentTerms = (typeof PAYMENT_TERMS)[number]
+
+export const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
+  on_receipt: 'Paiement à réception',
+  '30_days': 'Paiement à 30 jours',
+  '30_days_eom': 'Paiement à 30 jours fin de mois',
+  '60_days': 'Paiement à 60 jours',
+  '60_days_eom': 'Paiement à 60 jours fin de mois',
+}
+
+/** Compute due date from issue date and payment terms */
+export function computeDueDate(issuedAt: string, terms: PaymentTerms): string {
+  const d = new Date(issuedAt)
+  switch (terms) {
+    case 'on_receipt':
+      break
+    case '30_days':
+      d.setDate(d.getDate() + 30)
+      break
+    case '30_days_eom':
+      d.setMonth(d.getMonth() + 1)
+      d.setDate(0) // last day of that month
+      break
+    case '60_days':
+      d.setDate(d.getDate() + 60)
+      break
+    case '60_days_eom':
+      d.setMonth(d.getMonth() + 2)
+      d.setDate(0)
+      break
+  }
+  return d.toISOString().split('T')[0]
+}
+
+export const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'] as const
+export type Currency = (typeof CURRENCIES)[number]
+
+export const CURRENCY_LABELS: Record<Currency, string> = {
+  EUR: '€ Euro',
+  USD: '$ Dollar US',
+  GBP: '£ Livre sterling',
+  CHF: 'CHF Franc suisse',
 }
 
 export const PHOTO_TYPE_LABELS: Record<PhotoType, string> = {

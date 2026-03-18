@@ -18,7 +18,8 @@ import { toast } from '@/components/shared/Toast'
 import { useAuth } from '@/hooks/useAuth'
 import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { supabase } from '@/lib/supabase'
-import { PANEL_FORMATS, PANEL_TYPES } from '@/lib/constants'
+import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
+import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
 import { isValidUUID } from '@/lib/utils'
 import { searchPlaces, nearbyPlaces, type PlaceSuggestion } from '@/lib/google-places'
 
@@ -39,6 +40,8 @@ export function RegisterPanelPage() {
   }
   const { lat, lng, accuracy, loading: gpsLoading, error: gpsError, requestPosition } = useGeolocation()
   const createPanel = useCreatePanel()
+  const { data: panelTypes } = useActivePanelTypes()
+  const { data: companySettings } = useCompanySettings()
 
   const [step, setStep] = useState<Step>(1)
 
@@ -54,9 +57,16 @@ export function RegisterPanelPage() {
 
   // Step 2: Contact & details
   const [contactPhone, setContactPhone] = useState('')
-  const [format, setFormat] = useState('')
   const [type, setType] = useState('')
   const [notes, setNotes] = useState('')
+
+  // Set default type from company settings
+  useEffect(() => {
+    if (!type && companySettings?.default_panel_type_id && panelTypes) {
+      const defaultType = panelTypes.find((t) => t.id === companySettings.default_panel_type_id)
+      if (defaultType) setType(defaultType.name)
+    }
+  }, [companySettings?.default_panel_type_id, panelTypes, type])
 
   // Step 3: Photo
   const [photoPath, setPhotoPath] = useState<string | null>(null)
@@ -170,7 +180,6 @@ export function RegisterPanelPage() {
         contact_phone: contactPhone || null,
         lat: finalLat,
         lng: finalLng,
-        format: format || null,
         type: type || null,
         notes: notes || null,
         status: 'vacant',
@@ -427,43 +436,22 @@ export function RegisterPanelPage() {
               </p>
             </div>
 
-            {/* Format */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Format du panneau</label>
-              <div className="flex flex-wrap gap-2">
-                {PANEL_FORMATS.map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setFormat(format === f ? '' : f)}
-                    className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                      format === f
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border text-muted-foreground'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Type */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Type de panneau</label>
               <div className="flex flex-wrap gap-2">
-                {PANEL_TYPES.map((t) => (
+                {panelTypes?.map((t) => (
                   <button
-                    key={t}
+                    key={t.id}
                     type="button"
-                    onClick={() => setType(type === t ? '' : t)}
+                    onClick={() => setType(type === t.name ? '' : t.name)}
                     className={`rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                      type === t
+                      type === t.name
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border text-muted-foreground'
                     }`}
                   >
-                    {t}
+                    {t.name}
                   </button>
                 ))}
               </div>
@@ -538,12 +526,6 @@ export function RegisterPanelPage() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Tél.</span>
                       <span>{contactPhone}</span>
-                    </div>
-                  )}
-                  {format && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Format</span>
-                      <span>{format}</span>
                     </div>
                   )}
                   {type && (

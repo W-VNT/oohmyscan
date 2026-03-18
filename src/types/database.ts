@@ -392,6 +392,9 @@ export interface Database {
           legal_mentions: string | null
           potential_prefix: string
           next_potential_number: number
+          default_panel_type_id: string | null
+          late_penalty_text: string | null
+          terms_and_conditions: string | null
         }
         Insert: {
           id?: string
@@ -413,6 +416,7 @@ export interface Database {
           legal_mentions?: string | null
           potential_prefix?: string
           next_potential_number?: number
+          default_panel_type_id?: string | null
         }
         Update: {
           id?: string
@@ -434,6 +438,7 @@ export interface Database {
           legal_mentions?: string | null
           potential_prefix?: string
           next_potential_number?: number
+          default_panel_type_id?: string | null
         }
         Relationships: []
       }
@@ -447,6 +452,12 @@ export interface Database {
           issued_at: string
           valid_until: string
           notes: string | null
+          client_reference: string | null
+          is_archived: boolean
+          include_terms: boolean
+          currency: string
+          custom_fields: Record<string, unknown>
+          public_token: string
           total_ht: number
           total_tva: number
           total_ttc: number
@@ -463,6 +474,11 @@ export interface Database {
           issued_at?: string
           valid_until?: string
           notes?: string | null
+          client_reference?: string | null
+          is_archived?: boolean
+          include_terms?: boolean
+          currency?: string
+          custom_fields?: Record<string, unknown>
           total_ht?: number
           total_tva?: number
           total_ttc?: number
@@ -479,12 +495,44 @@ export interface Database {
           issued_at?: string
           valid_until?: string
           notes?: string | null
+          client_reference?: string | null
+          is_archived?: boolean
+          include_terms?: boolean
+          currency?: string
+          custom_fields?: Record<string, unknown>
           total_ht?: number
           total_tva?: number
           total_ttc?: number
           created_by?: string | null
           created_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      quote_templates: {
+        Row: {
+          id: string
+          name: string
+          lines: unknown
+          notes: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          lines?: unknown
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          lines?: unknown
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
         }
         Relationships: []
       }
@@ -498,6 +546,9 @@ export interface Database {
           unit: string
           unit_price: number
           tva_rate: number
+          discount_type: 'percent' | 'amount' | null
+          discount_value: number
+          line_type: 'item' | 'section'
           total_ht: number
           sort_order: number
         }
@@ -510,6 +561,9 @@ export interface Database {
           unit?: string
           unit_price?: number
           tva_rate?: number
+          discount_type?: 'percent' | 'amount' | null
+          discount_value?: number
+          line_type?: 'item' | 'section'
           total_ht?: number
           sort_order?: number
         }
@@ -522,6 +576,9 @@ export interface Database {
           unit?: string
           unit_price?: number
           tva_rate?: number
+          discount_type?: 'percent' | 'amount' | null
+          discount_value?: number
+          line_type?: 'item' | 'section'
           total_ht?: number
           sort_order?: number
         }
@@ -543,6 +600,17 @@ export interface Database {
           total_tva: number
           total_ttc: number
           created_by: string | null
+          invoice_type: 'standard' | 'acompte' | 'solde' | 'avoir'
+          deposit_percentage: number | null
+          deposit_invoice_id: string | null
+          credit_note_for_id: string | null
+          payment_terms: 'on_receipt' | '30_days' | '30_days_eom' | '60_days' | '60_days_eom'
+          client_reference: string | null
+          is_archived: boolean
+          include_terms: boolean
+          currency: string
+          custom_fields: Record<string, unknown>
+          public_token: string
           created_at: string
           updated_at: string
         }
@@ -553,6 +621,16 @@ export interface Database {
           client_id: string
           campaign_id?: string | null
           status?: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+          invoice_type?: 'standard' | 'acompte' | 'solde' | 'avoir'
+          deposit_percentage?: number | null
+          deposit_invoice_id?: string | null
+          credit_note_for_id?: string | null
+          payment_terms?: 'on_receipt' | '30_days' | '30_days_eom' | '60_days' | '60_days_eom'
+          client_reference?: string | null
+          is_archived?: boolean
+          include_terms?: boolean
+          currency?: string
+          custom_fields?: Record<string, unknown>
           issued_at?: string
           due_at?: string
           paid_at?: string | null
@@ -571,6 +649,16 @@ export interface Database {
           client_id?: string
           campaign_id?: string | null
           status?: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+          invoice_type?: 'standard' | 'acompte' | 'solde' | 'avoir'
+          deposit_percentage?: number | null
+          deposit_invoice_id?: string | null
+          credit_note_for_id?: string | null
+          payment_terms?: 'on_receipt' | '30_days' | '30_days_eom' | '60_days' | '60_days_eom'
+          client_reference?: string | null
+          is_archived?: boolean
+          include_terms?: boolean
+          currency?: string
+          custom_fields?: Record<string, unknown>
           issued_at?: string
           due_at?: string
           paid_at?: string | null
@@ -594,6 +682,9 @@ export interface Database {
           unit: string
           unit_price: number
           tva_rate: number
+          discount_type: 'percent' | 'amount' | null
+          discount_value: number
+          line_type: 'item' | 'section'
           total_ht: number
           sort_order: number
         }
@@ -606,6 +697,9 @@ export interface Database {
           unit?: string
           unit_price?: number
           tva_rate?: number
+          discount_type?: 'percent' | 'amount' | null
+          discount_value?: number
+          line_type?: 'item' | 'section'
           total_ht?: number
           sort_order?: number
         }
@@ -618,8 +712,155 @@ export interface Database {
           unit?: string
           unit_price?: number
           tva_rate?: number
+          discount_type?: 'percent' | 'amount' | null
+          discount_value?: number
+          line_type?: 'item' | 'section'
           total_ht?: number
           sort_order?: number
+        }
+        Relationships: []
+      }
+      dunning_history: {
+        Row: {
+          id: string
+          invoice_id: string
+          level: number
+          sent_at: string
+          method: 'email' | 'manual'
+          notes: string | null
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          level?: number
+          sent_at?: string
+          method?: 'email' | 'manual'
+          notes?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          level?: number
+          sent_at?: string
+          method?: 'email' | 'manual'
+          notes?: string | null
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      recurring_invoices: {
+        Row: {
+          id: string
+          client_id: string
+          campaign_id: string | null
+          frequency: 'monthly' | 'quarterly' | 'yearly'
+          next_issue_date: string
+          template_lines: unknown
+          payment_terms: string
+          notes: string | null
+          currency: string
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          campaign_id?: string | null
+          frequency?: 'monthly' | 'quarterly' | 'yearly'
+          next_issue_date: string
+          template_lines?: unknown
+          payment_terms?: string
+          notes?: string | null
+          currency?: string
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          campaign_id?: string | null
+          frequency?: 'monthly' | 'quarterly' | 'yearly'
+          next_issue_date?: string
+          template_lines?: unknown
+          payment_terms?: string
+          notes?: string | null
+          currency?: string
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      document_attachments: {
+        Row: {
+          id: string
+          document_type: 'quote' | 'invoice'
+          document_id: string
+          storage_path: string
+          file_name: string
+          file_size: number | null
+          mime_type: string | null
+          uploaded_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          document_type: 'quote' | 'invoice'
+          document_id: string
+          storage_path: string
+          file_name: string
+          file_size?: number | null
+          mime_type?: string | null
+          uploaded_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          document_type?: 'quote' | 'invoice'
+          document_id?: string
+          storage_path?: string
+          file_name?: string
+          file_size?: number | null
+          mime_type?: string | null
+          uploaded_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          id: string
+          invoice_id: string
+          amount: number
+          payment_method: 'virement' | 'cheque' | 'especes' | 'cb' | 'prelevement' | 'autre'
+          payment_date: string
+          reference: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          amount: number
+          payment_method?: 'virement' | 'cheque' | 'especes' | 'cb' | 'prelevement' | 'autre'
+          payment_date?: string
+          reference?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          amount?: number
+          payment_method?: 'virement' | 'cheque' | 'especes' | 'cb' | 'prelevement' | 'autre'
+          payment_date?: string
+          reference?: string | null
+          notes?: string | null
+          created_at?: string
         }
         Relationships: []
       }
@@ -686,6 +927,7 @@ export interface Database {
           reference: string
           prospect_name: string
           city: string
+          cities: string[]
           radius_km: number
           support_type: string | null
           lat: number | null
@@ -703,6 +945,7 @@ export interface Database {
           reference: string
           prospect_name: string
           city: string
+          cities?: string[]
           radius_km?: number
           support_type?: string | null
           lat?: number | null
@@ -720,6 +963,7 @@ export interface Database {
           reference?: string
           prospect_name?: string
           city?: string
+          cities?: string[]
           radius_km?: number
           support_type?: string | null
           lat?: number | null

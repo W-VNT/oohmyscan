@@ -1,35 +1,40 @@
 import CountUp from 'react-countup'
 import { useInView } from 'react-intersection-observer'
 import { motion } from 'framer-motion'
-import { CheckCircle2, Camera, BarChart3, MapPin } from 'lucide-react'
+import { Globe, Layers, BarChart3, Zap, Target } from 'lucide-react'
 
 const KPIS = [
-  { end: 6, suffix: '', label: 'supports exclusifs' },
-  { end: 100, suffix: '%', label: 'preuve de passage' },
-  { end: 0, suffix: '', label: 'couverture', displayText: 'National' },
-  { end: 500, suffix: '+', label: 'partenaires actifs' },
+  { end: 80, suffix: '+', label: 'agglomerations taxis/VTC' },
+  { end: 710, suffix: '', label: 'campings reseau estival' },
+  { end: 20000, suffix: '', label: 'faces reseau VILLE', separator: true },
+  { end: 100, suffix: 'M', label: 'ODV/14 jours' },
 ]
 
 const FEATURES = [
   {
-    title: 'Clé en main',
-    desc: 'Brief → terrain en 5 jours.',
-    icon: CheckCircle2,
+    title: 'Presence nationale',
+    desc: 'Du centre-ville aux plages.',
+    icon: Globe,
   },
   {
-    title: 'Preuve de passage',
-    desc: 'Photos géolocalisées sur chaque support.',
-    icon: Camera,
+    title: 'Terrain + digital',
+    desc: 'Une couverture 360°.',
+    icon: Layers,
   },
   {
-    title: 'Données terrain',
-    desc: 'Rapport post-campagne détaillé.',
+    title: "Mesure d'audience",
+    desc: 'Reporting sur chaque campagne.',
     icon: BarChart3,
   },
   {
-    title: 'Réseau national',
-    desc: 'Partenaires qualifiés partout en France.',
-    icon: MapPin,
+    title: 'Deploiement rapide',
+    desc: 'Brief → terrain en 5 jours.',
+    icon: Zap,
+  },
+  {
+    title: 'Ciblage precis',
+    desc: 'Geographie, moment, contexte.',
+    icon: Target,
   },
 ]
 
@@ -70,10 +75,8 @@ export function WhyUsSection() {
               className="md:px-8 first:md:pl-0 last:md:pr-0"
             >
               <div className="text-3xl font-semibold tabular-nums text-[#111111] dark:text-white md:text-4xl">
-                {kpi.displayText ? (
-                  kpi.displayText
-                ) : inView ? (
-                  <CountUp end={kpi.end} suffix={kpi.suffix} duration={2.5} />
+                {inView ? (
+                  <CountUp end={kpi.end} suffix={kpi.suffix} duration={2.5} separator={kpi.separator ? ' ' : ''} />
                 ) : (
                   '0'
                 )}
@@ -84,7 +87,7 @@ export function WhyUsSection() {
         </motion.div>
 
         {/* Features — compact row */}
-        <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-5">
           {FEATURES.map((feat, i) => {
             const Icon = feat.icon
             return (

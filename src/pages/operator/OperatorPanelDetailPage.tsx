@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/shared/Toast'
-import { PANEL_FORMATS, PANEL_TYPES, PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS, PANEL_ZONES, PANEL_PROBLEMS, ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
+import { PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS, PANEL_ZONES, PANEL_PROBLEMS, ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
+import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
 import { searchPlaces, type PlaceSuggestion } from '@/lib/google-places'
 import { isValidUUID } from '@/lib/utils'
@@ -53,6 +54,7 @@ export function OperatorPanelDetailPage() {
   const validId = isValidUUID(id) ? id : undefined
   const { data: panel, isLoading } = usePanel(validId)
   const updatePanel = useUpdatePanel()
+  const { data: panelTypes } = useActivePanelTypes()
 
   const handleRefresh = useCallback(async () => {
     await queryClient.invalidateQueries()
@@ -74,7 +76,6 @@ export function OperatorPanelDetailPage() {
     address: '',
     city: '',
     contact_phone: '',
-    format: '',
     type: '',
     notes: '',
   })
@@ -130,10 +131,10 @@ export function OperatorPanelDetailPage() {
     enabled: !!id,
   })
 
-  // Campaign visual matching this panel's format
+  // Campaign visual matching this panel's type
   const activeCampaignId = assignments?.[0]?.campaign_id as string | undefined
   const { data: campaignVisualUrl } = useQuery({
-    queryKey: ['campaign-visual', activeCampaignId, panel?.format],
+    queryKey: ['campaign-visual', activeCampaignId, panel?.type],
     queryFn: async () => {
       const { data: visuals, error } = await supabase
         .from('campaign_visuals')
@@ -142,22 +143,22 @@ export function OperatorPanelDetailPage() {
       if (error) throw error
       if (!visuals?.length) return null
 
-      // Resolve format names for visuals that have a panel_format_id
-      const formatIds = visuals.map((v) => v.panel_format_id).filter(Boolean) as string[]
-      let formatMap: Record<string, string> = {}
-      if (formatIds.length > 0) {
-        const { data: formats } = await supabase
+      // Resolve type names for visuals that have a panel_format_id
+      const typeIds = visuals.map((v) => v.panel_format_id).filter(Boolean) as string[]
+      let typeMap: Record<string, string> = {}
+      if (typeIds.length > 0) {
+        const { data: types } = await supabase
           .from('panel_formats')
           .select('id, name')
-          .in('id', formatIds)
-        if (formats) {
-          formatMap = Object.fromEntries(formats.map((f) => [f.id, f.name]))
+          .in('id', typeIds)
+        if (types) {
+          typeMap = Object.fromEntries(types.map((t) => [t.id, t.name]))
         }
       }
 
-      // Find visual matching this panel's format, or fallback
+      // Find visual matching this panel's type, or fallback
       const match =
-        visuals.find((v) => v.panel_format_id && formatMap[v.panel_format_id] === panel!.format) ??
+        visuals.find((v) => v.panel_format_id && typeMap[v.panel_format_id] === panel!.type) ??
         visuals.find((v) => !v.panel_format_id) ??
         visuals[0]
 
@@ -166,7 +167,7 @@ export function OperatorPanelDetailPage() {
         .createSignedUrl(match.storage_path, 3600)
       return signed?.signedUrl ?? null
     },
-    enabled: !!activeCampaignId && !!panel?.format,
+    enabled: !!activeCampaignId && !!panel?.type,
     staleTime: 30 * 60 * 1000,
   })
 
@@ -177,7 +178,6 @@ export function OperatorPanelDetailPage() {
         address: panel.address ?? '',
         city: panel.city ?? '',
         contact_phone: panel.contact_phone ?? '',
-        format: panel.format ?? '',
         type: panel.type ?? '',
         notes: panel.notes ?? '',
       })
@@ -341,7 +341,6 @@ export function OperatorPanelDetailPage() {
         address: form.address || null,
         city: form.city || null,
         contact_phone: form.contact_phone || null,
-        format: form.format || null,
         type: form.type || null,
         notes: form.notes || null,
       })
@@ -478,11 +477,6 @@ export function OperatorPanelDetailPage() {
               </div>
             )}
             <div className="flex flex-wrap gap-1.5 pt-0.5">
-              {panel.format && (
-                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  {panel.format}
-                </span>
-              )}
               {panel.type && (
                 <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                   {panel.type}
@@ -578,7 +572,6 @@ export function OperatorPanelDetailPage() {
                   address: panel.address ?? '',
                   city: panel.city ?? '',
                   contact_phone: panel.contact_phone ?? '',
-                  format: panel.format ?? '',
                   type: panel.type ?? '',
                   notes: panel.notes ?? '',
                 })
@@ -720,37 +713,19 @@ export function OperatorPanelDetailPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-muted-foreground">Format</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {PANEL_FORMATS.map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setForm((s) => ({ ...s, format: s.format === f ? '' : f }))}
-                      className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                        form.format === f
-                          ? 'bg-foreground text-background'
-                          : 'border border-border bg-background text-foreground'
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1.5">
                 <label className="text-[11px] font-medium text-muted-foreground">Type</label>
                 <div className="flex flex-wrap gap-1.5">
-                  {PANEL_TYPES.map((t) => (
+                  {panelTypes?.map((t) => (
                     <button
-                      key={t}
-                      onClick={() => setForm((s) => ({ ...s, type: s.type === t ? '' : t }))}
+                      key={t.id}
+                      onClick={() => setForm((s) => ({ ...s, type: s.type === t.name ? '' : t.name }))}
                       className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                        form.type === t
+                        form.type === t.name
                           ? 'bg-foreground text-background'
                           : 'border border-border bg-background text-foreground'
                       }`}
                     >
-                      {t}
+                      {t.name}
                     </button>
                   ))}
                 </div>

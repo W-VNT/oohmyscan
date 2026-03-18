@@ -1,5 +1,6 @@
 import { Document, Page, View, Text, Image, StyleSheet, Font } from '@react-pdf/renderer'
-import { computeTotals, formatEUR, formatDateFR, type DocumentLine } from './pdf-helpers'
+import { computeTotals, formatEUR, formatDateFR, getTvaCode, type DocumentLine } from './pdf-helpers'
+import { HtmlContent } from './html-to-pdf'
 
 Font.register({
   family: 'Helvetica',
@@ -11,61 +12,82 @@ Font.register({
 
 const c = {
   primary: '#0F172A',
+  accent: '#B91C1C',
   muted: '#64748B',
-  border: '#E2E8F0',
-  bg: '#F8FAFC',
-  accent: '#2563EB',
+  border: '#D1D5DB',
+  bg: '#F3F4F6',
+  lightBg: '#F9FAFB',
+  white: '#FFFFFF',
 }
 
 const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 9, fontFamily: 'Helvetica', color: c.primary },
-  // Header
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
-  companyBlock: { maxWidth: 240 },
-  companyName: { fontSize: 14, fontWeight: 'bold', marginBottom: 4 },
-  companyLine: { fontSize: 8, color: c.muted, lineHeight: 1.5 },
-  docBlock: { textAlign: 'right' },
-  docTitle: { fontSize: 18, fontWeight: 'bold', color: c.accent, marginBottom: 6 },
-  docMeta: { fontSize: 8, color: c.muted, lineHeight: 1.6 },
-  // Client
-  clientSection: { marginBottom: 24 },
-  clientLabel: { fontSize: 8, color: c.muted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 },
-  clientName: { fontSize: 11, fontWeight: 'bold', marginBottom: 2 },
+  page: { paddingTop: 30, paddingBottom: 70, paddingHorizontal: 40, fontSize: 9, fontFamily: 'Helvetica', color: c.primary },
+
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  logoBlock: { maxWidth: 260 },
+  docBlock: { textAlign: 'right', paddingTop: 4 },
+  docTitle: { fontSize: 16, fontWeight: 'bold', color: c.accent },
+  docNumber: { fontSize: 12, fontWeight: 'bold', marginTop: 2 },
+  docDate: { fontSize: 9, marginTop: 2 },
+
+  clientBox: { marginLeft: 'auto', maxWidth: 280, borderWidth: 1, borderColor: c.border, padding: 12, marginBottom: 16 },
+  clientLabel: { fontSize: 8, fontWeight: 'bold', color: c.accent, marginBottom: 6, textTransform: 'uppercase' },
+  clientName: { fontSize: 10, fontWeight: 'bold', marginBottom: 2 },
   clientLine: { fontSize: 8, color: c.muted, lineHeight: 1.5 },
-  // Table
-  table: { marginBottom: 20 },
-  thead: { flexDirection: 'row', backgroundColor: c.bg, borderBottomWidth: 1, borderBottomColor: c.border, paddingVertical: 6 },
-  th: { fontSize: 7, fontWeight: 'bold', color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
-  trow: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: c.border, paddingVertical: 6, alignItems: 'center' },
+  clientSmall: { fontSize: 7, color: c.muted, lineHeight: 1.5, marginTop: 4 },
+
+  dossierLine: { fontSize: 9, fontWeight: 'bold', marginBottom: 12, borderBottomWidth: 0.5, borderBottomColor: c.border, paddingBottom: 6 },
+
+  infoBox: { borderWidth: 0.5, borderColor: c.border, padding: 8, marginBottom: 12 },
+  infoLabel: { fontSize: 8, fontWeight: 'bold', marginBottom: 2 },
+  infoText: { fontSize: 8, color: c.muted },
+
+  table: { marginBottom: 12 },
+  thead: { flexDirection: 'row', backgroundColor: c.accent, paddingVertical: 5, paddingHorizontal: 4 },
+  th: { fontSize: 7.5, fontWeight: 'bold', color: c.white },
+  trow: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: c.border, paddingVertical: 5, paddingHorizontal: 4, minHeight: 20 },
   td: { fontSize: 8.5 },
-  colDesc: { flex: 1, paddingRight: 8 },
-  colQty: { width: 40, textAlign: 'center' },
-  colUnit: { width: 45, textAlign: 'center' },
-  colPU: { width: 60, textAlign: 'right' },
+  colDesc: { flex: 1, paddingRight: 6 },
+  colPU: { width: 55, textAlign: 'right' },
+  colQty: { width: 30, textAlign: 'center' },
+  colDiscount: { width: 45, textAlign: 'center' },
+  colTotal: { width: 60, textAlign: 'right' },
   colTVA: { width: 40, textAlign: 'center' },
-  colTotal: { width: 70, textAlign: 'right' },
+
+  paymentBox: { borderWidth: 0.5, borderColor: c.border, padding: 10, marginBottom: 12 },
+  paymentTitle: { fontSize: 8.5, fontWeight: 'bold', marginBottom: 6, textDecorationLine: 'underline' },
+  paymentBold: { fontSize: 8, fontWeight: 'bold', lineHeight: 1.6 },
+  paymentSmall: { fontSize: 7, color: c.muted, lineHeight: 1.5, marginTop: 6 },
+
+  bottomRow: { flexDirection: 'row', gap: 16, marginBottom: 12 },
+  bottomLeft: { flex: 1 },
+  bottomRight: { width: 240 },
+
+  // Accord client box
+  accordBox: { borderWidth: 0.5, borderColor: c.border, padding: 10 },
+  accordTitle: { fontSize: 8, fontWeight: 'bold', marginBottom: 4 },
+  accordText: { fontSize: 8, color: c.muted, lineHeight: 1.6 },
+  signatureArea: { height: 50, marginTop: 8, borderBottomWidth: 0.5, borderBottomColor: c.border },
+
   // Totals
-  totalsRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 },
-  totalsBlock: { width: 240 },
-  totalLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
-  totalLabel: { fontSize: 8, color: c.muted },
-  totalValue: { fontSize: 8.5, fontWeight: 'bold' },
-  totalTTCLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderTopWidth: 1.5, borderTopColor: c.primary, marginTop: 4 },
-  totalTTCLabel: { fontSize: 11, fontWeight: 'bold' },
-  totalTTCValue: { fontSize: 11, fontWeight: 'bold', color: c.accent },
-  // TVA recap
-  tvaSection: { marginTop: 16, marginBottom: 20 },
-  tvaSectionTitle: { fontSize: 8, fontWeight: 'bold', color: c.muted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  tvaRow: { flexDirection: 'row', paddingVertical: 3 },
-  tvaCol: { width: 80, fontSize: 8 },
-  // Notes
-  notesSection: { marginTop: 10, marginBottom: 20 },
-  notesTitle: { fontSize: 8, fontWeight: 'bold', color: c.muted, marginBottom: 4 },
-  notesText: { fontSize: 8, color: c.muted, lineHeight: 1.5 },
-  // Footer
-  footer: { position: 'absolute', bottom: 30, left: 40, right: 40 },
-  footerLine: { borderTopWidth: 0.5, borderTopColor: c.border, paddingTop: 8 },
-  footerText: { fontSize: 7, color: c.muted, textAlign: 'center', lineHeight: 1.5 },
+  totalsBox: { borderWidth: 0.5, borderColor: c.border },
+  totalsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3, paddingHorizontal: 8 },
+  totalsBold: { fontSize: 8, fontWeight: 'bold' },
+  totalsBoldValue: { fontSize: 8, fontWeight: 'bold', textAlign: 'right' },
+  totalsTTCRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: c.bg, borderTopWidth: 0.5, borderTopColor: c.border },
+
+  tvaHeaderRow: { flexDirection: 'row', backgroundColor: c.lightBg, borderBottomWidth: 0.5, borderBottomColor: c.border, paddingVertical: 3, paddingHorizontal: 8 },
+  tvaRow: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: c.border, paddingVertical: 3, paddingHorizontal: 8 },
+  tvaCol: { flex: 1, fontSize: 8, textAlign: 'right' },
+  tvaColFirst: { flex: 1, fontSize: 8 },
+
+  draftWatermark: { position: 'absolute', top: 350, left: 100, transform: 'rotate(-35deg)', opacity: 0.06 },
+  draftWatermarkText: { fontSize: 90, fontWeight: 'bold', color: c.primary, letterSpacing: 12 },
+
+  footer: { position: 'absolute', bottom: 20, left: 40, right: 40 },
+  footerBg: { backgroundColor: c.accent, paddingVertical: 8, paddingHorizontal: 12 },
+  footerText: { fontSize: 6.5, color: c.white, textAlign: 'center', lineHeight: 1.6 },
+  pageNumber: { fontSize: 7, color: c.white, textAlign: 'right', marginTop: 2 },
 })
 
 export interface QuotePDFProps {
@@ -75,7 +97,9 @@ export interface QuotePDFProps {
     valid_until: string
     notes: string | null
     status: string
+    client_reference?: string | null
   }
+  contactName?: string | null
   client: {
     company_name: string
     contact_name: string | null
@@ -84,6 +108,8 @@ export interface QuotePDFProps {
     postal_code: string | null
     siret: string | null
     tva_number: string | null
+    email: string | null
+    phone: string | null
   }
   lines: DocumentLine[]
   company: {
@@ -97,137 +123,224 @@ export interface QuotePDFProps {
     phone: string | null
     legal_mentions: string | null
     logo_url?: string | null
+    late_penalty_text?: string | null
   }
+  termsHtml?: string | null
 }
 
-export function QuotePDF({ quote, client, lines, company }: QuotePDFProps) {
+export function QuotePDF({ quote, contactName, client, lines, company, termsHtml }: QuotePDFProps) {
   const { totalHT, totalTTC, groups } = computeTotals(lines)
+
+  const dossierParts: string[] = []
+  if (quote.client_reference) dossierParts.push(`Dossier ${quote.client_reference}`)
 
   return (
     <Document>
       <Page size="A4" style={s.page}>
-        {/* Header */}
+        {/* === HEADER === */}
         <View style={s.headerRow}>
-          <View style={s.companyBlock}>
+          <View style={s.logoBlock}>
             {company.logo_url && (
-              <Image src={company.logo_url} style={{ width: 80, height: 40, marginBottom: 6, objectFit: 'contain' }} />
+              <Image src={company.logo_url} style={{ width: 180, height: 60, objectFit: 'contain' }} />
             )}
-            <Text style={s.companyName}>{company.company_name ?? 'OOHMYAD'}</Text>
-            {company.address && <Text style={s.companyLine}>{company.address}</Text>}
-            {(company.postal_code || company.city) && (
-              <Text style={s.companyLine}>{[company.postal_code, company.city].filter(Boolean).join(' ')}</Text>
-            )}
-            {company.siret && <Text style={s.companyLine}>SIRET : {company.siret}</Text>}
-            {company.tva_number && <Text style={s.companyLine}>TVA : {company.tva_number}</Text>}
-            {company.email && <Text style={s.companyLine}>{company.email}</Text>}
-            {company.phone && <Text style={s.companyLine}>{company.phone}</Text>}
           </View>
           <View style={s.docBlock}>
-            <Text style={s.docTitle}>DEVIS</Text>
-            <Text style={s.docMeta}>N° {quote.quote_number}</Text>
-            <Text style={s.docMeta}>Date : {formatDateFR(quote.issued_at)}</Text>
-            <Text style={s.docMeta}>Valide jusqu'au : {formatDateFR(quote.valid_until)}</Text>
+            <Text style={s.docTitle}>Devis</Text>
+            <Text style={s.docNumber}>{quote.quote_number}</Text>
+            <Text style={s.docDate}>{formatDateFR(quote.issued_at)}</Text>
           </View>
         </View>
 
-        {/* Client */}
-        <View style={s.clientSection}>
-          <Text style={s.clientLabel}>Destinataire</Text>
+        {/* === CLIENT BOX === */}
+        <View style={s.clientBox}>
+          <Text style={s.clientLabel}>Adresse de facturation</Text>
           <Text style={s.clientName}>{client.company_name}</Text>
           {client.contact_name && <Text style={s.clientLine}>{client.contact_name}</Text>}
           {client.address && <Text style={s.clientLine}>{client.address}</Text>}
           {(client.postal_code || client.city) && (
             <Text style={s.clientLine}>{[client.postal_code, client.city].filter(Boolean).join(' ')}</Text>
           )}
-          {client.siret && <Text style={s.clientLine}>SIRET : {client.siret}</Text>}
-          {client.tva_number && <Text style={s.clientLine}>TVA : {client.tva_number}</Text>}
+          {client.phone && <Text style={s.clientLine}>Tél {client.phone}</Text>}
+          {client.email && <Text style={s.clientLine}>{client.email}</Text>}
+          {(client.siret || client.tva_number) && (
+            <Text style={s.clientSmall}>
+              {[
+                client.tva_number ? `TVA Intra ${client.tva_number}` : null,
+                client.siret ? `SIREN ${client.siret}` : null,
+              ].filter(Boolean).join(' - ')}
+            </Text>
+          )}
         </View>
 
-        {/* Table */}
+        {/* === DOSSIER LINE === */}
+        {dossierParts.length > 0 && (
+          <Text style={s.dossierLine}>{dossierParts.join(' - ')}</Text>
+        )}
+
+        {/* === CONTACT INFO === */}
+        {contactName && (
+          <View style={s.infoBox}>
+            <Text style={s.infoLabel}>Informations</Text>
+            <Text style={s.infoText}>Votre contact : {contactName}</Text>
+          </View>
+        )}
+
+        {/* === DRAFT WATERMARK === */}
+        {quote.status === 'draft' && (
+          <View style={s.draftWatermark}>
+            <Text style={s.draftWatermarkText}>BROUILLON</Text>
+          </View>
+        )}
+
+        {/* === TABLE === */}
         <View style={s.table}>
           <View style={s.thead}>
-            <Text style={[s.th, s.colDesc]}>Description</Text>
+            <Text style={[s.th, s.colDesc]}>Désignation</Text>
+            <Text style={[s.th, s.colPU]}>Prix unit{'\n'}€ HT</Text>
             <Text style={[s.th, s.colQty]}>Qté</Text>
-            <Text style={[s.th, s.colUnit]}>Unité</Text>
-            <Text style={[s.th, s.colPU]}>P.U. HT</Text>
+            <Text style={[s.th, s.colDiscount]}>Remise</Text>
+            <Text style={[s.th, s.colTotal]}>Prix total{'\n'}€ HT</Text>
             <Text style={[s.th, s.colTVA]}>TVA</Text>
-            <Text style={[s.th, s.colTotal]}>Total HT</Text>
           </View>
           {lines.map((line, i) => (
-            <View key={i} style={s.trow}>
+            <View key={i} style={s.trow} wrap={false}>
               <Text style={[s.td, s.colDesc]}>{line.description}</Text>
-              <Text style={[s.td, s.colQty]}>{line.quantity}</Text>
-              <Text style={[s.td, s.colUnit]}>{line.unit}</Text>
               <Text style={[s.td, s.colPU]}>{formatEUR(line.unit_price)}</Text>
-              <Text style={[s.td, s.colTVA]}>{line.tva_rate}%</Text>
+              <Text style={[s.td, s.colQty]}>{line.quantity}</Text>
+              <Text style={[s.td, s.colDiscount]}>
+                {line.discount_value && line.discount_type
+                  ? `${line.discount_value}${line.discount_type === 'percent' ? '%' : '€'}`
+                  : '—'}
+              </Text>
               <Text style={[s.td, s.colTotal]}>{formatEUR(line.total_ht)}</Text>
+              <Text style={[s.td, s.colTVA]}>{line.tva_rate}% {getTvaCode(line.tva_rate, groups)}</Text>
             </View>
           ))}
         </View>
 
-        {/* Totals */}
-        <View style={s.totalsRow}>
-          <View style={s.totalsBlock}>
-            <View style={s.totalLine}>
-              <Text style={s.totalLabel}>Total HT</Text>
-              <Text style={s.totalValue}>{formatEUR(totalHT)}</Text>
+        {/* === CONDITIONS DE PAIEMENT === */}
+        <View style={s.paymentBox}>
+          <Text style={s.paymentTitle}>Conditions de paiement</Text>
+          <Text style={s.paymentBold}>
+            Échéance : {formatEUR(totalTTC)} € par virement
+          </Text>
+          {company.late_penalty_text && (
+            <Text style={s.paymentSmall}>
+              Modalités: {company.late_penalty_text}
+            </Text>
+          )}
+        </View>
+
+        {/* === BOTTOM: Accord left + Totals right === */}
+        <View style={s.bottomRow}>
+          {/* Accord client */}
+          <View style={s.bottomLeft}>
+            <View style={s.accordBox}>
+              <Text style={s.accordTitle}>
+                Accord client - Proposition expirant le {formatDateFR(quote.valid_until)}
+              </Text>
+              <Text style={s.accordText}>
+                Mention 'Bon pour accord', date, et signature
+              </Text>
+              <View style={s.signatureArea} />
             </View>
-            {groups.map((g) => (
-              <View key={g.rate} style={s.totalLine}>
-                <Text style={s.totalLabel}>TVA {g.rate}%</Text>
-                <Text style={s.totalValue}>{formatEUR(g.montantTVA)}</Text>
+          </View>
+
+          {/* Totals + TVA */}
+          <View style={s.bottomRight}>
+            <View style={s.totalsBox}>
+              <View style={[s.totalsRow, { borderBottomWidth: 0.5, borderBottomColor: c.border }]}>
+                <Text style={s.totalsBold}>Montant total lignes HT</Text>
+                <Text style={s.totalsBoldValue}>{formatEUR(totalHT)} €</Text>
               </View>
-            ))}
-            <View style={s.totalTTCLine}>
-              <Text style={s.totalTTCLabel}>Total TTC</Text>
-              <Text style={s.totalTTCValue}>{formatEUR(totalTTC)}</Text>
+
+              <View style={s.tvaHeaderRow}>
+                <Text style={[s.tvaColFirst, { fontSize: 7, fontWeight: 'bold' }]}>Code TVA</Text>
+                <Text style={[s.tvaCol, { fontSize: 7, fontWeight: 'bold' }]}>%</Text>
+                <Text style={[s.tvaCol, { fontSize: 7, fontWeight: 'bold' }]}>TTC €</Text>
+                <Text style={[s.tvaCol, { fontSize: 7, fontWeight: 'bold' }]}>HT €</Text>
+                <Text style={[s.tvaCol, { fontSize: 7, fontWeight: 'bold' }]}>TVA €</Text>
+              </View>
+              {groups.map((g) => (
+                <View key={g.rate} style={s.tvaRow}>
+                  <Text style={s.tvaColFirst}>{g.code}</Text>
+                  <Text style={s.tvaCol}>{g.rate}</Text>
+                  <Text style={s.tvaCol}>{formatEUR(g.totalTTC)}</Text>
+                  <Text style={s.tvaCol}>{formatEUR(g.baseHT)}</Text>
+                  <Text style={s.tvaCol}>{formatEUR(g.montantTVA)}</Text>
+                </View>
+              ))}
+
+              <View style={s.totalsTTCRow}>
+                <Text style={s.totalsBold}>Montant total TTC</Text>
+                <Text style={s.totalsBoldValue}>{formatEUR(totalTTC)} €</Text>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* TVA Recap */}
-        {groups.length > 1 && (
-          <View style={s.tvaSection}>
-            <Text style={s.tvaSectionTitle}>Récapitulatif TVA</Text>
-            <View style={[s.tvaRow, { borderBottomWidth: 0.5, borderBottomColor: c.border, paddingBottom: 4 }]}>
-              <Text style={[s.tvaCol, { fontWeight: 'bold', color: c.muted, fontSize: 7 }]}>Taux</Text>
-              <Text style={[s.tvaCol, { fontWeight: 'bold', color: c.muted, fontSize: 7, textAlign: 'right' }]}>Base HT</Text>
-              <Text style={[s.tvaCol, { fontWeight: 'bold', color: c.muted, fontSize: 7, textAlign: 'right' }]}>Montant TVA</Text>
-              <Text style={[s.tvaCol, { fontWeight: 'bold', color: c.muted, fontSize: 7, textAlign: 'right' }]}>Total TTC</Text>
-            </View>
-            {groups.map((g) => (
-              <View key={g.rate} style={s.tvaRow}>
-                <Text style={s.tvaCol}>{g.rate === 0 ? '0% (exo)' : `${g.rate}%`}</Text>
-                <Text style={[s.tvaCol, { textAlign: 'right' }]}>{formatEUR(g.baseHT)}</Text>
-                <Text style={[s.tvaCol, { textAlign: 'right' }]}>{formatEUR(g.montantTVA)}</Text>
-                <Text style={[s.tvaCol, { textAlign: 'right' }]}>{formatEUR(g.totalTTC)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Notes */}
+        {/* === NOTES === */}
         {quote.notes && (
-          <View style={s.notesSection}>
-            <Text style={s.notesTitle}>Notes</Text>
-            <Text style={s.notesText}>{quote.notes}</Text>
+          <View style={{ marginBottom: 10 }}>
+            <Text style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 3 }}>Notes</Text>
+            <Text style={{ fontSize: 8, color: c.muted, lineHeight: 1.5 }}>{quote.notes}</Text>
           </View>
         )}
 
-        {/* Footer */}
+        {/* === FOOTER === */}
         <View style={s.footer} fixed>
-          <View style={s.footerLine}>
+          <View style={s.footerBg}>
             <Text style={s.footerText}>
               {company.company_name ?? 'OOHMYAD'}
-              {company.siret ? ` — SIRET ${company.siret}` : ''}
-              {company.tva_number ? ` — TVA ${company.tva_number}` : ''}
+              {company.email ? ` - ${company.email}` : ''}
+            </Text>
+            <Text style={s.footerText}>
+              {[company.address, company.postal_code, company.city].filter(Boolean).join(' ')}
+              {company.phone ? ` - tél ${company.phone}` : ''}
+            </Text>
+            <Text style={s.footerText}>
+              {[
+                company.siret ? `SIREN ${company.siret}` : null,
+                company.tva_number ? `TVA Intra ${company.tva_number}` : null,
+              ].filter(Boolean).join(' - ')}
             </Text>
             {company.legal_mentions && (
               <Text style={s.footerText}>{company.legal_mentions}</Text>
             )}
+            <Text
+              style={s.pageNumber}
+              render={({ pageNumber, totalPages }) => `Page ${pageNumber}/${totalPages}`}
+            />
           </View>
         </View>
       </Page>
+
+      {/* CGV Page */}
+      {termsHtml && (
+        <Page size="A4" style={s.page}>
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 12, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 }}>
+              {company.company_name ?? 'OOHMYAD'}
+            </Text>
+            <Text style={{ fontSize: 10, fontWeight: 'bold', textAlign: 'center', marginBottom: 12, textTransform: 'uppercase' }}>
+              Conditions Générales de Ventes
+            </Text>
+          </View>
+          <HtmlContent html={termsHtml} />
+          <View style={s.footer} fixed>
+            <View style={s.footerBg}>
+              <Text style={s.footerText}>
+                {company.company_name ?? 'OOHMYAD'}
+                {company.email ? ` - ${company.email}` : ''}
+              </Text>
+              <Text
+                style={s.pageNumber}
+                render={({ pageNumber, totalPages }) => `Page ${pageNumber}/${totalPages}`}
+              />
+            </View>
+          </View>
+        </Page>
+      )}
     </Document>
   )
 }

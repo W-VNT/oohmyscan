@@ -38,18 +38,21 @@ import {
   PanelTop,
   ArrowLeft,
   Send,
+  X,
+  Upload,
 } from 'lucide-react'
 import { POTENTIAL_STATUS_CONFIG, type PotentialStatus } from '@/lib/constants'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
+const DEFAULT_RADIUS_PER_CITY = 5 // km per city when multi-city
 
 interface VacantPanel {
   id: string
   reference: string
   address: string | null
   city: string | null
-  format: string | null
+  type: string | null
   lat: number
   lng: number
 }
@@ -59,8 +62,9 @@ export function PotentialNewPage() {
   const { id } = useParams<{ id: string }>()
   const isNew = !id || id === 'new'
   const mapRef = useRef<MapRef>(null)
+  const savedIdRef = useRef<string | null>(isNew ? null : id ?? null)
 
-  const { data: existingRequest, isLoading: loadingRequest } = usePotentialRequest(isNew ? undefined : id)
+  const { data: existingRequest, isLoading: loadingRequest } = usePotentialRequest(isNew && !savedIdRef.current ? undefined : savedIdRef.current ?? id)
   const { data: allPanels } = usePanels()
   const { data: companySettings } = useCompanySettings()
   const createRequest = useCreatePotentialRequest()
@@ -68,12 +72,17 @@ export function PotentialNewPage() {
 
   // Form state
   const [prospectName, setProspectName] = useState('')
-  const [city, setCity] = useState('')
+  const [cities, setCities] = useState<string[]>([])
+  const [cityInput, setCityInput] = useState('')
   const [citySuggestions, setCitySuggestions] = useState<CitySuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const cityDebounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const [radiusKm, setRadiusKm] = useState(10)
   const [supportType, setSupportType] = useState<SupportType>('all')
+
+  // CSV import modal
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importText, setImportText] = useState('')
 
   // Results state
   const [analyzing, setAnalyzing] = useState(false)
@@ -82,14 +91,18 @@ export function PotentialNewPage() {
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null)
   const [vacantPanels, setVacantPanels] = useState<VacantPanel[]>([])
   const [potentialSpots, setPotentialSpots] = useState<PotentialSpot[]>([])
-  const [saving, setSaving] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
 
   // Load existing request
   useEffect(() => {
     if (!existingRequest) return
     setProspectName(existingRequest.prospect_name)
-    setCity(existingRequest.city)
+    // Load cities from array field, fallback to single city
+    if (existingRequest.cities?.length) {
+      setCities(existingRequest.cities)
+    } else if (existingRequest.city) {
+      setCities([existingRequest.city])
+    }
     setRadiusKm(existingRequest.radius_km)
     if (existingRequest.support_type) setSupportType(existingRequest.support_type as SupportType)
     if (existingRequest.lat && existingRequest.lng) {
@@ -108,7 +121,7 @@ export function PotentialNewPage() {
             reference: p.reference,
             address: p.address,
             city: p.city,
-            format: p.format,
+            type: p.type,
             lat: p.lat,
             lng: p.lng,
           })),
@@ -116,8 +129,9 @@ export function PotentialNewPage() {
     }
   }, [existingRequest, allPanels])
 
-  const handleCityChange = useCallback((value: string) => {
-    setCity(value)
+  // --- City input with autocomplete ---
+  const handleCityInputChange = useCallback((value: string) => {
+    setCityInput(value)
     if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current)
     if (value.trim().length < 2) {
       setCitySuggestions([])
@@ -131,17 +145,53 @@ export function PotentialNewPage() {
     }, 300)
   }, [])
 
-  const handleCitySelect = useCallback((suggestion: CitySuggestion) => {
-    setCity(suggestion.name)
+  const addCity = useCallback((name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setCities((prev) => prev.includes(trimmed) ? prev : [...prev, trimmed])
+    setCityInput('')
     setCitySuggestions([])
     setShowSuggestions(false)
   }, [])
+
+  const removeCity = useCallback((name: string) => {
+    setCities((prev) => prev.filter((c) => c !== name))
+  }, [])
+
+  const handleCityKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      addCity(cityInput)
+    }
+  }, [addCity, cityInput])
 
   useEffect(() => {
     return () => { if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current) }
   }, [])
 
-  const canAnalyze = prospectName.trim() && city.trim()
+  // --- CSV Import ---
+  function handleImport() {
+    const parsed = importText
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+    if (parsed.length === 0) {
+      toast('Aucune commune trouvée', 'error')
+      return
+    }
+    setCities((prev) => {
+      const existing = new Set(prev)
+      const newCities = parsed.filter((c) => !existing.has(c))
+      return [...prev, ...newCities]
+    })
+    setImportText('')
+    setShowImportModal(false)
+    toast(`${parsed.length} commune${parsed.length > 1 ? 's' : ''} importée${parsed.length > 1 ? 's' : ''}`)
+  }
+
+  // --- Analysis ---
+  const isMultiCity = cities.length > 1
+  const canAnalyze = prospectName.trim() && cities.length > 0
 
   const runAnalysis = useCallback(async () => {
     if (!canAnalyze || !allPanels) return
@@ -149,108 +199,140 @@ export function PotentialNewPage() {
     setAnalyzed(false)
 
     try {
-      // Step 1: Geocode city
-      const geo = await geocodeCity(city)
-      if (!geo) {
-        toast('Ville introuvable', 'error')
-        setAnalyzing(false)
-        return
+      const allVacant: VacantPanel[] = []
+      const allSpots: PotentialSpot[] = []
+      let firstCenter: { lat: number; lng: number } | null = null
+      const totalCities = cities.length
+      const radius = isMultiCity ? DEFAULT_RADIUS_PER_CITY : radiusKm
+
+      for (let i = 0; i < totalCities; i++) {
+        const cityName = cities[i]
+        setAnalysisProgress(`Géocodage ${cityName} (${i + 1}/${totalCities})...`)
+
+        const geo = await geocodeCity(cityName)
+        if (!geo) {
+          toast(`Ville introuvable : ${cityName}`, 'error')
+          continue
+        }
+        if (!firstCenter) firstCenter = { lat: geo.lat, lng: geo.lng }
+
+        // Find vacant panels
+        const radiusMeters = radius * 1000
+        const vacant = allPanels
+          .filter((p) => p.status === 'vacant')
+          .filter((p) => getDistanceMeters({ lat: p.lat, lng: p.lng }, geo) <= radiusMeters)
+          .filter((p) => !allVacant.some((v) => v.id === p.id)) // deduplicate
+          .map((p) => ({
+            id: p.id,
+            reference: p.reference,
+            address: p.address,
+            city: p.city,
+            type: p.type,
+            lat: p.lat,
+            lng: p.lng,
+          }))
+        allVacant.push(...vacant)
+
+        // Search potential spots
+        setAnalysisProgress(`Scan ${cityName} (${i + 1}/${totalCities})...`)
+        const rawSpots = await searchPotentialSpots(geo.lat, geo.lng, radius, supportType, (done, total) => {
+          setAnalysisProgress(`Scan ${cityName} — zone ${done}/${total}`)
+        })
+        const filtered = filterCoveredSpots(
+          rawSpots,
+          allPanels.map((p) => ({ lat: p.lat, lng: p.lng })),
+        )
+        // Deduplicate spots by place name + address
+        const existingKeys = new Set(allSpots.map((s) => `${s.name}|${s.address}`))
+        const newSpots = filtered.filter((s) => !existingKeys.has(`${s.name}|${s.address}`))
+        allSpots.push(...newSpots)
       }
-      setCenter({ lat: geo.lat, lng: geo.lng })
 
-      // Step 2: Find vacant panels in radius
-      const radiusMeters = radiusKm * 1000
-      const vacant = allPanels
-        .filter((p) => p.status === 'vacant')
-        .filter((p) => getDistanceMeters({ lat: p.lat, lng: p.lng }, geo) <= radiusMeters)
-        .map((p) => ({
-          id: p.id,
-          reference: p.reference,
-          address: p.address,
-          city: p.city,
-          format: p.format,
-          lat: p.lat,
-          lng: p.lng,
-        }))
-      setVacantPanels(vacant)
-
-      // Step 3: Search potential spots via Google Places
-      const rawSpots = await searchPotentialSpots(geo.lat, geo.lng, radiusKm, supportType, (done, total) => {
-        setAnalysisProgress(`Scan zone ${done}/${total}...`)
-      })
-
-      // Step 4: Filter covered spots
-      const filtered = filterCoveredSpots(
-        rawSpots,
-        allPanels.map((p) => ({ lat: p.lat, lng: p.lng })),
-      )
-      setPotentialSpots(filtered)
+      setVacantPanels(allVacant)
+      setPotentialSpots(allSpots)
+      if (firstCenter) setCenter(firstCenter)
       setAnalyzed(true)
 
-      // Fly map to center
-      mapRef.current?.flyTo({ center: [geo.lng, geo.lat], zoom: 11, duration: 1500 })
+      // Fly map
+      if (firstCenter) {
+        mapRef.current?.flyTo({
+          center: [firstCenter.lng, firstCenter.lat],
+          zoom: isMultiCity ? 8 : 11,
+          duration: 1500,
+        })
+      }
+
+      // Auto-save after analysis
+      if (firstCenter) {
+        await autoSave(firstCenter, allVacant, allSpots)
+      }
     } catch {
       toast("Erreur lors de l'analyse", 'error')
     } finally {
       setAnalyzing(false)
       setAnalysisProgress('')
     }
-  }, [canAnalyze, allPanels, city, radiusKm, supportType])
+  }, [canAnalyze, allPanels, cities, radiusKm, supportType, isMultiCity])
 
-  const handleSave = useCallback(async () => {
-    if (!center) return
-    setSaving(true)
+  // --- Auto-save ---
+  const autoSave = useCallback(async (
+    centerPos: { lat: number; lng: number },
+    vacant: VacantPanel[],
+    spots: PotentialSpot[],
+  ) => {
     try {
-      let finalReference = existingRequest?.reference ?? ''
-      if (isNew) {
-        finalReference = await getNextPotentialNumber()
-      }
+      const cityDisplay = cities.join(', ')
+      const radius = isMultiCity ? DEFAULT_RADIUS_PER_CITY : radiusKm
 
       const payload = {
-        reference: finalReference,
+        reference: existingRequest?.reference ?? '',
         prospect_name: prospectName,
-        city,
-        radius_km: radiusKm,
+        city: cityDisplay,
+        cities,
+        radius_km: radius,
         support_type: supportType,
-        lat: center.lat,
-        lng: center.lng,
-        existing_panels_count: vacantPanels.length,
-        potential_spots_count: potentialSpots.length,
-        existing_panel_ids: vacantPanels.map((p) => p.id),
-        potential_spots: potentialSpots,
+        lat: centerPos.lat,
+        lng: centerPos.lng,
+        existing_panels_count: vacant.length,
+        potential_spots_count: spots.length,
+        existing_panel_ids: vacant.map((p) => p.id),
+        potential_spots: spots,
         status: (existingRequest?.status ?? 'draft') as 'draft' | 'sent',
       }
 
-      if (isNew) {
+      if (!savedIdRef.current) {
+        // New: create
+        payload.reference = await getNextPotentialNumber()
         const created = await createRequest.mutateAsync(payload)
-        toast('Demande enregistrée')
+        savedIdRef.current = created.id
         navigate(`/admin/potential/${created.id}`, { replace: true })
+        toast('Analyse enregistrée automatiquement')
       } else {
-        await updateRequest.mutateAsync({ id: id!, ...payload })
-        toast('Demande mise à jour')
+        // Update existing
+        await updateRequest.mutateAsync({ id: savedIdRef.current, ...payload })
       }
     } catch {
-      toast("Erreur lors de l'enregistrement", 'error')
-    } finally {
-      setSaving(false)
+      // Silent fail for auto-save — don't block the UI
     }
-  }, [center, existingRequest, isNew, prospectName, city, radiusKm, supportType, vacantPanels, potentialSpots, createRequest, updateRequest, id, navigate])
+  }, [cities, isMultiCity, radiusKm, supportType, prospectName, existingRequest, createRequest, updateRequest, navigate])
 
+  // --- Status change ---
   const handleStatusChange = useCallback(async (newStatus: 'draft' | 'sent') => {
-    if (!id || isNew) return
+    const targetId = savedIdRef.current
+    if (!targetId) return
     try {
-      await updateRequest.mutateAsync({ id, status: newStatus })
+      await updateRequest.mutateAsync({ id: targetId, status: newStatus })
       toast(newStatus === 'sent' ? 'Marqué comme envoyé' : 'Repassé en brouillon')
     } catch {
       toast('Erreur', 'error')
     }
-  }, [id, isNew, updateRequest])
+  }, [updateRequest])
 
+  // --- PDF ---
   const handleGeneratePDF = useCallback(async () => {
     if (!companySettings) return
     setGeneratingPdf(true)
     try {
-      // Get logo URL
       let logoUrl: string | undefined
       if (companySettings.logo_path) {
         const { data } = supabase.storage.from('company-assets').getPublicUrl(companySettings.logo_path)
@@ -258,22 +340,23 @@ export function PotentialNewPage() {
       }
 
       const reference = existingRequest?.reference ?? 'POT-DRAFT'
-
       const supportLabel = SUPPORT_TYPES.find((s) => s.value === supportType)?.label ?? 'Tous les supports'
+      const cityDisplay = cities.join(', ')
+      const radius = isMultiCity ? DEFAULT_RADIUS_PER_CITY : radiusKm
 
       const blob = await pdf(
         <PotentialPDF
           reference={reference}
           prospectName={prospectName}
-          city={city}
-          radiusKm={radiusKm}
+          city={cityDisplay}
+          radiusKm={radius}
           supportTypeLabel={supportLabel}
           createdAt={existingRequest?.created_at ?? new Date().toISOString()}
           existingPanels={vacantPanels.map((p) => ({
             reference: p.reference,
             address: p.address,
             city: p.city,
-            format: p.format,
+            type: p.type,
           }))}
           potentialSpots={potentialSpots}
           company={{
@@ -288,13 +371,34 @@ export function PotentialNewPage() {
     } finally {
       setGeneratingPdf(false)
     }
-  }, [companySettings, existingRequest, prospectName, city, radiusKm, vacantPanels, potentialSpots])
+  }, [companySettings, existingRequest, prospectName, cities, radiusKm, isMultiCity, vacantPanels, potentialSpots, supportType])
+
+  function handleExportCSV() {
+    const headers = ['Type', 'Nom / Référence', 'Adresse', 'Ville', 'Type de lieu']
+    const rows: string[][] = []
+
+    for (const p of vacantPanels) {
+      rows.push(['Panneau existant', p.reference, p.address ?? '', p.city ?? '', p.type ?? ''])
+    }
+    for (const sp of potentialSpots) {
+      rows.push(['Emplacement potentiel', sp.name, sp.address, '', sp.typeLabel])
+    }
+
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `potentiel-${cities.join('-') || 'analyse'}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   // Map viewport
   const mapCenter = useMemo(() => {
-    if (center) return { longitude: center.lng, latitude: center.lat, zoom: 11 }
+    if (center) return { longitude: center.lng, latitude: center.lat, zoom: isMultiCity ? 8 : 11 }
     return { longitude: 2.3522, latitude: 46.6034, zoom: 5 }
-  }, [center])
+  }, [center, isMultiCity])
 
   if (!isNew && loadingRequest) {
     return (
@@ -306,14 +410,14 @@ export function PotentialNewPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header + Action buttons */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin/potential')}>
             <ArrowLeft className="size-4" />
           </Button>
           <h1 className="text-xl font-semibold">
-            {isNew ? 'Nouvelle demande de potentiel' : `${existingRequest?.reference ?? 'Potentiel'}`}
+            {!savedIdRef.current && isNew ? 'Nouvelle demande de potentiel' : `${existingRequest?.reference ?? 'Potentiel'}`}
           </h1>
           {existingRequest && (
             <Badge variant={POTENTIAL_STATUS_CONFIG[existingRequest.status as PotentialStatus]?.variant ?? 'secondary'}>
@@ -322,14 +426,30 @@ export function PotentialNewPage() {
           )}
         </div>
         <div className="flex gap-2">
+          {analyzed && (
+            <>
+              <Button variant="outline" size="sm" onClick={runAnalysis} disabled={analyzing}>
+                <Search className="mr-1.5 size-3.5" />
+                Relancer
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleGeneratePDF} disabled={generatingPdf}>
+                {generatingPdf ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Download className="mr-1.5 size-3.5" />}
+                PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                <Download className="mr-1.5 size-3.5" />
+                CSV
+              </Button>
+            </>
+          )}
           {existingRequest && existingRequest.status === 'draft' && (
-            <Button variant="outline" onClick={() => handleStatusChange('sent')}>
-              <Send className="mr-1.5 size-4" />
+            <Button variant="outline" size="sm" onClick={() => handleStatusChange('sent')}>
+              <Send className="mr-1.5 size-3.5" />
               Marquer envoyé
             </Button>
           )}
           {existingRequest && existingRequest.status === 'sent' && (
-            <Button variant="outline" onClick={() => handleStatusChange('draft')}>
+            <Button variant="outline" size="sm" onClick={() => handleStatusChange('draft')}>
               Repasser brouillon
             </Button>
           )}
@@ -339,7 +459,7 @@ export function PotentialNewPage() {
       {/* Form */}
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Prospect *</label>
               <Input
@@ -348,32 +468,6 @@ export function PotentialNewPage() {
                 placeholder="Nom du prospect"
                 className="text-sm"
               />
-            </div>
-            <div className="relative space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Ville *</label>
-              <Input
-                value={city}
-                onChange={(e) => handleCityChange(e.target.value)}
-                onFocus={() => citySuggestions.length > 0 && setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                placeholder="Lyon, Marseille..."
-                className="text-sm"
-                autoComplete="off"
-              />
-              {showSuggestions && citySuggestions.length > 0 && (
-                <div className="absolute top-full z-50 mt-1 w-full rounded-md border border-border bg-background shadow-lg">
-                  {citySuggestions.map((s) => (
-                    <button
-                      key={s.placeId}
-                      type="button"
-                      onMouseDown={() => handleCitySelect(s)}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 first:rounded-t-md last:rounded-b-md"
-                    >
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Type de support</label>
@@ -387,17 +481,92 @@ export function PotentialNewPage() {
                 ))}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Rayon : {radiusKm} km</label>
-              <input
-                type="range"
-                min={1}
-                max={50}
-                value={radiusKm}
-                onChange={(e) => setRadiusKm(parseInt(e.target.value))}
-                className="mt-2 w-full"
-              />
+            {!isMultiCity && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Rayon : {radiusKm} km</label>
+                <input
+                  type="range"
+                  min={1}
+                  max={50}
+                  value={radiusKm}
+                  onChange={(e) => setRadiusKm(parseInt(e.target.value))}
+                  className="mt-2 w-full"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Multi-city input */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">
+                Communes * {cities.length > 0 && `(${cities.length})`}
+              </label>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => setShowImportModal(true)}
+              >
+                <Upload className="mr-1 size-3" />
+                Importer
+              </Button>
             </div>
+
+            {/* City chips */}
+            {cities.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {cities.map((c) => (
+                  <span
+                    key={c}
+                    className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
+                  >
+                    {c}
+                    <button
+                      type="button"
+                      onClick={() => removeCity(c)}
+                      className="ml-0.5 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* City input with autocomplete */}
+            <div className="relative">
+              <Input
+                value={cityInput}
+                onChange={(e) => handleCityInputChange(e.target.value)}
+                onKeyDown={handleCityKeyDown}
+                onFocus={() => citySuggestions.length > 0 && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                placeholder="Ajouter une commune..."
+                className="text-sm"
+                autoComplete="off"
+              />
+              {showSuggestions && citySuggestions.length > 0 && (
+                <div className="absolute top-full z-50 mt-1 w-full rounded-md border border-border bg-background shadow-lg">
+                  {citySuggestions.map((s) => (
+                    <button
+                      key={s.placeId}
+                      type="button"
+                      onMouseDown={() => addCity(s.name)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 first:rounded-t-md last:rounded-b-md"
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {isMultiCity && (
+              <p className="text-[10px] text-muted-foreground">
+                Rayon automatique de {DEFAULT_RADIUS_PER_CITY} km par commune.
+              </p>
+            )}
           </div>
 
           <Button onClick={runAnalysis} disabled={!canAnalyze || analyzing}>
@@ -410,6 +579,40 @@ export function PotentialNewPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* CSV Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowImportModal(false)}>
+          <div className="w-full max-w-lg rounded-lg bg-background p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Importer des communes</h2>
+              <button onClick={() => setShowImportModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-4" />
+              </button>
+            </div>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Collez une liste de communes — une par ligne, ou séparées par des virgules / points-virgules.
+            </p>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder={"Lyon\nMarseille\nToulouse\n\nou: Lyon, Marseille, Toulouse"}
+              rows={8}
+              className="mb-4 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowImportModal(false)}>
+                Annuler
+              </Button>
+              <Button size="sm" onClick={handleImport} disabled={!importText.trim()}>
+                <Upload className="mr-1.5 size-3.5" />
+                Importer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Results */}
       {analyzed && (
@@ -440,7 +643,9 @@ export function PotentialNewPage() {
               <CardContent className="pt-6">
                 <p className="text-xs font-medium text-muted-foreground">Potentiel total</p>
                 <p className="mt-1 text-2xl font-bold tabular-nums">{vacantPanels.length + potentialSpots.length}</p>
-                <p className="text-xs text-muted-foreground">{city} — rayon {radiusKm} km</p>
+                <p className="text-xs text-muted-foreground">
+                  {cities.length === 1 ? `${cities[0]} — rayon ${radiusKm} km` : `${cities.length} communes`}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -458,7 +663,6 @@ export function PotentialNewPage() {
                     style={{ width: '100%', height: '100%' }}
                   >
                     <NavigationControl position="top-right" />
-                    {/* Vacant panels — blue markers */}
                     {vacantPanels.map((panel) => (
                       <Marker key={panel.id} longitude={panel.lng} latitude={panel.lat}>
                         <div
@@ -467,7 +671,6 @@ export function PotentialNewPage() {
                         />
                       </Marker>
                     ))}
-                    {/* Potential spots — orange markers */}
                     {potentialSpots.map((spot, i) => (
                       <Marker key={`spot-${i}`} longitude={spot.lng} latitude={spot.lat}>
                         <div
@@ -503,7 +706,7 @@ export function PotentialNewPage() {
                       <th className="pb-2 font-medium text-muted-foreground">Référence</th>
                       <th className="pb-2 font-medium text-muted-foreground">Adresse</th>
                       <th className="pb-2 font-medium text-muted-foreground">Ville</th>
-                      <th className="pb-2 font-medium text-muted-foreground">Format</th>
+                      <th className="pb-2 font-medium text-muted-foreground">Type</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -512,7 +715,7 @@ export function PotentialNewPage() {
                         <td className="py-2 font-medium">{p.reference}</td>
                         <td className="py-2 text-muted-foreground">{p.address ?? '—'}</td>
                         <td className="py-2 text-muted-foreground">{p.city ?? '—'}</td>
-                        <td className="py-2 text-muted-foreground">{p.format ?? '—'}</td>
+                        <td className="py-2 text-muted-foreground">{p.type ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -548,22 +751,6 @@ export function PotentialNewPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* Actions */}
-          <div className="flex gap-3">
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-              {isNew ? 'Enregistrer' : 'Mettre à jour'}
-            </Button>
-            <Button variant="outline" onClick={handleGeneratePDF} disabled={generatingPdf}>
-              {generatingPdf ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
-              Générer le PDF
-            </Button>
-            <Button variant="outline" onClick={runAnalysis} disabled={analyzing}>
-              <Search className="mr-1.5 size-4" />
-              Relancer l'analyse
-            </Button>
-          </div>
         </>
       )}
     </div>

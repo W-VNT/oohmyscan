@@ -18,11 +18,15 @@ import {
   ChevronRight,
   SearchCheck,
   Inbox,
+  FileText,
+  Users,
+  BarChart3,
 } from 'lucide-react'
 import {
   usePanelStats,
   useCampaignStats,
   useInvoiceStats,
+  useFinanceStats,
   useRecentActivity,
 } from '@/hooks/admin/useDashboardStats'
 
@@ -48,6 +52,7 @@ export function DashboardPage() {
   const { data: campaignStats, isLoading: campaignsLoading } = useCampaignStats()
   const { data: invoiceStats, isLoading: invoicesLoading } = useInvoiceStats()
   const { data: activity, isLoading: activityLoading } = useRecentActivity()
+  const { data: financeStats } = useFinanceStats()
   const { data: potentialRequests } = usePotentialRequests()
 
   const [caMode, setCaMode] = useState<'month' | 'total'>('month')
@@ -352,6 +357,132 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Finance section */}
+      {financeStats && (
+        <>
+          <div className="flex items-center gap-2 pt-2">
+            <BarChart3 className="size-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold">Finance</h2>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Quote pipeline */}
+            <Link to="/admin/quotes" className="transition-shadow hover:ring-2 hover:ring-primary/20 rounded-lg">
+              <Card className="h-full">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">Pipeline devis</p>
+                    <FileText className="size-4 text-purple-600" />
+                  </div>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-purple-600">{formatCurrency(financeStats.quotePipeline.totalTTC)}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {financeStats.quotePipeline.count} devis en cours
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Aging buckets */}
+            {financeStats.aging.filter((b) => b.count > 0).slice(0, 3).map((bucket) => (
+              <Link key={bucket.label} to="/admin/invoices" className="transition-shadow hover:ring-2 hover:ring-primary/20 rounded-lg">
+                <Card className="h-full">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-muted-foreground">{bucket.label}</p>
+                      <div className={`size-2.5 rounded-full ${bucket.color}`} />
+                    </div>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">{formatCurrency(bucket.amount)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {bucket.count} facture{bucket.count !== 1 ? 's' : ''} impayée{bucket.count !== 1 ? 's' : ''}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Monthly CA bar chart */}
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="text-sm font-semibold">CA encaissé — 6 derniers mois</h3>
+                <div className="mt-4 flex items-end gap-2" style={{ height: 140 }}>
+                  {financeStats.monthlyCA.map((m) => {
+                    const maxAmount = Math.max(...financeStats.monthlyCA.map((x) => x.amount), 1)
+                    const heightPct = Math.max(4, (m.amount / maxAmount) * 100)
+                    return (
+                      <div key={m.month} className="flex flex-1 flex-col items-center gap-1">
+                        <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
+                          {m.amount > 0 ? `${Math.round(m.amount / 1000)}k` : '—'}
+                        </span>
+                        <div
+                          className="w-full rounded-t bg-primary/80 transition-all"
+                          style={{ height: `${heightPct}%` }}
+                        />
+                        <span className="text-[10px] text-muted-foreground">{m.month}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Top clients */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Top clients par CA</h3>
+                  <Users className="size-4 text-muted-foreground" />
+                </div>
+                {financeStats.topClients.length === 0 ? (
+                  <p className="mt-4 text-center text-xs text-muted-foreground">Aucune facture payée</p>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {financeStats.topClients.map((client, i) => {
+                      const maxAmount = financeStats.topClients[0]?.amount ?? 1
+                      const pct = Math.round((client.amount / maxAmount) * 100)
+                      return (
+                        <div key={client.name} className="flex items-center gap-3">
+                          <span className="w-5 text-right text-xs font-bold text-muted-foreground">{i + 1}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex justify-between">
+                              <p className="truncate text-[13px] font-medium">{client.name}</p>
+                              <p className="shrink-0 text-[13px] font-medium tabular-nums">{formatCurrency(client.amount)}</p>
+                            </div>
+                            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                              <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Aging detail table */}
+          {financeStats.aging.some((b) => b.count > 0) && (
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="mb-4 text-sm font-semibold">Détail des impayés (aging)</h3>
+                <div className="grid grid-cols-4 gap-2">
+                  {financeStats.aging.map((bucket) => (
+                    <div key={bucket.label} className="rounded-md border border-border p-3 text-center">
+                      <div className={`mx-auto mb-2 size-2 rounded-full ${bucket.color}`} />
+                      <p className="text-xs font-medium text-muted-foreground">{bucket.label}</p>
+                      <p className="mt-1 text-lg font-bold tabular-nums">{formatCurrency(bucket.amount)}</p>
+                      <p className="text-[10px] text-muted-foreground">{bucket.count} facture{bucket.count !== 1 ? 's' : ''}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   )
 }

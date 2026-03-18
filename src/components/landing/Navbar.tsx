@@ -3,9 +3,8 @@ import { Menu, X } from 'lucide-react'
 import { useScrollLock } from '@/hooks/useScrollLock'
 
 const NAV_LINKS = [
-  { label: 'Concept', href: '#concept' },
-  { label: 'Supports', href: '#supports' },
-  { label: 'Process', href: '#process' },
+  { label: 'Nos solutions', href: '#solutions' },
+  { label: 'Comment ca marche', href: '#process' },
   { label: 'Contact', href: '#contact' },
 ]
 

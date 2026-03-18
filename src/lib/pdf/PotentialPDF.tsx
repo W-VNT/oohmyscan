@@ -69,7 +69,7 @@ export interface PotentialPDFProps {
     reference: string
     address: string | null
     city: string | null
-    format: string | null
+    type: string | null
   }[]
   potentialSpots: PotentialSpot[]
   company: {
@@ -98,6 +98,26 @@ export function PotentialPDF({
   company,
 }: PotentialPDFProps) {
   const totalPotential = existingPanels.length + potentialSpots.length
+
+  // Build locality breakdown
+  const localityMap = new Map<string, { panels: number; spots: number }>()
+  for (const p of existingPanels) {
+    const loc = p.city ?? 'Non renseigné'
+    const entry = localityMap.get(loc) ?? { panels: 0, spots: 0 }
+    entry.panels++
+    localityMap.set(loc, entry)
+  }
+  for (const sp of potentialSpots) {
+    // Extract city from address (last part after comma) or use "Non renseigné"
+    const parts = sp.address.split(',').map((s) => s.trim())
+    const loc = parts.length >= 2 ? parts[parts.length - 2] : parts[0] || 'Non renseigné'
+    const entry = localityMap.get(loc) ?? { panels: 0, spots: 0 }
+    entry.spots++
+    localityMap.set(loc, entry)
+  }
+  const localities = Array.from(localityMap.entries())
+    .map(([name, counts]) => ({ name, ...counts, total: counts.panels + counts.spots }))
+    .sort((a, b) => b.total - a.total)
 
   return (
     <Document>
@@ -165,6 +185,36 @@ export function PotentialPDF({
           </View>
         </View>
 
+        {/* Locality breakdown */}
+        {localities.length > 0 && (
+          <>
+            <Text style={s.sectionTitle}>Synthèse par localité</Text>
+            <View style={s.table}>
+              <View style={s.thead}>
+                <Text style={[s.th, { flex: 1 }]}>Localité</Text>
+                <Text style={[s.th, { width: 80, textAlign: 'center' }]}>Panneaux</Text>
+                <Text style={[s.th, { width: 80, textAlign: 'center' }]}>Potentiels</Text>
+                <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Total</Text>
+              </View>
+              {localities.map((loc, i) => (
+                <View key={i} style={s.trow} wrap={false}>
+                  <Text style={[s.td, { flex: 1, fontWeight: 'bold' }]}>{loc.name}</Text>
+                  <Text style={[s.td, { width: 80, textAlign: 'center', color: loc.panels > 0 ? c.blue : c.muted }]}>{loc.panels}</Text>
+                  <Text style={[s.td, { width: 80, textAlign: 'center', color: loc.spots > 0 ? c.orange : c.muted }]}>{loc.spots}</Text>
+                  <Text style={[s.td, { width: 60, textAlign: 'center', fontWeight: 'bold' }]}>{loc.total}</Text>
+                </View>
+              ))}
+              {/* Totals row */}
+              <View style={[s.trow, { borderTopWidth: 1, borderTopColor: c.border }]}>
+                <Text style={[s.td, { flex: 1, fontWeight: 'bold' }]}>TOTAL</Text>
+                <Text style={[s.td, { width: 80, textAlign: 'center', fontWeight: 'bold', color: c.blue }]}>{existingPanels.length}</Text>
+                <Text style={[s.td, { width: 80, textAlign: 'center', fontWeight: 'bold', color: c.orange }]}>{potentialSpots.length}</Text>
+                <Text style={[s.td, { width: 60, textAlign: 'center', fontWeight: 'bold' }]}>{totalPotential}</Text>
+              </View>
+            </View>
+          </>
+        )}
+
         <View style={s.separator} />
 
         {/* Existing panels table */}
@@ -176,14 +226,14 @@ export function PotentialPDF({
                 <Text style={[s.th, s.colRef]}>Référence</Text>
                 <Text style={[s.th, s.colAddress]}>Adresse</Text>
                 <Text style={[s.th, s.colCity]}>Ville</Text>
-                <Text style={[s.th, s.colFormat]}>Format</Text>
+                <Text style={[s.th, s.colFormat]}>Type</Text>
               </View>
               {existingPanels.map((panel, i) => (
                 <View key={i} style={s.trow}>
                   <Text style={[s.td, s.colRef]}>{panel.reference}</Text>
                   <Text style={[s.td, s.colAddress]}>{panel.address ?? '—'}</Text>
                   <Text style={[s.td, s.colCity]}>{panel.city ?? '—'}</Text>
-                  <Text style={[s.td, s.colFormat]}>{panel.format ?? '—'}</Text>
+                  <Text style={[s.td, s.colFormat]}>{panel.type ?? '—'}</Text>
                 </View>
               ))}
             </View>

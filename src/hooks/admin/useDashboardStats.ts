@@ -139,6 +139,122 @@ export function useInvoiceStats() {
   })
 }
 
+interface AgingBucket {
+  label: string
+  count: number
+  amount: number
+  color: string
+}
+
+interface TopClient {
+  name: string
+  amount: number
+  count: number
+}
+
+interface MonthlyCA {
+  month: string
+  amount: number
+}
+
+interface FinanceStats {
+  aging: AgingBucket[]
+  quotePipeline: { count: number; totalTTC: number }
+  topClients: TopClient[]
+  monthlyCA: MonthlyCA[]
+}
+
+export function useFinanceStats() {
+  return useQuery({
+    queryKey: ['dashboard', 'finance-stats'],
+    queryFn: async (): Promise<FinanceStats> => {
+      // Fetch invoices for aging + monthly CA
+      const { data: invoices, error: invErr } = await supabase
+        .from('invoices')
+        .select('status, total_ttc, due_at, paid_at, issued_at, client_id, clients(company_name)')
+        .neq('status', 'cancelled')
+      if (invErr) throw invErr
+
+      // Fetch quotes for pipeline
+      const { data: quotes, error: qErr } = await supabase
+        .from('quotes')
+        .select('status, total_ttc')
+        .in('status', ['draft', 'sent'])
+      if (qErr) throw qErr
+
+      type InvRow = { status: string; total_ttc: number; due_at: string; paid_at: string | null; issued_at: string; client_id: string; clients: { company_name: string } | null }
+      const invRows = (invoices ?? []) as unknown as InvRow[]
+      const now = new Date()
+
+      // --- Aging buckets ---
+      const buckets = [
+        { label: '0-30 jours', min: 0, max: 30, count: 0, amount: 0, color: 'bg-yellow-500' },
+        { label: '30-60 jours', min: 30, max: 60, count: 0, amount: 0, color: 'bg-orange-500' },
+        { label: '60-90 jours', min: 60, max: 90, count: 0, amount: 0, color: 'bg-red-400' },
+        { label: '90+ jours', min: 90, max: Infinity, count: 0, amount: 0, color: 'bg-red-600' },
+      ]
+
+      for (const inv of invRows) {
+        if (inv.status !== 'sent' && inv.status !== 'overdue') continue
+        const daysOverdue = Math.max(0, Math.floor((now.getTime() - new Date(inv.due_at).getTime()) / 86400000))
+        for (const b of buckets) {
+          if (daysOverdue >= b.min && daysOverdue < b.max) {
+            b.count++
+            b.amount += inv.total_ttc
+            break
+          }
+        }
+      }
+
+      // --- Top clients by paid CA ---
+      const clientMap = new Map<string, TopClient>()
+      for (const inv of invRows) {
+        if (inv.status !== 'paid') continue
+        const name = inv.clients?.company_name ?? 'Inconnu'
+        const existing = clientMap.get(name) ?? { name, amount: 0, count: 0 }
+        existing.amount += inv.total_ttc
+        existing.count++
+        clientMap.set(name, existing)
+      }
+      const topClients = Array.from(clientMap.values())
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5)
+
+      // --- Monthly CA (6 last months) ---
+      const monthlyCA: MonthlyCA[] = []
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const monthStart = d.toISOString()
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString()
+        let amount = 0
+        for (const inv of invRows) {
+          if (inv.status === 'paid' && inv.paid_at && inv.paid_at >= monthStart && inv.paid_at <= monthEnd) {
+            amount += inv.total_ttc
+          }
+        }
+        monthlyCA.push({
+          month: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+          amount: Math.round(amount * 100) / 100,
+        })
+      }
+
+      // --- Quote pipeline ---
+      const quotePipeline = {
+        count: quotes?.length ?? 0,
+        totalTTC: (quotes ?? []).reduce((sum, q) => sum + ((q as { total_ttc: number }).total_ttc ?? 0), 0),
+      }
+
+      return {
+        aging: buckets.map(({ label, count, amount, color }) => ({ label, count, amount: Math.round(amount * 100) / 100, color })),
+        quotePipeline,
+        topClients,
+        monthlyCA,
+      }
+    },
+    staleTime: 60_000,
+  })
+}
+
 export function useRecentActivity() {
   return useQuery({
     queryKey: ['dashboard', 'recent-activity'],

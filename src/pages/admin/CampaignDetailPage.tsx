@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useCampaign } from '@/hooks/useCampaigns'
-import { usePanelFormats } from '@/hooks/admin/usePanelFormats'
+import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { toast } from '@/components/shared/Toast'
@@ -30,7 +30,7 @@ function useCampaignVisuals(campaignId: string | undefined) {
 export function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { data: campaign, isLoading } = useCampaign(id)
-  const { data: panelFormats } = usePanelFormats()
+  const { data: panelTypes } = usePanelTypes()
   const { data: visuals } = useCampaignVisuals(id)
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -273,9 +273,9 @@ export function CampaignDetailPage() {
                   onChange={(e) => setUploadFormatId(e.target.value)}
                   className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                 >
-                  <option value="">Tous formats</option>
-                  {panelFormats?.filter((f) => f.is_active).map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
+                  <option value="">Tous types</option>
+                  {panelTypes?.filter((t) => t.is_active).map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
                 <button

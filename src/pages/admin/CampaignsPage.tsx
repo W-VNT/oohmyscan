@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useCampaigns, useCreateCampaign } from '@/hooks/useCampaigns'
 import type { CampaignWithClient } from '@/hooks/useCampaigns'
 import { useClients } from '@/hooks/admin/useClients'
-import { usePanelFormats } from '@/hooks/admin/usePanelFormats'
+import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { useAuth } from '@/hooks/useAuth'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -84,7 +84,7 @@ function getTimeIndicator(campaign: CampaignWithClient): string | null {
 export function CampaignsPage() {
   const { data: campaigns, isLoading } = useCampaigns()
   const { data: clients } = useClients()
-  const { data: panelFormats } = usePanelFormats()
+  const { data: panelTypes } = usePanelTypes()
   const createCampaign = useCreateCampaign()
   const queryClient = useQueryClient()
   const { session } = useAuth()
@@ -568,9 +568,9 @@ export function CampaignsPage() {
                           onChange={(e) => updateVisualFormat(idx, e.target.value)}
                           className="h-7 w-full rounded border border-input bg-background px-2 text-[11px]"
                         >
-                          <option value="">Tous formats</option>
-                          {panelFormats?.filter((f) => f.is_active).map((f) => (
-                            <option key={f.id} value={f.id}>{f.name}</option>
+                          <option value="">Tous types</option>
+                          {panelTypes?.filter((t) => t.is_active).map((t) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
                           ))}
                         </select>
                       </div>

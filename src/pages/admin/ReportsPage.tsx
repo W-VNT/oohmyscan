@@ -2,7 +2,9 @@ import { useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePanels } from '@/hooks/usePanels'
 import { useCampaigns } from '@/hooks/useCampaigns'
-import { useInvoices } from '@/hooks/admin/useInvoices'
+import { useInvoices, type InvoiceWithClient } from '@/hooks/admin/useInvoices'
+import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
+import { generateFEC, downloadFEC } from '@/lib/fec-export'
 import { useClients } from '@/hooks/admin/useClients'
 import { useUsers, useOperatorStats } from '@/hooks/admin/useUsers'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -83,13 +85,13 @@ export function ReportsPage() {
       if (p.status === 'active') byCity[city].active++
     })
 
-    const byFormat: Record<string, number> = {}
+    const byType: Record<string, number> = {}
     panels.forEach((p) => {
-      const format = p.format || 'Non renseigné'
-      byFormat[format] = (byFormat[format] || 0) + 1
+      const t = p.type || 'Non renseigné'
+      byType[t] = (byType[t] || 0) + 1
     })
 
-    return { total, byStatus, occupationRate, unchecked, byCity, byFormat }
+    return { total, byStatus, occupationRate, unchecked, byCity, byType }
   }, [panels])
 
   // Campaign stats
@@ -428,14 +430,14 @@ export function ReportsPage() {
         </CardContent>
       </Card>
 
-      {/* By format */}
-      {panelStats?.byFormat && Object.keys(panelStats.byFormat).length > 0 && (
+      {/* By type */}
+      {panelStats?.byType && Object.keys(panelStats.byType).length > 0 && (
         <Card>
           <CardContent className="pt-6">
-            <h3 className="text-sm font-semibold">Panneaux par format <span className="font-normal text-muted-foreground">(toutes périodes)</span></h3>
+            <h3 className="text-sm font-semibold">Panneaux par type <span className="font-normal text-muted-foreground">(toutes périodes)</span></h3>
             <div className="mt-4 space-y-2">
               {(() => {
-                const entries = Object.entries(panelStats.byFormat).sort(([, a], [, b]) => b - a)
+                const entries = Object.entries(panelStats.byType).sort(([, a], [, b]) => b - a)
                 const maxVal = Math.max(...entries.map(([, v]) => v))
                 return entries.map(([format, count]) => {
                   const pct = maxVal > 0 ? (count / maxVal) * 100 : 0
@@ -592,6 +594,62 @@ export function ReportsPage() {
           </CardContent>
         </Card>
       )}
+      {/* FEC Export */}
+      <FECExportSection invoices={invoices} />
     </div>
+  )
+}
+
+function FECExportSection({ invoices }: { invoices: InvoiceWithClient[] | undefined }) {
+  const { data: settings } = useCompanySettings()
+  const [fecYear, setFecYear] = useState(String(new Date().getFullYear()))
+
+  function handleExportFEC() {
+    if (!invoices || !settings) return
+
+    const startDate = `${fecYear}-01-01`
+    const endDate = `${fecYear}-12-31`
+
+    const fecInvoices = invoices.map((inv) => ({
+      invoice_number: inv.invoice_number,
+      issued_at: inv.issued_at,
+      paid_at: inv.paid_at,
+      status: inv.status,
+      total_ht: inv.total_ht,
+      total_tva: inv.total_ttc - inv.total_ht,
+      total_ttc: inv.total_ttc,
+      client_name: inv.clients?.company_name ?? 'Inconnu',
+      invoice_type: (inv as Record<string, unknown>).invoice_type as string ?? 'standard',
+    }))
+
+    // We don't have payments loaded at the report level — pass empty for now
+    const content = generateFEC(fecInvoices, [], startDate, endDate)
+    const siren = settings.siret?.replace(/\s/g, '').slice(0, 9) ?? '000000000'
+    downloadFEC(content, siren, fecYear)
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <h3 className="text-sm font-semibold">Export comptable FEC</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Fichier des Écritures Comptables — obligatoire pour la comptabilité française (Art. L47 A-1 LPF).
+        </p>
+        <div className="mt-4 flex items-center gap-3">
+          <Input
+            type="number"
+            min={2020}
+            max={2030}
+            value={fecYear}
+            onChange={(e) => setFecYear(e.target.value)}
+            className="w-24 text-sm"
+          />
+          <Button size="sm" variant="outline" onClick={handleExportFEC} disabled={!invoices?.length}>
+            <Download className="mr-1.5 size-3.5" />
+            Exporter FEC {fecYear}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

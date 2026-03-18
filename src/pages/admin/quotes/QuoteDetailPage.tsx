@@ -4,6 +4,7 @@ import { useQuote, useQuoteLines, useCreateQuote, useUpdateQuote, useSaveQuoteLi
 import { useClients, useClient } from '@/hooks/admin/useClients'
 import { useClientCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
+import { useQuoteTemplates, useCreateQuoteTemplate, type TemplateLine } from '@/hooks/admin/useQuoteTemplates'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
 import { useAppStore } from '@/store/app.store'
 import { supabase } from '@/lib/supabase'
@@ -13,7 +14,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download, Copy, Ban, Eye } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download, Copy, Ban, Eye, ChevronUp, ChevronDown, Bookmark, BookmarkPlus, ExternalLink } from 'lucide-react'
+import { LineDescriptionEditor } from '@/components/shared/LineDescriptionEditor'
+import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { QuotePDF } from '@/lib/pdf/QuotePDF'
@@ -21,18 +24,28 @@ import { QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
 
 type EditableLine = Omit<QuoteLine, 'id' | 'quote_id'> & { _key: string }
 
-function newLine(sortOrder: number): EditableLine {
+function newLine(sortOrder: number, lineType: 'item' | 'section' = 'item'): EditableLine {
   return {
     _key: crypto.randomUUID(),
     service_catalog_id: null,
-    description: '',
-    quantity: 1,
-    unit: 'unité',
+    description: lineType === 'section' ? 'Nouvelle section' : '',
+    quantity: lineType === 'section' ? 0 : 1,
+    unit: lineType === 'section' ? '' : 'unité',
     unit_price: 0,
-    tva_rate: 20,
+    tva_rate: lineType === 'section' ? 0 : 20,
+    discount_type: null,
+    discount_value: 0,
+    line_type: lineType,
     total_ht: 0,
     sort_order: sortOrder,
   }
+}
+
+function computeLineTotal(qty: number, unitPrice: number, discountType: string | null, discountValue: number): number {
+  const gross = qty * unitPrice
+  if (!discountType || !discountValue) return Math.round(gross * 100) / 100
+  if (discountType === 'percent') return Math.round(gross * (1 - discountValue / 100) * 100) / 100
+  return Math.round(Math.max(0, gross - discountValue) * 100) / 100
 }
 
 export function QuoteDetailPage() {
@@ -48,6 +61,8 @@ export function QuoteDetailPage() {
 
   const createQuote = useCreateQuote()
   const updateQuote = useUpdateQuote()
+  const { data: templates } = useQuoteTemplates()
+  const createTemplate = useCreateQuoteTemplate()
   const saveLines = useSaveQuoteLines()
   const profile = useAppStore((s) => s.profile)
 
@@ -55,6 +70,8 @@ export function QuoteDetailPage() {
   const { data: clientCampaigns } = useClientCampaigns(clientId || undefined)
   const [campaignId, setCampaignId] = useState('')
   const [notes, setNotes] = useState('')
+  const [clientReference, setClientReference] = useState('')
+  const [issuedAt, setIssuedAt] = useState(new Date().toISOString().split('T')[0])
   const [validUntil, setValidUntil] = useState('')
   const [lines, setLines] = useState<EditableLine[]>([newLine(0)])
   const [saving, setSaving] = useState(false)
@@ -71,6 +88,8 @@ export function QuoteDetailPage() {
       setClientId(quote.client_id)
       setCampaignId(quote.campaign_id ?? '')
       setNotes(quote.notes ?? '')
+      setClientReference(quote.client_reference ?? '')
+      setIssuedAt(quote.issued_at?.split('T')[0] ?? new Date().toISOString().split('T')[0])
       setValidUntil(quote.valid_until?.split('T')[0] ?? '')
     }
   }, [quote])
@@ -102,14 +121,14 @@ export function QuoteDetailPage() {
     }
   }, [isNew, validUntil])
 
-  function updateLine(key: string, field: keyof EditableLine, value: string | number) {
+  function updateLine(key: string, field: keyof EditableLine, value: string | number | null) {
     if (isLocked) return
     setLines((prev) =>
       prev.map((l) => {
         if (l._key !== key) return l
         const updated = { ...l, [field]: value }
-        if (field === 'quantity' || field === 'unit_price') {
-          updated.total_ht = Math.round(updated.quantity * updated.unit_price * 100) / 100
+        if (['quantity', 'unit_price', 'discount_type', 'discount_value'].includes(field)) {
+          updated.total_ht = computeLineTotal(updated.quantity, updated.unit_price, updated.discount_type, updated.discount_value)
         }
         return updated
       }),
@@ -121,24 +140,22 @@ export function QuoteDetailPage() {
     setLines((prev) => [...prev, newLine(prev.length)])
   }
 
-  function addFromCatalog(serviceId: string) {
+  function updateLineFromCatalog(key: string, selection: { service_catalog_id: string; description: string; unit: string; unit_price: number; tva_rate: number }) {
     if (isLocked) return
-    const service = services?.find((s) => s.id === serviceId)
-    if (!service) return
-    setLines((prev) => [
-      ...prev,
-      {
-        _key: crypto.randomUUID(),
-        service_catalog_id: service.id,
-        description: service.name,
-        quantity: 1,
-        unit: service.unit,
-        unit_price: service.default_unit_price,
-        tva_rate: service.default_tva_rate,
-        total_ht: service.default_unit_price,
-        sort_order: prev.length,
-      },
-    ])
+    setLines((prev) =>
+      prev.map((l) => {
+        if (l._key !== key) return l
+        return {
+          ...l,
+          service_catalog_id: selection.service_catalog_id,
+          description: selection.description,
+          unit: selection.unit,
+          unit_price: selection.unit_price,
+          tva_rate: selection.tva_rate,
+          total_ht: Math.round(l.quantity * selection.unit_price * 100) / 100,
+        }
+      }),
+    )
   }
 
   function duplicateLine(key: string) {
@@ -154,6 +171,28 @@ export function QuoteDetailPage() {
   function removeLine(key: string) {
     if (isLocked) return
     setLines((prev) => prev.filter((l) => l._key !== key))
+  }
+
+  function moveLineUp(key: string) {
+    if (isLocked) return
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => l._key === key)
+      if (idx <= 0) return prev
+      const next = [...prev]
+      ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
+      return next
+    })
+  }
+
+  function moveLineDown(key: string) {
+    if (isLocked) return
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => l._key === key)
+      if (idx === -1 || idx >= prev.length - 1) return prev
+      const next = [...prev]
+      ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
+      return next
+    })
   }
 
   const totals = useMemo(() => {
@@ -203,7 +242,10 @@ export function QuoteDetailPage() {
           // Fallback to client-side numbering
           const prefix = settings?.quote_prefix ?? 'D'
           const nextNum = settings?.next_quote_number ?? 1
-          finalNumber = `${prefix}-${new Date().getFullYear()}-${String(nextNum).padStart(3, '0')}`
+          const now = new Date()
+          const yy = String(now.getFullYear() % 100).padStart(2, '0')
+          const mm = String(now.getMonth() + 1).padStart(2, '0')
+          finalNumber = `${prefix}-${yy}${mm}-${String(nextNum).padStart(4, '0')}`
         } else {
           finalNumber = quoteNumber
         }
@@ -213,9 +255,10 @@ export function QuoteDetailPage() {
           client_id: clientId,
           campaign_id: campaignId,
           status: 'draft',
-          issued_at: new Date().toISOString(),
+          issued_at: issuedAt || new Date().toISOString().split('T')[0],
           valid_until: validUntil || new Date(Date.now() + 30 * 86400000).toISOString(),
           notes: notes || null,
+          client_reference: clientReference || null,
           created_by: profile?.id ?? null,
         })
         quoteId = result.id
@@ -225,6 +268,7 @@ export function QuoteDetailPage() {
           client_id: clientId,
           campaign_id: campaignId,
           notes: notes || null,
+          client_reference: clientReference || null,
           valid_until: validUntil || undefined,
         })
       }
@@ -242,6 +286,9 @@ export function QuoteDetailPage() {
             unit_price: l.unit_price,
             tva_rate: l.tva_rate,
             total_ht: l.total_ht,
+            discount_type: l.discount_type ?? null,
+            discount_value: l.discount_value ?? 0,
+            line_type: l.line_type ?? 'item',
             sort_order: i,
           })),
       })
@@ -274,7 +321,12 @@ export function QuoteDetailPage() {
       const blob = await pdf(
         <QuotePDF
           quote={quote}
-          client={clientData}
+          contactName={profile?.full_name}
+          client={{
+            ...clientData,
+            email: clientData.contact_email,
+            phone: clientData.contact_phone,
+          }}
           lines={lines.filter((l) => l.description.trim()).map((l) => ({
             description: l.description,
             quantity: l.quantity,
@@ -289,6 +341,7 @@ export function QuoteDetailPage() {
               ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
               : null,
           }}
+          termsHtml={settings.terms_and_conditions}
         />,
       ).toBlob()
       saveAs(blob, `${quote.quote_number}.pdf`)
@@ -306,7 +359,12 @@ export function QuoteDetailPage() {
       const blob = await pdf(
         <QuotePDF
           quote={quote}
-          client={clientData}
+          contactName={profile?.full_name}
+          client={{
+            ...clientData,
+            email: clientData.contact_email,
+            phone: clientData.contact_phone,
+          }}
           lines={lines.filter((l) => l.description.trim()).map((l) => ({
             description: l.description,
             quantity: l.quantity,
@@ -321,6 +379,7 @@ export function QuoteDetailPage() {
               ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
               : null,
           }}
+          termsHtml={settings.terms_and_conditions}
         />,
       ).toBlob()
       const url = URL.createObjectURL(blob)
@@ -328,6 +387,105 @@ export function QuoteDetailPage() {
     } catch {
       toast('Erreur lors de la génération du PDF', 'error')
     }
+  }
+
+  async function handleDuplicate() {
+    if (!quote || !settings) return
+    setSaving(true)
+    try {
+      const { data: num, error: rpcError } = await supabase.rpc('get_next_quote_number')
+      let finalNumber: string
+      if (rpcError || !num) {
+        const prefix = settings.quote_prefix ?? 'D'
+        const nextNum = settings.next_quote_number ?? 1
+        const now = new Date()
+        const yy = String(now.getFullYear() % 100).padStart(2, '0')
+        const mm = String(now.getMonth() + 1).padStart(2, '0')
+        finalNumber = `${prefix}-${yy}${mm}-${String(nextNum).padStart(4, '0')}`
+      } else {
+        finalNumber = num
+      }
+
+      const result = await createQuote.mutateAsync({
+        quote_number: finalNumber,
+        client_id: clientId,
+        campaign_id: campaignId || null,
+        status: 'draft',
+        issued_at: new Date().toISOString().split('T')[0],
+        valid_until: new Date(Date.now() + 30 * 86400000).toISOString(),
+        notes: notes || null,
+        client_reference: clientReference || null,
+        created_by: profile?.id ?? null,
+      })
+
+      await saveLines.mutateAsync({
+        quoteId: result.id,
+        lines: lines.filter((l) => l.description.trim()).map((l, i) => ({
+          quote_id: result.id,
+          service_catalog_id: l.service_catalog_id ?? null,
+          description: l.description,
+          quantity: l.quantity,
+          unit: l.unit,
+          unit_price: l.unit_price,
+          tva_rate: l.tva_rate,
+          discount_type: l.discount_type ?? null,
+          discount_value: l.discount_value ?? 0,
+          line_type: l.line_type ?? 'item',
+          total_ht: l.total_ht,
+          sort_order: i,
+        })),
+      })
+
+      toast('Devis dupliqué')
+      navigate(`/admin/quotes/${result.id}`)
+    } catch {
+      toast('Erreur lors de la duplication', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSaveAsTemplate() {
+    const name = window.prompt('Nom du modèle :')
+    if (!name?.trim()) return
+    try {
+      const templateLines: TemplateLine[] = lines
+        .filter((l) => l.description.trim())
+        .map((l) => ({
+          description: l.description,
+          quantity: l.quantity,
+          unit: l.unit,
+          unit_price: l.unit_price,
+          tva_rate: l.tva_rate,
+          discount_type: l.discount_type ?? null,
+          discount_value: l.discount_value ?? 0,
+        }))
+      await createTemplate.mutateAsync({ name: name.trim(), lines: templateLines, notes: notes || null })
+      toast('Modèle enregistré')
+    } catch {
+      toast('Erreur', 'error')
+    }
+  }
+
+  function handleLoadTemplate(templateId: string) {
+    const tpl = templates?.find((t) => t.id === templateId)
+    if (!tpl) return
+    setLines(tpl.lines.map((l, i) => ({
+      _key: crypto.randomUUID(),
+      service_catalog_id: null,
+      description: l.description,
+      quantity: l.quantity,
+      unit: l.unit,
+      unit_price: l.unit_price,
+      tva_rate: l.tva_rate,
+      discount_type: l.discount_type ?? null,
+      discount_value: l.discount_value ?? 0,
+      line_type: 'item' as const,
+      total_ht: computeLineTotal(l.quantity, l.unit_price, l.discount_type, l.discount_value ?? 0),
+      sort_order: i,
+    })))
+    if (tpl.notes) setNotes(tpl.notes)
+    toast(`Modèle "${tpl.name}" chargé`)
   }
 
   if (!isNew && (quoteLoading || linesLoading)) {
@@ -339,7 +497,6 @@ export function QuoteDetailPage() {
   }
 
   const activeClients = clients?.filter((c) => c.is_active) ?? []
-  const activeServices = services?.filter((s) => s.is_active) ?? []
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -355,12 +512,25 @@ export function QuoteDetailPage() {
         </div>
         {!isNew && quote && (
           <>
+            <Button size="sm" variant="outline" onClick={handleDuplicate} disabled={saving}>
+              <Copy className="mr-1.5 size-3.5" /> Dupliquer
+            </Button>
+            {quote.public_token && (
+              <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/view/${quote.public_token}`); toast('Lien copié') }}>
+                <ExternalLink className="mr-1 size-3.5" /> Lien
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={handlePreviewPDF}>
               <Eye className="mr-1.5 size-3.5" /> Aperçu
             </Button>
             <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
               <Download className="mr-1.5 size-3.5" /> PDF
             </Button>
+            {['converted', 'cancelled', 'rejected'].includes(quote.status) && !quote.is_archived && (
+              <Button size="sm" variant="ghost" onClick={() => updateQuote.mutateAsync({ id: id!, is_archived: true }).then(() => toast('Devis archivé'))}>
+                Archiver
+              </Button>
+            )}
             <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'}>
               {QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.label ?? quote.status}
             </Badge>
@@ -401,9 +571,14 @@ export function QuoteDetailPage() {
           </Button>
         </div>
       )}
+      {!isNew && quote?.status === 'sent' && quote.valid_until && new Date(quote.valid_until) < new Date() && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
+          Ce devis a expiré le {new Date(quote.valid_until).toLocaleDateString('fr-FR')}. Vous pouvez le dupliquer pour créer un nouveau devis.
+        </div>
+      )}
       {!isNew && quote?.status === 'sent' && (
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => handleStatusChange('accepted')}>
+          <Button size="sm" onClick={() => handleStatusChange('accepted')} disabled={!!(quote.valid_until && new Date(quote.valid_until) < new Date())}>
             <Check className="mr-1.5 size-3.5" /> Accepter
           </Button>
           <Button size="sm" variant="destructive" onClick={() => handleStatusChange('rejected')}>
@@ -462,12 +637,32 @@ export function QuoteDetailPage() {
             </select>
           </div>
           <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Date d'émission</label>
+            <Input
+              type="date"
+              value={issuedAt}
+              onChange={(e) => setIssuedAt(e.target.value)}
+              disabled={isLocked}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Valide jusqu'au</label>
             <Input
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
               disabled={isLocked}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Réf. dossier / N° commande</label>
+            <Input
+              value={clientReference}
+              onChange={(e) => setClientReference(e.target.value)}
+              disabled={isLocked}
+              placeholder="Ex: 25090548"
               className="text-sm"
             />
           </div>
@@ -492,24 +687,27 @@ export function QuoteDetailPage() {
             <p className="text-sm font-semibold">Lignes du devis</p>
             {!isLocked && (
               <div className="flex gap-2">
-                {activeServices.length > 0 && (
+                {templates && templates.length > 0 && (
                   <select
-                    onChange={(e) => {
-                      if (e.target.value) addFromCatalog(e.target.value)
-                      e.target.value = ''
-                    }}
+                    onChange={(e) => { if (e.target.value) handleLoadTemplate(e.target.value); e.target.value = '' }}
                     className="h-7 rounded-md border border-input bg-background px-2 text-xs"
                   >
                     <option value="">
-                      Depuis catalogue...
+                      <Bookmark className="inline size-3" /> Modèles...
                     </option>
-                    {activeServices.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.default_unit_price}€)
-                      </option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.lines.length} lignes)</option>
                     ))}
                   </select>
                 )}
+                {lines.some((l) => l.description.trim()) && (
+                  <Button size="sm" variant="ghost" onClick={handleSaveAsTemplate} className="h-7 text-xs">
+                    <BookmarkPlus className="mr-1 size-3" /> Sauver modèle
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setLines((prev) => [...prev, newLine(prev.length, 'section')])} className="h-7 text-xs">
+                  + Section
+                </Button>
                 <Button size="sm" variant="outline" onClick={addLine}>
                   <Plus className="mr-1 size-3.5" /> Ligne
                 </Button>
@@ -525,22 +723,23 @@ export function QuoteDetailPage() {
                   <th className="min-w-[200px] px-2 py-2 font-medium text-muted-foreground">Description</th>
                   <th className="w-20 px-2 py-2 font-medium text-muted-foreground">Qté</th>
                   <th className="w-24 px-2 py-2 font-medium text-muted-foreground">Unité</th>
-                  <th className="w-28 px-2 py-2 font-medium text-muted-foreground">PU HT</th>
-                  <th className="w-24 px-2 py-2 font-medium text-muted-foreground">TVA %</th>
-                  <th className="w-28 px-2 py-2 text-right font-medium text-muted-foreground">Total HT</th>
-                  {!isLocked && <th className="w-16" />}
+                  <th className="w-24 px-2 py-2 font-medium text-muted-foreground">PU HT</th>
+                  <th className="w-28 px-2 py-2 font-medium text-muted-foreground">Remise</th>
+                  <th className="w-20 px-2 py-2 font-medium text-muted-foreground">TVA %</th>
+                  <th className="w-24 px-2 py-2 text-right font-medium text-muted-foreground">Total HT</th>
+                  {!isLocked && <th className="w-20" />}
                 </tr>
               </thead>
               <tbody>
                 {lines.map((line) => (
                   <tr key={line._key} className="border-b border-border/50">
                     <td className="px-2 py-1.5">
-                      <Input
+                      <LineDescriptionEditor
                         value={line.description}
-                        onChange={(e) => updateLine(line._key, 'description', e.target.value)}
-                        placeholder="Description..."
+                        onChange={(v) => updateLine(line._key, 'description', v)}
+                        onSelectCatalog={(sel) => updateLineFromCatalog(line._key, sel)}
+                        services={services ?? undefined}
                         disabled={isLocked}
-                        className="h-8 text-sm"
                       />
                     </td>
                     <td className="px-2 py-1.5">
@@ -574,6 +773,34 @@ export function QuoteDetailPage() {
                       />
                     </td>
                     <td className="px-2 py-1.5">
+                      <div className="flex gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={line.discount_value || ''}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0
+                            if (!line.discount_type && val > 0) updateLine(line._key, 'discount_type', 'percent')
+                            updateLine(line._key, 'discount_value', val)
+                          }}
+                          disabled={isLocked}
+                          placeholder="—"
+                          className="h-8 w-16 text-sm"
+                        />
+                        <select
+                          value={line.discount_type ?? ''}
+                          onChange={(e) => updateLine(line._key, 'discount_type', e.target.value || null)}
+                          disabled={isLocked}
+                          className="h-8 w-12 rounded-md border border-input bg-background px-1 text-xs disabled:opacity-50"
+                        >
+                          <option value="">—</option>
+                          <option value="percent">%</option>
+                          <option value="amount">€</option>
+                        </select>
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5">
                       <select
                         value={line.tva_rate}
                         onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))}
@@ -592,6 +819,20 @@ export function QuoteDetailPage() {
                     {!isLocked && (
                       <td className="px-2 py-1.5">
                         <div className="flex gap-0.5">
+                          <button
+                            onClick={() => moveLineUp(line._key)}
+                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Monter"
+                          >
+                            <ChevronUp className="size-3.5" />
+                          </button>
+                          <button
+                            onClick={() => moveLineDown(line._key)}
+                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Descendre"
+                          >
+                            <ChevronDown className="size-3.5" />
+                          </button>
                           <button
                             onClick={() => duplicateLine(line._key)}
                             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -647,6 +888,9 @@ export function QuoteDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Attachments */}
+      {!isNew && <DocumentAttachments documentType="quote" documentId={id} disabled={isLocked} />}
 
       {/* Save */}
       {!isLocked && (

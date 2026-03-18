@@ -25,6 +25,56 @@ export function useInvoices() {
   })
 }
 
+const PAGE_SIZE = 25
+
+export function usePaginatedInvoices(
+  page: number,
+  search: string,
+  status: string,
+  sort: string,
+  showArchived: boolean,
+) {
+  return useQuery({
+    queryKey: ['invoices', 'paginated', page, search, status, sort, showArchived],
+    queryFn: async () => {
+      // Auto-mark overdue
+      await supabase
+        .from('invoices')
+        .update({ status: 'overdue', updated_at: new Date().toISOString() })
+        .eq('status', 'sent')
+        .lt('due_at', new Date().toISOString().split('T')[0])
+
+      let query = supabase
+        .from('invoices')
+        .select('*, clients(company_name)', { count: 'exact' })
+
+      if (!showArchived) query = query.eq('is_archived', false)
+      if (status && status !== 'all') query = query.eq('status', status as 'draft')
+      if (search.trim()) {
+        const q = `%${search.trim()}%`
+        query = query.or(`invoice_number.ilike.${q}`)
+      }
+
+      switch (sort) {
+        case 'oldest': query = query.order('issued_at', { ascending: true }); break
+        case 'due_date': query = query.order('due_at', { ascending: true }); break
+        case 'amount_desc': query = query.order('total_ttc', { ascending: false }); break
+        case 'amount_asc': query = query.order('total_ttc', { ascending: true }); break
+        case 'number': query = query.order('invoice_number', { ascending: true }); break
+        default: query = query.order('created_at', { ascending: false }); break
+      }
+
+      const from = page * PAGE_SIZE
+      query = query.range(from, from + PAGE_SIZE - 1)
+
+      const { data, error, count } = await query
+      if (error) throw error
+      return { invoices: data as unknown as InvoiceWithClient[], total: count ?? 0 }
+    },
+    placeholderData: (prev) => prev,
+  })
+}
+
 export function useInvoice(id: string | undefined) {
   return useQuery({
     queryKey: ['invoices', id],
@@ -60,7 +110,7 @@ export function useInvoiceLines(invoiceId: string | undefined) {
 export function useCreateInvoice() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (invoice: Omit<Invoice, 'id' | 'created_at' | 'updated_at' | 'total_ht' | 'total_tva' | 'total_ttc'>) => {
+    mutationFn: async (invoice: Omit<Invoice, 'id' | 'created_at' | 'updated_at' | 'total_ht' | 'total_tva' | 'total_ttc' | 'is_archived' | 'include_terms' | 'currency' | 'custom_fields' | 'public_token'>) => {
       const { data, error } = await supabase
         .from('invoices')
         .insert(invoice)
@@ -92,6 +142,25 @@ export function useUpdateInvoice() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
       queryClient.invalidateQueries({ queryKey: ['invoices', data.id] })
     },
+  })
+}
+
+/** Fetch deposit (acompte) invoices for a given campaign — used to compute balance for solde invoices */
+export function useCampaignDepositInvoices(campaignId: string | undefined) {
+  return useQuery({
+    queryKey: ['campaign-deposit-invoices', campaignId],
+    queryFn: async (): Promise<Invoice[]> => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('campaign_id', campaignId!)
+        .eq('invoice_type', 'acompte')
+        .neq('status', 'cancelled')
+        .order('created_at')
+      if (error) throw error
+      return data as Invoice[]
+    },
+    enabled: !!campaignId,
   })
 }
 

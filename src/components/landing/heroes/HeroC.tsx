@@ -43,8 +43,8 @@ export function HeroC() {
             transition={{ duration: 0.8, delay: 0.6 }}
             className="mt-8 max-w-sm text-[15px] leading-relaxed text-white/50 md:text-[#6B7280] md:dark:text-white/60"
           >
-            Taxi, table, boulangerie, pharmacie.
-            Des supports captifs déployés partout en France.
+            5 familles de supports captifs, deployes partout en France.
+            Du terrain au digital, on touche votre cible au bon moment.
           </motion.p>
 
           <motion.div
@@ -54,10 +54,10 @@ export function HeroC() {
             className="mt-10 flex flex-wrap gap-3"
           >
             <a
-              href="#supports"
+              href="#solutions"
               className="rounded-full bg-[#F5C400] px-6 py-3 text-[13px] font-medium text-[#0A0A0A] transition-all hover:shadow-[0_0_24px_rgba(245,196,0,0.25)]"
             >
-              Découvrir nos supports
+              Decouvrir nos solutions
             </a>
             <a
               href="#contact"
@@ -75,7 +75,7 @@ export function HeroC() {
             className="mt-20 flex gap-10 border-t border-white/[0.06] md:border-[#E5E5E5] md:dark:border-white/[0.06] pt-8"
           >
             {[
-              { value: '6', label: 'supports' },
+              { value: '5', label: 'familles de supports' },
               { value: '100%', label: 'preuve de passage' },
               { value: '5j', label: 'brief → terrain' },
             ].map((stat) => (

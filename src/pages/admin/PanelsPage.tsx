@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Search, Filter, Loader2, PanelTop, ChevronLeft, ChevronRight, Megaphone, Download } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
-import { usePanelFormats } from '@/hooks/admin/usePanelFormats'
+import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
 import type { PanelWithLocation } from '@/types'
 
 const PAGE_SIZE = 25
@@ -36,7 +36,7 @@ function usePaginatedPanels(
         query = query.or(`reference.ilike.${q},city.ilike.${q},name.ilike.${q},address.ilike.${q}`)
       }
       if (status !== 'all') query = query.eq('status', status)
-      if (format) query = query.eq('format', format)
+      if (format) query = query.eq('type', format)
 
       const { data, error, count } = await query
       if (error) throw error
@@ -71,7 +71,7 @@ export function PanelsPage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const { data: panelFormats } = usePanelFormats()
+  const { data: panelTypes } = usePanelTypes()
   const { data, isLoading } = usePaginatedPanels(page, debouncedSearch, statusFilter, formatFilter, sortCol, sortAsc)
 
   const panels = data?.panels ?? []
@@ -105,20 +105,19 @@ export function PanelsPage() {
     return <span className="ml-1 text-xs">{sortAsc ? '↑' : '↓'}</span>
   }
 
-  const formats = useMemo(() => {
-    return panelFormats?.filter((f) => f.is_active).map((f) => f.name) ?? []
-  }, [panelFormats])
+  const typeNames = useMemo(() => {
+    return panelTypes?.filter((t) => t.is_active).map((t) => t.name) ?? []
+  }, [panelTypes])
 
   // CSV export
   function handleExportCSV() {
     if (!panels.length) return
-    const headers = ['Nom', 'Référence', 'Ville', 'Adresse', 'Format', 'Type', 'Statut', 'Campagne', 'Mis à jour']
+    const headers = ['Nom', 'Référence', 'Ville', 'Adresse', 'Type', 'Statut', 'Campagne', 'Mis à jour']
     const rows = panels.map((p) => [
       p.name || '',
       p.reference,
       p.city || '',
       p.address || '',
-      p.format || '',
       p.type || '',
       PANEL_STATUS_CONFIG[p.status as PanelStatus]?.label ?? p.status,
       panelCampaigns.has(p.id) ? 'Oui' : 'Non',
@@ -191,9 +190,9 @@ export function PanelsPage() {
           onChange={(e) => { setFormatFilter(e.target.value); resetPage() }}
           className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
-          <option value="">Tous les formats</option>
-          {formats.map((f) => (
-            <option key={f} value={f}>{f}</option>
+          <option value="">Tous les types</option>
+          {typeNames.map((t) => (
+            <option key={t} value={t}>{t}</option>
           ))}
         </select>
       </div>
@@ -221,7 +220,7 @@ export function PanelsPage() {
                     Ville<SortIcon col="city" />
                   </th>
                   <th className="hidden cursor-pointer px-4 py-3 text-left font-medium lg:table-cell" onClick={() => handleSort('format')}>
-                    Format<SortIcon col="format" />
+                    Type<SortIcon col="format" />
                   </th>
                   <th className="cursor-pointer px-4 py-3 text-left font-medium" onClick={() => handleSort('status')}>
                     Statut<SortIcon col="status" />
@@ -252,7 +251,7 @@ export function PanelsPage() {
                       {panel.city || '—'}
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-                      {panel.format || '—'}
+                      {panel.type || '—'}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={panel.status as PanelStatus} />

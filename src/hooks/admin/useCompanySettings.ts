@@ -21,6 +21,9 @@ export interface CompanySettings {
   potential_prefix: string
   next_potential_number: number
   legal_mentions: string | null
+  default_panel_type_id: string | null
+  late_penalty_text: string | null
+  terms_and_conditions: string | null
 }
 
 /**

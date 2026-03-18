@@ -4,7 +4,8 @@ import { SmoothScroll } from '@/components/landing/SmoothScroll'
 import { HeroC } from '@/components/landing/heroes/HeroC'
 import { TrustSection } from '@/components/landing/TrustSection'
 import { ConceptSection } from '@/components/landing/ConceptSection'
-import { SupportsB } from '@/components/landing/supports/SupportsB'
+import { FamillesSection } from '@/components/landing/FamillesSection'
+import { DigitalSection } from '@/components/landing/DigitalSection'
 import { ProcessC } from '@/components/landing/process/ProcessC'
 import { WhyUsSection } from '@/components/landing/WhyUsSection'
 import { ContactSection } from '@/components/landing/ContactSection'
@@ -14,17 +15,17 @@ export function LandingPage() {
   return (
     <>
       <Helmet>
-        <title>OOH MY AD ! — Publicité de proximité captive partout en France</title>
+        <title>OOHMYAD — Publicite captive partout en France</title>
         <meta
           name="description"
-          content="Diffusez votre campagne sur des supports captifs : sacs de boulangerie, pharmacies, taxis, sets de table, sous-bocks. Réseau national. Brief → terrain en 5 jours."
+          content="5 familles de supports publicitaires captifs : affichage de proximite, medias tactiques, reseaux ville & estival, animation terrain, digital. Partout en France."
         />
-        <meta property="og:title" content="OOH MY AD ! — Votre pub là où les gens s'arrêtent" />
+        <meta property="og:title" content="OOHMYAD — Votre pub la ou les gens s'arretent" />
         <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://oohmyad.com/images/supports/hero.png" />
+        <meta property="og:image" content="https://oohmyad.com/og-image.jpg" />
         <meta
           property="og:description"
-          content="6 supports de proximité captifs déployés partout en France."
+          content="5 familles de supports captifs deployes partout en France. Du terrain au digital."
         />
         <meta property="og:url" content="https://oohmyad.com" />
         <link rel="canonical" href="https://oohmyad.com" />
@@ -36,7 +37,8 @@ export function LandingPage() {
           <HeroC />
           <TrustSection />
           <ConceptSection />
-          <SupportsB />
+          <FamillesSection />
+          <DigitalSection />
           <ProcessC />
           <WhyUsSection />
           <ContactSection />

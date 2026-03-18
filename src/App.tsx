@@ -16,6 +16,7 @@ import { InstallBanner } from '@/components/shared/InstallBanner'
 // Lazy loaded pages
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
+const PublicDocumentPage = lazy(() => import('@/pages/public/PublicDocumentPage').then((m) => ({ default: m.PublicDocumentPage })))
 const LandingPage = lazy(() => import('@/pages/landing/LandingPage').then((m) => ({ default: m.LandingPage })))
 
 // Operator pages
@@ -149,6 +150,9 @@ export default function App() {
                   <Route path="settings" element={<SettingsPage />} />
                 </Route>
               </Route>
+
+              {/* Public portal */}
+              <Route path="/view/:token" element={<PublicDocumentPage />} />
 
               {/* 404 */}
               <Route path="*" element={<NotFoundPage />} />

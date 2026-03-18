@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useCompanySettings, useUpdateCompanySettings, type CompanySettings } from '@/hooks/admin/useCompanySettings'
-import { usePanelFormats, useCreatePanelFormat, useUpdatePanelFormat } from '@/hooks/admin/usePanelFormats'
+import { usePanelTypes, useCreatePanelType, useDeletePanelType } from '@/hooks/admin/usePanelTypes'
 import { useServiceCatalog, useCreateServiceItem, useUpdateServiceItem } from '@/hooks/admin/useServiceCatalog'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,14 +9,16 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { Loader2, Plus, Building2, FileText, Ruler, Package, Upload, Pencil, Check, X } from 'lucide-react'
+import { Loader2, Plus, Building2, FileText, Ruler, Package, Upload, Pencil, Check, X, Star, ScrollText } from 'lucide-react'
+
+const RichTextEditor = lazy(() => import('@/components/admin/RichTextEditor').then((m) => ({ default: m.RichTextEditor })))
 
 export function SettingsPage() {
   const { data: settings, isLoading } = useCompanySettings()
   const updateSettings = useUpdateCompanySettings()
-  const { data: formats } = usePanelFormats()
-  const createFormat = useCreatePanelFormat()
-  const updateFormat = useUpdatePanelFormat()
+  const { data: panelTypes } = usePanelTypes()
+  const createType = useCreatePanelType()
+  const deleteType = useDeletePanelType()
   const { data: services } = useServiceCatalog()
   const createService = useCreateServiceItem()
   const updateService = useUpdateServiceItem()
@@ -43,7 +45,7 @@ export function SettingsPage() {
     if (!settings) return false
     const keys: (keyof CompanySettings)[] = [
       'company_name', 'address', 'city', 'postal_code', 'siret', 'tva_number',
-      'email', 'phone', 'iban', 'bic', 'quote_prefix', 'invoice_prefix', 'legal_mentions',
+      'email', 'phone', 'iban', 'bic', 'quote_prefix', 'invoice_prefix', 'legal_mentions', 'late_penalty_text', 'terms_and_conditions',
     ]
     return keys.some((k) => (form[k] ?? '') !== (settings[k] ?? ''))
   }, [form, settings])
@@ -96,6 +98,8 @@ export function SettingsPage() {
         quote_prefix: form.quote_prefix,
         invoice_prefix: form.invoice_prefix,
         legal_mentions: form.legal_mentions,
+        late_penalty_text: form.late_penalty_text,
+        terms_and_conditions: form.terms_and_conditions,
       })
       setErrors({})
       toast('Paramètres enregistrés')
@@ -125,17 +129,39 @@ export function SettingsPage() {
     }
   }
 
-  // New format
-  const [newFormat, setNewFormat] = useState('')
+  // New panel type
+  const [newTypeName, setNewTypeName] = useState('')
 
-  async function addFormat() {
-    if (!newFormat.trim()) return
+  async function addType() {
+    if (!newTypeName.trim()) return
     try {
-      await createFormat.mutateAsync({ name: newFormat.trim() })
-      setNewFormat('')
-      toast('Format ajouté')
+      await createType.mutateAsync({ name: newTypeName.trim() })
+      setNewTypeName('')
+      toast('Type ajouté')
     } catch {
       toast('Erreur (nom peut-être déjà utilisé)', 'error')
+    }
+  }
+
+  async function handleDeleteType(id: string) {
+    try {
+      await deleteType.mutateAsync(id)
+      // If the deleted type was the default, clear the default
+      if (settings?.default_panel_type_id === id) {
+        await updateSettings.mutateAsync({ default_panel_type_id: null })
+      }
+      toast('Type supprimé')
+    } catch {
+      toast('Erreur lors de la suppression', 'error')
+    }
+  }
+
+  async function setDefaultType(id: string | null) {
+    try {
+      await updateSettings.mutateAsync({ default_panel_type_id: id })
+      toast(id ? 'Type par défaut défini' : 'Type par défaut retiré')
+    } catch {
+      toast('Erreur', 'error')
     }
   }
 
@@ -185,17 +211,11 @@ export function SettingsPage() {
     }
   }
 
-  // Sorted formats: active first, then inactive
-  const sortedFormats = useMemo(() => {
-    if (!formats) return []
-    return [...formats].sort((a, b) => {
-      if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
-      return a.name.localeCompare(b.name)
-    })
-  }, [formats])
-
-  const activeFormatsCount = sortedFormats.filter((f) => f.is_active).length
-  const inactiveFormatsCount = sortedFormats.length - activeFormatsCount
+  // Panel types: only show active ones (soft-deleted are hidden)
+  const activeTypes = useMemo(() => {
+    if (!panelTypes) return []
+    return panelTypes.filter((t) => t.is_active).sort((a, b) => a.name.localeCompare(b.name))
+  }, [panelTypes])
 
   const field = (key: keyof CompanySettings, label: string, placeholder?: string, type?: string) => (
     <div className="space-y-1">
@@ -305,6 +325,17 @@ export function SettingsPage() {
               />
             </div>
 
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Pénalités de retard (affiché sur les PDF)</label>
+              <textarea
+                value={form.late_penalty_text ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, late_penalty_text: e.target.value }))}
+                rows={3}
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                placeholder="Pénalités de retard : selon articles L.441-10 et suivants du code du commerce, taux appliqué : 12,15% par an. Une indemnité forfaitaire de 40 € sera due de plein droit dès le premier jour de retard de paiement (Article D. 441-5 du code du commerce)."
+              />
+            </div>
+
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={savingCompany || !isDirty}>
                 {savingCompany && <Loader2 className="mr-2 size-3.5 animate-spin" />}
@@ -318,57 +349,58 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Panel Formats */}
+      {/* Panel Types */}
       <Card>
         <CardContent className="space-y-4 pt-6">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Ruler className="size-4" />
-            Formats de panneaux
+            Types de panneaux
             <span className="text-xs font-normal text-muted-foreground">
-              {activeFormatsCount} actif{activeFormatsCount !== 1 ? 's' : ''}{inactiveFormatsCount > 0 && `, ${inactiveFormatsCount} inactif${inactiveFormatsCount !== 1 ? 's' : ''}`}
+              {activeTypes.length} type{activeTypes.length !== 1 ? 's' : ''}
             </span>
           </div>
 
-          {/* Active formats */}
-          <div className="flex flex-wrap gap-2">
-            {sortedFormats.filter((f) => f.is_active).map((f) => (
-              <button
-                key={f.id}
-                onClick={() => updateFormat.mutate({ id: f.id, is_active: false })}
-                className="rounded-full border border-foreground bg-foreground px-3 py-1 text-xs font-medium text-background transition-colors"
-              >
-                {f.name}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Cliquez sur l'étoile pour définir le type par défaut. Survolez pour supprimer.
+          </p>
 
-          {/* Inactive formats */}
-          {inactiveFormatsCount > 0 && (
-            <>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Inactifs</p>
-              <div className="flex flex-wrap gap-2">
-                {sortedFormats.filter((f) => !f.is_active).map((f) => (
+          <div className="flex flex-wrap gap-2">
+            {activeTypes.map((t) => {
+              const isDefault = settings?.default_panel_type_id === t.id
+              return (
+                <div
+                  key={t.id}
+                  className="group relative flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium transition-colors hover:border-foreground/30"
+                >
                   <button
-                    key={f.id}
-                    onClick={() => updateFormat.mutate({ id: f.id, is_active: true })}
-                    className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground line-through transition-colors"
+                    onClick={() => setDefaultType(isDefault ? null : t.id)}
+                    className="mr-0.5"
+                    title={isDefault ? 'Retirer le défaut' : 'Définir par défaut'}
                   >
-                    {f.name}
+                    <Star className={`size-3 ${isDefault ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/40 hover:text-yellow-400'}`} />
                   </button>
-                ))}
-              </div>
-            </>
-          )}
+                  <span>{t.name}</span>
+                  <button
+                    onClick={() => handleDeleteType(t.id)}
+                    className="ml-0.5 hidden text-red-500 hover:text-red-400 group-hover:inline-flex"
+                    title="Supprimer ce type"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
 
           <div className="flex gap-2">
             <Input
-              value={newFormat}
-              onChange={(e) => setNewFormat(e.target.value)}
-              placeholder="Nouveau format..."
+              value={newTypeName}
+              onChange={(e) => setNewTypeName(e.target.value)}
+              placeholder="Nouveau type..."
               className="max-w-xs text-sm"
-              onKeyDown={(e) => e.key === 'Enter' && addFormat()}
+              onKeyDown={(e) => e.key === 'Enter' && addType()}
             />
-            <Button size="sm" variant="outline" onClick={addFormat} disabled={createFormat.isPending}>
+            <Button size="sm" variant="outline" onClick={addType} disabled={createType.isPending}>
               <Plus className="mr-1 size-3.5" />
               Ajouter
             </Button>
@@ -483,6 +515,39 @@ export function SettingsPage() {
               <Plus className="mr-1 size-3.5" />
               Ajouter
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* CGV */}
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <ScrollText className="size-4" />
+            Conditions générales de vente
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Éditez vos CGV ci-dessous. Elles seront ajoutées en page 2 des devis et factures (si activé).
+          </p>
+          <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="size-4 animate-spin text-muted-foreground" /></div>}>
+            <RichTextEditor
+              content={form.terms_and_conditions ?? ''}
+              onChange={(html) => setForm((f) => ({ ...f, terms_and_conditions: html }))}
+              placeholder="Saisissez vos conditions générales de vente..."
+            />
+          </Suspense>
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              disabled={savingCompany || !isDirty}
+              onClick={saveCompany}
+            >
+              {savingCompany && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+              Enregistrer les CGV
+            </Button>
+            {isDirty && (
+              <span className="text-xs text-orange-500">Modifications non enregistrées</span>
+            )}
           </div>
         </CardContent>
       </Card>
