@@ -284,8 +284,8 @@ export function DashboardPage() {
         </Card>
 
         {/* Recent activity */}
-        <Card className="lg:min-h-[280px]">
-          <CardContent className="pt-6">
+        <Card>
+          <CardContent className="pt-5 pb-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Activité récente</h3>
               <Link to="/admin/panels" className="text-[11px] font-medium text-primary hover:underline">
@@ -293,17 +293,17 @@ export function DashboardPage() {
               </Link>
             </div>
             {activityLoading ? (
-              <div className="flex justify-center py-8">
+              <div className="flex justify-center py-4">
                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
               </div>
             ) : !activity?.length ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <Inbox className="size-8" />
-                <p className="mt-2 text-[13px]">Aucune activité récente</p>
+              <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
+                <Inbox className="size-6" />
+                <p className="mt-1 text-[12px]">Aucune activité récente</p>
               </div>
             ) : (
-              <div className="mt-4 divide-y divide-border">
-                {activity.map((item) => (
+              <div className="mt-3 max-h-[200px] divide-y divide-border overflow-y-auto">
+                {activity.slice(0, 8).map((item) => (
                   <Link
                     key={item.id}
                     to={`/admin/panels/${item.panelId}`}
@@ -332,8 +332,8 @@ export function DashboardPage() {
         </Card>
 
         {/* Ending soon campaigns */}
-        <Card className="lg:min-h-[280px]">
-          <CardContent className="pt-6">
+        <Card>
+          <CardContent className="pt-5 pb-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Campagnes à échéance</h3>
               <Link to="/admin/campaigns" className="text-[11px] font-medium text-primary hover:underline">
@@ -341,12 +341,12 @@ export function DashboardPage() {
               </Link>
             </div>
             {cs.endingSoon.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <CalendarClock className="size-8" />
-                <p className="mt-2 text-[13px]">Aucune campagne à échéance</p>
+              <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
+                <CalendarClock className="size-6" />
+                <p className="mt-1 text-[12px]">Aucune campagne à échéance</p>
               </div>
             ) : (
-              <div className="mt-4 divide-y divide-border">
+              <div className="mt-3 max-h-[200px] divide-y divide-border overflow-y-auto">
                 {cs.endingSoon.map((c) => (
                   <Link
                     key={c.id}
