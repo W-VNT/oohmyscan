@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { usePanels } from '@/hooks/usePanels'
 import { supabase } from '@/lib/supabase'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Filter, Loader2, Locate, MapPinOff, Search } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import type { Panel, PanelWithLocation } from '@/types'
@@ -242,9 +243,17 @@ export function MapPage() {
   }
 
   return (
-    <div className="-m-6 flex h-[calc(100vh-3.5rem)] flex-col">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Carte</h1>
+        <span className="text-sm text-muted-foreground">
+          {filteredPanels.length} panneau{filteredPanels.length !== 1 ? 'x' : ''}
+        </span>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -312,18 +321,17 @@ export function MapPage() {
           <Locate className="size-4" />
           Recentrer
         </button>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {filteredPanels.length} panneau{filteredPanels.length !== 1 ? 'x' : ''}
-        </span>
       </div>
 
       {/* Map */}
       {isLoading ? (
-        <div className="flex flex-1 items-center justify-center">
+        <div className="flex items-center justify-center py-20">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="relative flex-1">
+        <Card>
+          <CardContent className="p-0">
+            <div className="relative h-[calc(100vh-16rem)] min-h-[400px] overflow-hidden rounded-lg">
           <Map
             ref={mapRef}
             {...viewState}
@@ -447,7 +455,9 @@ export function MapPage() {
               </div>
             </div>
           </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
