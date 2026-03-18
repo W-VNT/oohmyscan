@@ -316,17 +316,23 @@ export function SettingsPage() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Mentions légales</label>
+              <p className="text-[10px] text-muted-foreground/70">
+                Affiché dans le pied de page (barre rouge) sur toutes les pages des PDF devis et factures.
+              </p>
               <textarea
                 value={form.legal_mentions ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, legal_mentions: e.target.value }))}
                 rows={3}
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-                placeholder="TVA non applicable, article 293 B du CGI"
+                placeholder="SARL au capital de 156 970 € - APE 7311Z"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Pénalités de retard (affiché sur les PDF)</label>
+              <label className="text-xs font-medium text-muted-foreground">Pénalités de retard</label>
+              <p className="text-[10px] text-muted-foreground/70">
+                Affiché en petit sous le bloc « Conditions de paiement » sur la page 1 des PDF devis et factures.
+              </p>
               <textarea
                 value={form.late_penalty_text ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, late_penalty_text: e.target.value }))}
@@ -527,7 +533,7 @@ export function SettingsPage() {
             Conditions générales de vente
           </div>
           <p className="text-xs text-muted-foreground">
-            Éditez vos CGV ci-dessous. Elles seront ajoutées en page 2 des devis et factures (si activé).
+            Ajoutées automatiquement en page 2 des PDF devis et factures. Utilisez les outils ci-dessous pour mettre en forme (titres, gras, listes...).
           </p>
           <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="size-4 animate-spin text-muted-foreground" /></div>}>
             <RichTextEditor
