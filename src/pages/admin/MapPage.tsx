@@ -242,7 +242,7 @@ export function MapPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div className="-m-6 flex h-[calc(100vh-3.5rem)] flex-col">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3">
         <div className="relative">
