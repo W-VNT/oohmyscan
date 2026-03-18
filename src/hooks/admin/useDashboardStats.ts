@@ -255,6 +255,54 @@ export function useFinanceStats() {
   })
 }
 
+export function useQuoteConversionRate() {
+  return useQuery({
+    queryKey: ['dashboard', 'quote-conversion'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('status')
+      if (error) throw error
+      const total = data.length
+      const converted = data.filter((q) => q.status === 'converted' || q.status === 'accepted').length
+      return { total, converted, rate: total > 0 ? Math.round((converted / total) * 100) : 0 }
+    },
+    staleTime: 60_000,
+  })
+}
+
+interface RecentInvoice {
+  id: string
+  invoice_number: string
+  status: string
+  total_ttc: number
+  client_name: string
+  issued_at: string
+}
+
+export function useRecentInvoices() {
+  return useQuery({
+    queryKey: ['dashboard', 'recent-invoices'],
+    queryFn: async (): Promise<RecentInvoice[]> => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, status, total_ttc, issued_at, clients(company_name)')
+        .order('created_at', { ascending: false })
+        .limit(5)
+      if (error) throw error
+      return (data ?? []).map((inv) => ({
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        status: inv.status,
+        total_ttc: inv.total_ttc,
+        client_name: (inv.clients as unknown as { company_name: string } | null)?.company_name ?? '—',
+        issued_at: inv.issued_at,
+      }))
+    },
+    staleTime: 60_000,
+  })
+}
+
 export function useRecentActivity() {
   return useQuery({
     queryKey: ['dashboard', 'recent-activity'],

@@ -21,12 +21,17 @@ import {
   FileText,
   Users,
   BarChart3,
+  Plus,
+  ArrowRight,
 } from 'lucide-react'
+import { INVOICE_STATUS_CONFIG, type InvoiceStatus } from '@/lib/constants'
 import {
   usePanelStats,
   useCampaignStats,
   useInvoiceStats,
   useFinanceStats,
+  useQuoteConversionRate,
+  useRecentInvoices,
   useRecentActivity,
 } from '@/hooks/admin/useDashboardStats'
 
@@ -53,6 +58,8 @@ export function DashboardPage() {
   const { data: invoiceStats, isLoading: invoicesLoading } = useInvoiceStats()
   const { data: activity, isLoading: activityLoading } = useRecentActivity()
   const { data: financeStats } = useFinanceStats()
+  const { data: conversionRate } = useQuoteConversionRate()
+  const { data: recentInvoices } = useRecentInvoices()
   const { data: potentialRequests } = usePotentialRequests()
 
   const [caMode, setCaMode] = useState<'month' | 'total'>('month')
@@ -85,7 +92,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with greeting */}
+      {/* Header with greeting + quick actions */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">
@@ -94,6 +101,17 @@ export function DashboardPage() {
           <p className="mt-0.5 text-sm text-muted-foreground">
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
+        </div>
+        <div className="flex gap-2">
+          <Link to="/admin/invoices/new" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-xs font-medium transition-colors hover:bg-muted">
+            <Plus className="size-3" /> Facture
+          </Link>
+          <Link to="/admin/quotes/new" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-xs font-medium transition-colors hover:bg-muted">
+            <Plus className="size-3" /> Devis
+          </Link>
+          <Link to="/admin/campaigns" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-xs font-medium transition-colors hover:bg-muted">
+            <Plus className="size-3" /> Campagne
+          </Link>
         </div>
       </div>
 
@@ -262,7 +280,7 @@ export function DashboardPage() {
               ] as const).map(({ status, count, color }) => {
                 const pct = ps.total > 0 ? Math.round((count / ps.total) * 100) : 0
                 return (
-                  <div key={status} className="flex items-center gap-3">
+                  <Link key={status} to={`/admin/panels?status=${status}`} className="flex items-center gap-3 rounded-md px-1 py-0.5 transition-colors hover:bg-muted/50">
                     <StatusBadge status={status} />
                     <div className="flex-1">
                       <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -276,7 +294,7 @@ export function DashboardPage() {
                       <span className="font-medium">{count}</span>
                       <span className="text-muted-foreground"> · {pct}%</span>
                     </span>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
@@ -378,99 +396,90 @@ export function DashboardPage() {
       {/* Finance section */}
       {financeStats && (
         <>
-          <div className="flex items-center gap-2 pt-2">
-            <BarChart3 className="size-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold">Finance</h2>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Quote pipeline */}
-            <Link to="/admin/quotes" className="transition-shadow hover:ring-2 hover:ring-primary/20 rounded-lg">
-              <Card className="h-full">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-muted-foreground">Pipeline devis</p>
-                    <FileText className="size-4 text-purple-600" />
-                  </div>
-                  <p className="mt-1 text-2xl font-bold tabular-nums text-purple-600">{formatCurrency(financeStats.quotePipeline.totalTTC)}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {financeStats.quotePipeline.count} devis en cours
-                  </p>
-                </CardContent>
-              </Card>
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="size-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">Finance</h2>
+            </div>
+            <Link to="/admin/invoices" className="text-[11px] font-medium text-primary hover:underline">
+              Toutes les factures <ArrowRight className="inline size-3" />
             </Link>
-
-            {/* Aging buckets */}
-            {financeStats.aging.filter((b) => b.count > 0).slice(0, 3).map((bucket) => (
-              <Link key={bucket.label} to="/admin/invoices" className="transition-shadow hover:ring-2 hover:ring-primary/20 rounded-lg">
-                <Card className="h-full">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-muted-foreground">{bucket.label}</p>
-                      <div className={`size-2.5 rounded-full ${bucket.color}`} />
-                    </div>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">{formatCurrency(bucket.amount)}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {bucket.count} facture{bucket.count !== 1 ? 's' : ''} impayée{bucket.count !== 1 ? 's' : ''}
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Monthly CA bar chart */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Pipeline + Conversion + Aging — single dense card */}
             <Card>
-              <CardContent className="pt-6">
-                <h3 className="text-sm font-semibold">CA encaissé — 6 derniers mois</h3>
-                <div className="mt-4 flex items-end gap-2" style={{ height: 140 }}>
-                  {financeStats.monthlyCA.map((m) => {
-                    const maxAmount = Math.max(...financeStats.monthlyCA.map((x) => x.amount), 1)
-                    const heightPct = Math.max(4, (m.amount / maxAmount) * 100)
-                    return (
-                      <div key={m.month} className="flex flex-1 flex-col items-center gap-1">
-                        <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
-                          {m.amount > 0 ? `${Math.round(m.amount / 1000)}k` : '—'}
-                        </span>
-                        <div
-                          className="w-full rounded-t bg-primary/80 transition-all"
-                          style={{ height: `${heightPct}%` }}
-                        />
-                        <span className="text-[10px] text-muted-foreground">{m.month}</span>
+              <CardContent className="space-y-4 pt-5 pb-4">
+                {/* Pipeline */}
+                <Link to="/admin/quotes" className="flex items-center justify-between rounded-md px-1 py-1 transition-colors hover:bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-8 items-center justify-center rounded-lg bg-purple-500/10">
+                      <FileText className="size-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Pipeline devis</p>
+                      <p className="text-sm font-bold tabular-nums text-purple-600">{formatCurrency(financeStats.quotePipeline.totalTTC)}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{financeStats.quotePipeline.count} en cours</span>
+                </Link>
+
+                {/* Conversion rate */}
+                {conversionRate && (
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-green-500/10">
+                        <TrendingUp className="size-4 text-green-600" />
                       </div>
-                    )
-                  })}
+                      <div>
+                        <p className="text-xs text-muted-foreground">Taux de conversion</p>
+                        <p className="text-sm font-bold tabular-nums text-green-600">{conversionRate.rate}%</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{conversionRate.converted}/{conversionRate.total} devis</span>
+                  </div>
+                )}
+
+                {/* Aging inline */}
+                <div className="border-t border-border pt-3">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Impayés</p>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {financeStats.aging.map((bucket) => (
+                      <div key={bucket.label} className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                        <div className={`mx-auto mb-1 size-1.5 rounded-full ${bucket.color}`} />
+                        <p className="text-[10px] text-muted-foreground">{bucket.label.replace(' jours', 'j')}</p>
+                        <p className="text-xs font-bold tabular-nums">{bucket.count}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Top clients */}
+            {/* Monthly CA bar chart — improved */}
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Top clients par CA</h3>
-                  <Users className="size-4 text-muted-foreground" />
-                </div>
-                {financeStats.topClients.length === 0 ? (
-                  <p className="mt-4 text-center text-xs text-muted-foreground">Aucune facture payée</p>
+              <CardContent className="pt-5 pb-4">
+                <h3 className="text-sm font-semibold">CA encaissé</h3>
+                <p className="text-[10px] text-muted-foreground">6 derniers mois</p>
+                {financeStats.monthlyCA.every((m) => m.amount === 0) ? (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <p className="text-xs">Aucun encaissement sur la période</p>
+                  </div>
                 ) : (
-                  <div className="mt-4 space-y-3">
-                    {financeStats.topClients.map((client, i) => {
-                      const maxAmount = financeStats.topClients[0]?.amount ?? 1
-                      const pct = Math.round((client.amount / maxAmount) * 100)
+                  <div className="mt-3 flex items-end gap-1.5" style={{ height: 120 }}>
+                    {financeStats.monthlyCA.map((m) => {
+                      const maxAmount = Math.max(...financeStats.monthlyCA.map((x) => x.amount), 1)
+                      const heightPct = m.amount > 0 ? Math.max(8, (m.amount / maxAmount) * 100) : 4
                       return (
-                        <div key={client.name} className="flex items-center gap-3">
-                          <span className="w-5 text-right text-xs font-bold text-muted-foreground">{i + 1}</span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex justify-between">
-                              <p className="truncate text-[13px] font-medium">{client.name}</p>
-                              <p className="shrink-0 text-[13px] font-medium tabular-nums">{formatCurrency(client.amount)}</p>
-                            </div>
-                            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                              <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
-                            </div>
-                          </div>
+                        <div key={m.month} className="flex flex-1 flex-col items-center gap-1">
+                          <span className="text-[9px] font-medium tabular-nums text-muted-foreground">
+                            {m.amount > 0 ? (m.amount >= 1000 ? `${Math.round(m.amount / 1000)}k` : formatCurrency(m.amount)) : ''}
+                          </span>
+                          <div
+                            className={`w-full rounded-t transition-all ${m.amount > 0 ? 'bg-primary/80' : 'bg-muted/60'}`}
+                            style={{ height: `${heightPct}%` }}
+                          />
+                          <span className="text-[9px] text-muted-foreground">{m.month}</span>
                         </div>
                       )
                     })}
@@ -478,26 +487,66 @@ export function DashboardPage() {
                 )}
               </CardContent>
             </Card>
-          </div>
 
-          {/* Aging detail table */}
-          {financeStats.aging.some((b) => b.count > 0) && (
+            {/* Recent invoices + Top clients */}
             <Card>
-              <CardContent className="pt-6">
-                <h3 className="mb-4 text-sm font-semibold">Détail des impayés (aging)</h3>
-                <div className="grid grid-cols-4 gap-2">
-                  {financeStats.aging.map((bucket) => (
-                    <div key={bucket.label} className="rounded-md border border-border p-3 text-center">
-                      <div className={`mx-auto mb-2 size-2 rounded-full ${bucket.color}`} />
-                      <p className="text-xs font-medium text-muted-foreground">{bucket.label}</p>
-                      <p className="mt-1 text-lg font-bold tabular-nums">{formatCurrency(bucket.amount)}</p>
-                      <p className="text-[10px] text-muted-foreground">{bucket.count} facture{bucket.count !== 1 ? 's' : ''}</p>
-                    </div>
-                  ))}
+              <CardContent className="pt-5 pb-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Dernières factures</h3>
+                  <Link to="/admin/invoices" className="text-[11px] font-medium text-primary hover:underline">
+                    Voir tout
+                  </Link>
                 </div>
+                {!recentInvoices?.length ? (
+                  <p className="py-4 text-center text-xs text-muted-foreground">Aucune facture</p>
+                ) : (
+                  <div className="mt-2 max-h-[160px] divide-y divide-border overflow-y-auto">
+                    {recentInvoices.map((inv) => (
+                      <Link
+                        key={inv.id}
+                        to={`/admin/invoices/${inv.id}`}
+                        className="flex items-center justify-between py-2 transition-colors hover:bg-muted/50"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[12px] font-medium">{inv.invoice_number}</p>
+                          <p className="truncate text-[10px] text-muted-foreground">{inv.client_name}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[12px] font-medium tabular-nums">{formatCurrency(inv.total_ttc)}</p>
+                          <p className={`text-[10px] font-medium ${
+                            inv.status === 'paid' ? 'text-green-600' :
+                            inv.status === 'overdue' ? 'text-red-500' :
+                            inv.status === 'sent' ? 'text-blue-600' :
+                            'text-muted-foreground'
+                          }`}>
+                            {INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.label ?? inv.status}
+                          </p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                {/* Top clients mini */}
+                {financeStats.topClients.length > 0 && (
+                  <div className="mt-3 border-t border-border pt-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-muted-foreground">Top clients</p>
+                      <Users className="size-3 text-muted-foreground" />
+                    </div>
+                    <div className="mt-2 space-y-1.5">
+                      {financeStats.topClients.slice(0, 3).map((client, i) => (
+                        <div key={client.name} className="flex items-center justify-between">
+                          <p className="truncate text-[11px]"><span className="font-bold text-muted-foreground">{i + 1}.</span> {client.name}</p>
+                          <p className="shrink-0 text-[11px] font-medium tabular-nums">{formatCurrency(client.amount)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
+          </div>
         </>
       )}
     </div>
