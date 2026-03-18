@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText, Eye, X, ChevronUp, ChevronDown, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText, Eye, X, ChevronUp, ChevronDown, ExternalLink, MoreHorizontal, Archive } from 'lucide-react'
 import { LineDescriptionEditor } from '@/components/shared/LineDescriptionEditor'
 import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
 import { pdf } from '@react-pdf/renderer'
@@ -86,6 +86,7 @@ export function InvoiceDetailPage() {
   const [lines, setLines] = useState<EditableLine[]>([newLine(0)])
   const [saving, setSaving] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
 
   // Payments
   const { data: payments } = useInvoicePayments(!isNew ? id : undefined)
@@ -311,6 +312,8 @@ export function InvoiceDetailPage() {
   }, [payments])
 
   const remainingToPay = Math.max(0, Math.round((totals.totalTtc - totalPaid) * 100) / 100)
+
+  const hasAnyDiscount = lines.some((l) => l.discount_value && l.discount_value > 0)
 
   async function handleAddPayment() {
     if (!id || isNew) return
@@ -726,64 +729,112 @@ export function InvoiceDetailPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <button onClick={() => navigate('/admin/invoices')} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-5" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold">
-            {isNew ? 'Nouvelle facture' : `${invoice?.invoice_number ?? ''}`}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="truncate text-xl font-semibold">
+              {isNew ? 'Nouvelle facture' : invoice?.invoice_number ?? ''}
+            </h1>
             {!isNew && invoice?.invoice_type && invoice.invoice_type !== 'standard' && (
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                ({INVOICE_TYPE_LABELS[invoice.invoice_type as InvoiceType]}{invoice.invoice_type === 'acompte' && invoice.deposit_percentage ? ` ${invoice.deposit_percentage}%` : ''})
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {INVOICE_TYPE_LABELS[invoice.invoice_type as InvoiceType]}{invoice.invoice_type === 'acompte' && invoice.deposit_percentage ? ` ${invoice.deposit_percentage}%` : ''}
               </span>
             )}
-          </h1>
+            {!isNew && invoice && (
+              <Badge variant={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.variant ?? 'secondary'}>
+                {INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.label ?? invoice.status}
+              </Badge>
+            )}
+          </div>
           {linkedQuoteId && sourceQuote && (
-            <Link
-              to={`/admin/quotes/${linkedQuoteId}`}
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              <FileText className="size-3" />
-              Depuis devis {sourceQuote.quote_number}
+            <Link to={`/admin/quotes/${linkedQuoteId}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+              <FileText className="size-3" /> Depuis devis {sourceQuote.quote_number}
             </Link>
           )}
         </div>
+
+        {/* Status actions — visible directly in header */}
+        {!isNew && invoice?.status === 'draft' && (
+          <Button size="sm" onClick={() => handleStatusChange('sent')}>
+            <Send className="mr-1.5 size-3.5" /> Envoyer
+          </Button>
+        )}
+        {!isNew && invoice?.status === 'sent' && (
+          <Button size="sm" onClick={() => handleStatusChange('paid')}>
+            <Check className="mr-1.5 size-3.5" /> Payée
+          </Button>
+        )}
+        {!isNew && invoice?.status === 'overdue' && (
+          <Button size="sm" onClick={() => handleStatusChange('paid')}>
+            <Check className="mr-1.5 size-3.5" /> Payée
+          </Button>
+        )}
+
+        {/* Primary actions */}
         {!isNew && invoice && (
-          <>
-            <Button size="sm" variant="outline" onClick={handleDuplicate} disabled={saving}>
-              <Copy className="mr-1.5 size-3.5" /> Dupliquer
-            </Button>
-            {invoice.public_token && (
-              <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/view/${invoice.public_token}`); toast('Lien copié') }}>
-                <ExternalLink className="mr-1 size-3.5" /> Lien
-              </Button>
-            )}
+          <div className="flex items-center gap-1">
             <Button size="sm" variant="outline" onClick={handlePreviewPDF}>
               <Eye className="mr-1.5 size-3.5" /> Aperçu
             </Button>
             <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
               <Download className="mr-1.5 size-3.5" /> PDF
             </Button>
-            {(invoice.status === 'sent' || invoice.status === 'overdue') && (
-              <Button size="sm" variant="outline" onClick={handleMailto}>
-                <Mail className="mr-1.5 size-3.5" /> Relancer
+
+            {/* More actions dropdown */}
+            <div className="relative">
+              <Button size="sm" variant="ghost" onClick={() => setShowActionsMenu((v) => !v)}>
+                <MoreHorizontal className="size-4" />
               </Button>
-            )}
-            {invoice.status !== 'draft' && invoice.status !== 'cancelled' && invoice.invoice_type !== 'avoir' && (
-              <Button size="sm" variant="outline" onClick={handleCreateCreditNote} disabled={saving}>
-                <Ban className="mr-1.5 size-3.5" /> Avoir
-              </Button>
-            )}
-            {['paid', 'cancelled'].includes(invoice.status) && !invoice.is_archived && (
-              <Button size="sm" variant="ghost" onClick={() => updateInvoice.mutateAsync({ id: id!, is_archived: true }).then(() => toast('Facture archivée'))}>
-                Archiver
-              </Button>
-            )}
-            <Badge variant={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.variant ?? 'secondary'}>
-              {INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.label ?? invoice.status}
-            </Badge>
-          </>
+              {showActionsMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowActionsMenu(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-background py-1 shadow-lg">
+                    <button onClick={() => { handleDuplicate(); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                      <Copy className="size-3.5" /> Dupliquer
+                    </button>
+                    {invoice.public_token && (
+                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/view/${invoice.public_token}`); toast('Lien copié'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                        <ExternalLink className="size-3.5" /> Copier le lien public
+                      </button>
+                    )}
+                    {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                      <button onClick={() => { handleMailto(); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                        <Mail className="size-3.5" /> Relancer par email
+                      </button>
+                    )}
+                    {invoice.status !== 'draft' && invoice.status !== 'cancelled' && invoice.invoice_type !== 'avoir' && (
+                      <button onClick={() => { handleCreateCreditNote(); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                        <Ban className="size-3.5" /> Émettre un avoir
+                      </button>
+                    )}
+                    {invoice.status === 'draft' && (
+                      <button onClick={() => { handleStatusChange('cancelled'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
+                        <Ban className="size-3.5" /> Annuler la facture
+                      </button>
+                    )}
+                    {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                      <>
+                        <button onClick={() => { handleStatusChange('overdue'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-muted">
+                          En retard
+                        </button>
+                        <button onClick={() => { handleStatusChange('cancelled'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
+                          <Ban className="size-3.5" /> Annuler
+                        </button>
+                      </>
+                    )}
+                    {['paid', 'cancelled'].includes(invoice.status) && !invoice.is_archived && (
+                      <button onClick={() => { updateInvoice.mutateAsync({ id: id!, is_archived: true }).then(() => toast('Facture archivée')); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                        <Archive className="size-3.5" /> Archiver
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
@@ -814,152 +865,61 @@ export function InvoiceDetailPage() {
         </div>
       )}
 
-      {/* Status actions */}
-      {!isNew && invoice?.status === 'draft' && (
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => handleStatusChange('sent')}>
-            <Send className="mr-1.5 size-3.5" /> Marquer envoyée
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
-            <Ban className="mr-1.5 size-3.5" /> Annuler
-          </Button>
-        </div>
-      )}
-      {!isNew && invoice?.status === 'sent' && (
-        <div className="flex gap-2">
-          <Button size="sm" onClick={() => handleStatusChange('paid')}>
-            <Check className="mr-1.5 size-3.5" /> Marquer payée
-          </Button>
-          <Button size="sm" variant="destructive" onClick={() => handleStatusChange('overdue')}>
-            En retard
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
-            <Ban className="mr-1.5 size-3.5" /> Annuler
-          </Button>
-        </div>
-      )}
-      {!isNew && invoice?.status === 'overdue' && (
-        <div className="flex gap-2">
-          <Button size="sm" onClick={() => handleStatusChange('paid')}>
-            <Check className="mr-1.5 size-3.5" /> Marquer payée
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
-            <Ban className="mr-1.5 size-3.5" /> Annuler
-          </Button>
-        </div>
-      )}
 
-      {/* Client + Campaign + Dates */}
+      {/* Destinataire */}
       <Card>
-        <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Client *</label>
-            <select
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              disabled={isStructureLocked}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
-            >
-              <option value="">Sélectionner...</option>
-              {activeClients.map((c) => (
-                <option key={c.id} value={c.id}>{c.company_name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Campagne *</label>
-            <select
-              value={campaignId}
-              onChange={(e) => setCampaignId(e.target.value)}
-              disabled={isStructureLocked || !clientId}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
-            >
-              <option value="">
-                {!clientId
-                  ? 'Sélectionner un client d\u2019abord'
-                  : clientCampaigns?.length === 0
-                    ? 'Aucune campagne pour ce client'
-                    : 'Sélectionner...'}
-              </option>
-              {clientCampaigns?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.status === 'draft' ? 'Brouillon' : c.status === 'active' ? 'Active' : 'Annulée'})
+        <CardContent className="space-y-4 pt-6">
+          <p className="text-sm font-semibold">Destinataire</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Client *</label>
+              <select
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                disabled={isStructureLocked}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+              >
+                <option value="">Sélectionner un client...</option>
+                {activeClients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Campagne *</label>
+              <select
+                value={campaignId}
+                onChange={(e) => setCampaignId(e.target.value)}
+                disabled={isStructureLocked || !clientId}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+              >
+                <option value="">
+                  {!clientId ? 'Sélectionner un client d\u2019abord' : clientCampaigns?.length === 0 ? 'Aucune campagne' : 'Sélectionner...'}
                 </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Date d'émission</label>
-            <Input
-              type="date"
-              value={issuedAt}
-              onChange={(e) => setIssuedAt(e.target.value)}
-              disabled={isStructureLocked}
-              className="text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Conditions de paiement</label>
-            <select
-              value={paymentTerms}
-              onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)}
-              disabled={isStructureLocked}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
-            >
-              {PAYMENT_TERMS.map((t) => (
-                <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Échéance</label>
-            <Input
-              type="date"
-              value={dueAt}
-              onChange={(e) => setDueAt(e.target.value)}
-              disabled={isStructureLocked}
-              className="text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Réf. dossier / N° commande</label>
-            <Input
-              value={clientReference}
-              onChange={(e) => setClientReference(e.target.value)}
-              disabled={isStructureLocked}
-              placeholder="Ex: 25090548"
-              className="text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={isCancelled}
-              placeholder="Notes..."
-              rows={2}
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50"
-            />
+                {clientCampaigns?.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Invoice type */}
+      {/* Facturation */}
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <FileText className="size-4" />
-            Type de facture
-          </div>
-          <div className="flex flex-wrap gap-2">
+          <p className="text-sm font-semibold">Facturation</p>
+
+          {/* Type selector — compact inline */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-medium text-muted-foreground">Type :</span>
             {(['standard', 'acompte', 'solde'] as InvoiceType[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => !isStructureLocked && setInvoiceType(t)}
                 disabled={isStructureLocked}
-                className={`rounded-full border px-4 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
                   invoiceType === t
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border text-muted-foreground hover:border-foreground/30'
@@ -1027,6 +987,36 @@ export function InvoiceDetailPage() {
               )}
             </div>
           )}
+
+          {/* Dates & terms grid */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Date d'émission</label>
+              <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Conditions de paiement</label>
+              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)} disabled={isStructureLocked} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50">
+                {PAYMENT_TERMS.map((t) => (
+                  <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Échéance</label>
+              <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} disabled={isStructureLocked} className="text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Réf. dossier</label>
+              <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isStructureLocked} placeholder="Ex: 25090548" className="text-sm" />
+            </div>
+          </div>
+
+          {/* Notes — full width */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Notes</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={isCancelled} placeholder="Notes internes ou visibles sur le PDF..." rows={2} className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50" />
+          </div>
         </CardContent>
       </Card>
 
@@ -1050,7 +1040,7 @@ export function InvoiceDetailPage() {
                   <th className="w-20 px-2 py-2 font-medium text-muted-foreground">Qté</th>
                   <th className="w-24 px-2 py-2 font-medium text-muted-foreground">Unité</th>
                   <th className="w-24 px-2 py-2 font-medium text-muted-foreground">PU HT</th>
-                  <th className="w-28 px-2 py-2 font-medium text-muted-foreground">Remise</th>
+                  {(hasAnyDiscount || !isStructureLocked) && <th className="w-28 px-2 py-2 font-medium text-muted-foreground">Remise</th>}
                   <th className="w-20 px-2 py-2 font-medium text-muted-foreground">TVA %</th>
                   <th className="w-24 px-2 py-2 text-right font-medium text-muted-foreground">Total HT</th>
                   {!isStructureLocked && <th className="w-20" />}
@@ -1098,34 +1088,36 @@ export function InvoiceDetailPage() {
                         className="h-8 text-sm"
                       />
                     </td>
-                    <td className="px-2 py-1.5">
-                      <div className="flex gap-1">
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={line.discount_value || ''}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0
-                            if (!line.discount_type && val > 0) updateLine(line._key, 'discount_type', 'percent')
-                            updateLine(line._key, 'discount_value', val)
-                          }}
-                          disabled={isStructureLocked}
-                          placeholder="—"
-                          className="h-8 w-16 text-sm"
-                        />
-                        <select
-                          value={line.discount_type ?? ''}
-                          onChange={(e) => updateLine(line._key, 'discount_type', e.target.value || null)}
-                          disabled={isStructureLocked}
-                          className="h-8 w-12 rounded-md border border-input bg-background px-1 text-xs disabled:opacity-50"
-                        >
-                          <option value="">—</option>
-                          <option value="percent">%</option>
-                          <option value="amount">€</option>
-                        </select>
-                      </div>
-                    </td>
+                    {(hasAnyDiscount || !isStructureLocked) && (
+                      <td className="px-2 py-1.5">
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={line.discount_value || ''}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0
+                              if (!line.discount_type && val > 0) updateLine(line._key, 'discount_type', 'percent')
+                              updateLine(line._key, 'discount_value', val)
+                            }}
+                            disabled={isStructureLocked}
+                            placeholder="—"
+                            className="h-8 w-16 text-sm"
+                          />
+                          <select
+                            value={line.discount_type ?? ''}
+                            onChange={(e) => updateLine(line._key, 'discount_type', e.target.value || null)}
+                            disabled={isStructureLocked}
+                            className="h-8 w-12 rounded-md border border-input bg-background px-1 text-xs disabled:opacity-50"
+                          >
+                            <option value="">—</option>
+                            <option value="percent">%</option>
+                            <option value="amount">€</option>
+                          </select>
+                        </div>
+                      </td>
+                    )}
                     <td className="px-2 py-1.5">
                       <select
                         value={line.tva_rate}
@@ -1356,16 +1348,27 @@ export function InvoiceDetailPage() {
       {/* Attachments */}
       {!isNew && <DocumentAttachments documentType="invoice" documentId={id} disabled={isCancelled} />}
 
-      {/* Save */}
+      {/* Spacer for sticky bar */}
+      {!isCancelled && <div className="h-16" />}
+
+      {/* Sticky save bar */}
       {!isCancelled && (
-        <div className="flex gap-3">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
-            {isNew ? 'Créer la facture' : 'Enregistrer'}
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/admin/invoices')}>
-            Annuler
-          </Button>
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Total TTC :</span>{' '}
+              <span className="text-lg font-bold tabular-nums">{formatCurrency(totals.totalTtc)}</span>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => navigate('/admin/invoices')}>
+                Annuler
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+                {isNew ? 'Créer la facture' : 'Enregistrer'}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
