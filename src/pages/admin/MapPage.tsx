@@ -330,8 +330,8 @@ export function MapPage() {
         </div>
       ) : (
         <Card>
-          <CardContent className="p-0">
-            <div className="relative h-[calc(100vh-16rem)] min-h-[400px] overflow-hidden rounded-lg">
+          <CardContent className="overflow-hidden rounded-lg p-0">
+            <div className="relative h-[calc(100vh-16rem)] min-h-[400px]">
           <Map
             ref={mapRef}
             {...viewState}
