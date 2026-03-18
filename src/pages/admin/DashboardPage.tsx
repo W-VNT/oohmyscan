@@ -99,74 +99,91 @@ export function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link to="/admin/panels" className="transition-shadow hover:ring-2 hover:ring-primary/20 rounded-lg">
-          <Card className="h-full">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">Panneaux</p>
-                <PanelTop className="size-4 text-muted-foreground" />
-              </div>
-              <p className="mt-1 text-2xl font-bold tabular-nums">{ps.total}</p>
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                <OccupationIcon className={`inline size-3 ${occupationColor}`} />
-                <span className={occupationColor}>{occupationRate}%</span> d'occupation
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link to="/admin/campaigns" className="transition-shadow hover:ring-2 hover:ring-primary/20 rounded-lg">
-          <Card className="h-full">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">Campagnes actives</p>
-                <Megaphone className="size-4 text-blue-600" />
-              </div>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-blue-600">{cs.activeCount}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {cs.total} au total
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link to="/admin/invoices" className="transition-shadow hover:ring-2 hover:ring-primary/20 rounded-lg">
-          <Card className="h-full">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">CA facturé</p>
-                <Receipt className="size-4 text-green-600" />
-              </div>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-green-600">{formatCurrency(caAmount)}</p>
-              <div className="mt-0.5 flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {caCount} facture{caCount !== 1 ? 's' : ''} {caLabel}
-                </p>
-                <button
-                  onClick={(e) => { e.preventDefault(); setCaMode(caMode === 'month' ? 'total' : 'month') }}
-                  className="text-[10px] font-medium text-primary hover:underline"
-                >
-                  {caMode === 'month' ? 'Voir total' : 'Ce mois'}
-                </button>
+        <Link to="/admin/panels" className="group rounded-xl transition-all hover:ring-2 hover:ring-primary/20">
+          <Card className="h-full overflow-hidden">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Panneaux</p>
+                  <p className="mt-2 text-3xl font-bold tabular-nums">{ps.total}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm">
+                    <OccupationIcon className={`size-4 ${occupationColor}`} />
+                    <span className={`font-semibold ${occupationColor}`}>{occupationRate}%</span>
+                    <span className="text-muted-foreground">occupation</span>
+                  </p>
+                </div>
+                <div className="flex size-10 items-center justify-center rounded-lg bg-muted/80">
+                  <PanelTop className="size-5 text-foreground/60" />
+                </div>
               </div>
             </CardContent>
           </Card>
         </Link>
 
-        <Link to="/admin/invoices" className="transition-shadow hover:ring-2 hover:ring-primary/20 rounded-lg">
-          <Card className="h-full">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">En attente</p>
-                <Clock className="size-4 text-orange-500" />
+        <Link to="/admin/campaigns" className="group rounded-xl transition-all hover:ring-2 hover:ring-blue-500/20">
+          <Card className="h-full overflow-hidden">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Campagnes actives</p>
+                  <p className="mt-2 text-3xl font-bold tabular-nums text-blue-600">{cs.activeCount}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {cs.total} au total
+                  </p>
+                </div>
+                <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/10">
+                  <Megaphone className="size-5 text-blue-600" />
+                </div>
               </div>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-orange-500">{formatCurrency(pendingTotal)}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {pendingCount} facture{pendingCount !== 1 ? 's' : ''}
-                {inv.totalOverdueCount > 0 && (
-                  <span className="text-red-500"> · {inv.totalOverdueCount} en retard</span>
-                )}
-              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/admin/invoices" className="group rounded-xl transition-all hover:ring-2 hover:ring-green-500/20">
+          <Card className="h-full overflow-hidden">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">CA facturé</p>
+                  <p className="mt-2 text-3xl font-bold tabular-nums text-green-600">{formatCurrency(caAmount)}</p>
+                  <div className="mt-1 flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">
+                      {caCount} facture{caCount !== 1 ? 's' : ''} {caLabel}
+                    </span>
+                    <button
+                      onClick={(e) => { e.preventDefault(); setCaMode(caMode === 'month' ? 'total' : 'month') }}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {caMode === 'month' ? 'Total' : 'Ce mois'}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex size-10 items-center justify-center rounded-lg bg-green-500/10">
+                  <Receipt className="size-5 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/admin/invoices" className="group rounded-xl transition-all hover:ring-2 hover:ring-orange-500/20">
+          <Card className="h-full overflow-hidden">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">En attente</p>
+                  <p className="mt-2 text-3xl font-bold tabular-nums text-orange-500">{formatCurrency(pendingTotal)}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {pendingCount} facture{pendingCount !== 1 ? 's' : ''}
+                    {inv.totalOverdueCount > 0 && (
+                      <span className="font-medium text-red-500"> · {inv.totalOverdueCount} en retard</span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex size-10 items-center justify-center rounded-lg bg-orange-500/10">
+                  <Clock className="size-5 text-orange-500" />
+                </div>
+              </div>
             </CardContent>
           </Card>
         </Link>
