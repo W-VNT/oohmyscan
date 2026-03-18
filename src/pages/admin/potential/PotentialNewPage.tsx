@@ -264,7 +264,37 @@ export function PotentialNewPage() {
 
       // Auto-save after analysis
       if (firstCenter) {
-        await autoSave(firstCenter, allVacant, allSpots)
+        try {
+          const cityDisplay = cities.join(', ')
+          const savePayload = {
+            reference: existingRequest?.reference ?? '',
+            prospect_name: prospectName,
+            city: cityDisplay,
+            cities,
+            radius_km: radius,
+            support_type: supportType,
+            lat: firstCenter.lat,
+            lng: firstCenter.lng,
+            existing_panels_count: allVacant.length,
+            potential_spots_count: allSpots.length,
+            existing_panel_ids: allVacant.map((p) => p.id),
+            potential_spots: allSpots,
+            status: (existingRequest?.status ?? 'draft') as 'draft' | 'sent',
+          }
+
+          if (!savedIdRef.current) {
+            savePayload.reference = await getNextPotentialNumber()
+            const created = await createRequest.mutateAsync(savePayload as Parameters<typeof createRequest.mutateAsync>[0])
+            savedIdRef.current = created.id
+            navigate(`/admin/potential/${created.id}`, { replace: true })
+            toast('Analyse enregistrée automatiquement')
+          } else {
+            await updateRequest.mutateAsync({ id: savedIdRef.current, ...savePayload })
+          }
+        } catch (err) {
+          console.error('Auto-save failed:', err)
+          toast("Erreur lors de l'enregistrement automatique", 'error')
+        }
       }
     } catch {
       toast("Erreur lors de l'analyse", 'error')
@@ -272,49 +302,8 @@ export function PotentialNewPage() {
       setAnalyzing(false)
       setAnalysisProgress('')
     }
-  }, [canAnalyze, allPanels, cities, radiusKm, supportType, isMultiCity])
+  }, [canAnalyze, allPanels, cities, radiusKm, supportType, isMultiCity, prospectName, existingRequest, createRequest, updateRequest, navigate])
 
-  // --- Auto-save ---
-  const autoSave = useCallback(async (
-    centerPos: { lat: number; lng: number },
-    vacant: VacantPanel[],
-    spots: PotentialSpot[],
-  ) => {
-    try {
-      const cityDisplay = cities.join(', ')
-      const radius = isMultiCity ? DEFAULT_RADIUS_PER_CITY : radiusKm
-
-      const payload = {
-        reference: existingRequest?.reference ?? '',
-        prospect_name: prospectName,
-        city: cityDisplay,
-        cities,
-        radius_km: radius,
-        support_type: supportType,
-        lat: centerPos.lat,
-        lng: centerPos.lng,
-        existing_panels_count: vacant.length,
-        potential_spots_count: spots.length,
-        existing_panel_ids: vacant.map((p) => p.id),
-        potential_spots: spots,
-        status: (existingRequest?.status ?? 'draft') as 'draft' | 'sent',
-      }
-
-      if (!savedIdRef.current) {
-        // New: create
-        payload.reference = await getNextPotentialNumber()
-        const created = await createRequest.mutateAsync(payload)
-        savedIdRef.current = created.id
-        navigate(`/admin/potential/${created.id}`, { replace: true })
-        toast('Analyse enregistrée automatiquement')
-      } else {
-        // Update existing
-        await updateRequest.mutateAsync({ id: savedIdRef.current, ...payload })
-      }
-    } catch {
-      // Silent fail for auto-save — don't block the UI
-    }
-  }, [cities, isMultiCity, radiusKm, supportType, prospectName, existingRequest, createRequest, updateRequest, navigate])
 
   // --- Status change ---
   const handleStatusChange = useCallback(async (newStatus: 'draft' | 'sent') => {
