@@ -72,12 +72,12 @@ export function InvoiceDetailPage() {
   const profile = useAppStore((s) => s.profile)
 
   const [clientId, setClientId] = useState('')
-  const { data: clientCampaigns } = useClientCampaigns(clientId || undefined)
+  const { data: clientCampaigns, isLoading: campaignsLoading } = useClientCampaigns(clientId || undefined)
   const [campaignId, setCampaignId] = useState('')
   const [quoteId, setQuoteId] = useState('')
   const [notes, setNotes] = useState('')
   const [clientReference, setClientReference] = useState('')
-  const [dueAt, setDueAt] = useState('')
+  const [dueAt, setDueAt] = useState(() => computeDueDate(new Date().toISOString(), '30_days'))
   const [invoiceType, setInvoiceType] = useState<InvoiceType>('standard')
   const [depositPercentage, setDepositPercentage] = useState<number>(30)
   const [depositInvoiceId, setDepositInvoiceId] = useState('')
@@ -422,17 +422,18 @@ export function InvoiceDetailPage() {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount)
   }
 
+  const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({})
+
   async function handleSave() {
     if (isCancelled) return
-    if (!clientId) {
-      toast('Veuillez sélectionner un client', 'error')
+    const errors: Record<string, boolean> = {}
+    if (!clientId) errors.clientId = true
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors)
+      toast('Veuillez remplir les champs obligatoires', 'error')
       return
     }
-    if (!campaignId) {
-      toast('Veuillez sélectionner une campagne', 'error')
-      return
-    }
-
+    setValidationErrors({})
     setSaving(true)
     try {
       let invoiceId = id!
@@ -510,8 +511,13 @@ export function InvoiceDetailPage() {
           })),
       })
 
-      toast(isNew ? 'Facture créée' : 'Facture mise à jour')
-      if (isNew) navigate(`/admin/invoices/${invoiceId}`, { replace: true })
+      if (isNew) {
+        const num = lines.length > 0 ? ` — ${lines.filter((l) => l.description.trim()).length} ligne${lines.filter((l) => l.description.trim()).length > 1 ? 's' : ''}` : ''
+        toast(`Facture créée${num}`)
+        navigate(`/admin/invoices/${invoiceId}`, { replace: true })
+      } else {
+        toast('Facture mise à jour')
+      }
     } catch {
       toast('Erreur lors de la sauvegarde', 'error')
     } finally {
@@ -853,6 +859,14 @@ export function InvoiceDetailPage() {
         </div>
       )}
 
+      {/* From quote banner */}
+      {isNew && sourceQuote && (
+        <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-600">
+          <FileText className="mr-1.5 inline size-3.5" />
+          Pré-rempli depuis le devis <strong>{sourceQuote.quote_number}</strong> — vérifiez les informations avant d'enregistrer.
+        </div>
+      )}
+
       {/* Locked banners */}
       {isCancelled && (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
@@ -875,9 +889,9 @@ export function InvoiceDetailPage() {
               <label className="text-xs font-medium text-muted-foreground">Client *</label>
               <select
                 value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
+                onChange={(e) => { setClientId(e.target.value); setValidationErrors((v) => ({ ...v, clientId: false })) }}
                 disabled={isStructureLocked}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+                className={`flex h-9 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-50 ${validationErrors.clientId ? 'border-red-500 ring-1 ring-red-500/30' : 'border-input'}`}
               >
                 <option value="">Sélectionner un client...</option>
                 {activeClients.map((c) => (
@@ -886,7 +900,7 @@ export function InvoiceDetailPage() {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Campagne *</label>
+              <label className="text-xs font-medium text-muted-foreground">Campagne</label>
               <select
                 value={campaignId}
                 onChange={(e) => setCampaignId(e.target.value)}
@@ -894,7 +908,7 @@ export function InvoiceDetailPage() {
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
               >
                 <option value="">
-                  {!clientId ? 'Sélectionner un client d\u2019abord' : clientCampaigns?.length === 0 ? 'Aucune campagne' : 'Sélectionner...'}
+                  {!clientId ? 'Sélectionner un client d\u2019abord' : campaignsLoading ? 'Chargement...' : 'Aucune (optionnel)'}
                 </option>
                 {clientCampaigns?.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -941,7 +955,7 @@ export function InvoiceDetailPage() {
                   max={100}
                   step={1}
                   value={depositPercentage}
-                  onChange={(e) => setDepositPercentage(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setDepositPercentage(Math.max(1, Math.min(100, parseFloat(e.target.value) || 1)))}
                   disabled={isStructureLocked}
                   className="h-8 w-20 text-sm"
                 />
@@ -958,10 +972,10 @@ export function InvoiceDetailPage() {
             <div className="space-y-3 rounded-md border border-border bg-muted/30 px-4 py-3">
               <p className="text-sm font-medium">Factures d'acompte liées</p>
               {!campaignId && (
-                <p className="text-xs text-muted-foreground">Sélectionnez une campagne d'abord.</p>
+                <p className="text-xs text-muted-foreground">Sélectionnez une campagne pour voir les acomptes liés.</p>
               )}
               {campaignId && (!depositInvoices || depositInvoices.length === 0) && (
-                <p className="text-xs text-muted-foreground">Aucune facture d'acompte pour cette campagne.</p>
+                <p className="text-xs text-muted-foreground">Pas d'acomptes enregistrés — le solde sera calculé sur la base des lignes.</p>
               )}
               {depositInvoices && depositInvoices.length > 0 && (
                 <>
@@ -1048,7 +1062,7 @@ export function InvoiceDetailPage() {
               </thead>
               <tbody>
                 {lines.map((line) => (
-                  <tr key={line._key} className="border-b border-border/50">
+                  <tr key={line._key} className={`border-b border-border/50 ${!line.description.trim() ? 'bg-muted/20 opacity-60' : ''}`}>
                     <td className="px-2 py-1.5">
                       <LineDescriptionEditor
                         value={line.description}
@@ -1363,7 +1377,7 @@ export function InvoiceDetailPage() {
               <Button variant="outline" onClick={() => navigate('/admin/invoices')}>
                 Annuler
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving || !clientId}>
                 {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
                 {isNew ? 'Créer la facture' : 'Enregistrer'}
               </Button>
