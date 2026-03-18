@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive } from 'lucide-react'
+import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive, ArrowRight } from 'lucide-react'
 import { QUOTE_STATUSES, QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
 
 type SortOption = 'newest' | 'oldest' | 'amount_desc' | 'amount_asc' | 'number'
@@ -127,10 +127,11 @@ export function QuotesPage() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          {/* TODO: client name search requires a server-side view or RPC — for now only quote_number is searched server-side */}
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Rechercher par numéro ou client..."
+            placeholder="Rechercher par numéro..."
             className="h-9 pl-9 text-sm"
           />
         </div>
@@ -178,6 +179,7 @@ export function QuotesPage() {
                 <tr className="border-b border-border text-left">
                   <th className="px-4 py-3 font-medium text-muted-foreground">Numéro</th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">Client</th>
+                  <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Campagne</th>
                   <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Date</th>
                   <th className="hidden px-4 py-3 font-medium text-muted-foreground lg:table-cell">Validité</th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">Statut</th>
@@ -187,7 +189,7 @@ export function QuotesPage() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <EmptyState
                         icon={FileText}
                         title={debouncedSearch || statusFilter !== 'all' ? 'Aucun devis trouvé' : 'Aucun devis pour le moment'}
@@ -209,6 +211,9 @@ export function QuotesPage() {
                           {quote.clients?.company_name ?? '—'}
                         </td>
                         <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                          {quote.campaigns?.name ?? '—'}
+                        </td>
+                        <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                           {new Date(quote.issued_at).toLocaleDateString('fr-FR')}
                         </td>
                         <td className="hidden px-4 py-3 lg:table-cell">
@@ -222,9 +227,19 @@ export function QuotesPage() {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'}>
-                            {QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.label ?? quote.status}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'}>
+                              {QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.label ?? quote.status}
+                            </Badge>
+                            {quote.status === 'accepted' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); navigate(`/admin/invoices/new?from_quote=${quote.id}`) }}
+                                className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline"
+                              >
+                                <ArrowRight className="size-3" /> Facture
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right font-medium tabular-nums">
                           {formatCurrency(quote.total_ttc)}

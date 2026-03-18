@@ -33,9 +33,10 @@ export type PanelWithLocation = Panel & {
   locations: { name: string } | null
 }
 
-/** Quote row with the joined `clients(company_name)` relation */
+/** Quote row with the joined `clients(company_name)` and optional `campaigns(name)` relations */
 export type QuoteWithClient = Quote & {
   clients: { company_name: string } | null
+  campaigns: { name: string } | null
 }
 
 /** Invoice row with the joined `clients(company_name)` relation */

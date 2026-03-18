@@ -79,8 +79,11 @@ export function QuoteDetailPage() {
 
   const { data: clientData } = useClient(clientId || undefined)
 
-  // Is the form read-only? (not draft = locked)
-  const isLocked = !isNew && !!quote && quote.status !== 'draft'
+  // Lock levels:
+  // - isCancelled: fully locked, nothing editable
+  // - isStructureLocked: prices, client, campaign, number locked — descriptions/notes still editable
+  const isCancelled = !isNew && !!quote && (quote.status === 'cancelled' || quote.status === 'converted')
+  const isStructureLocked = !isNew && !!quote && quote.status !== 'draft'
 
   // Init form from existing quote
   useEffect(() => {
@@ -122,7 +125,8 @@ export function QuoteDetailPage() {
   }, [isNew, validUntil])
 
   function updateLine(key: string, field: keyof EditableLine, value: string | number | null) {
-    if (isLocked) return
+    // Description uses isCancelled (editable when sent/accepted), everything else uses isStructureLocked
+    if (field === 'description' ? isCancelled : isStructureLocked) return
     setLines((prev) =>
       prev.map((l) => {
         if (l._key !== key) return l
@@ -136,12 +140,12 @@ export function QuoteDetailPage() {
   }
 
   function addLine() {
-    if (isLocked) return
+    if (isStructureLocked) return
     setLines((prev) => [...prev, newLine(prev.length)])
   }
 
   function updateLineFromCatalog(key: string, selection: { service_catalog_id: string; description: string; unit: string; unit_price: number; tva_rate: number }) {
-    if (isLocked) return
+    if (isStructureLocked) return
     setLines((prev) =>
       prev.map((l) => {
         if (l._key !== key) return l
@@ -159,7 +163,7 @@ export function QuoteDetailPage() {
   }
 
   function duplicateLine(key: string) {
-    if (isLocked) return
+    if (isStructureLocked) return
     setLines((prev) => {
       const idx = prev.findIndex((l) => l._key === key)
       if (idx === -1) return prev
@@ -169,12 +173,12 @@ export function QuoteDetailPage() {
   }
 
   function removeLine(key: string) {
-    if (isLocked) return
+    if (isStructureLocked) return
     setLines((prev) => prev.filter((l) => l._key !== key))
   }
 
   function moveLineUp(key: string) {
-    if (isLocked) return
+    if (isStructureLocked) return
     setLines((prev) => {
       const idx = prev.findIndex((l) => l._key === key)
       if (idx <= 0) return prev
@@ -185,7 +189,7 @@ export function QuoteDetailPage() {
   }
 
   function moveLineDown(key: string) {
-    if (isLocked) return
+    if (isStructureLocked) return
     setLines((prev) => {
       const idx = prev.findIndex((l) => l._key === key)
       if (idx === -1 || idx >= prev.length - 1) return prev
@@ -216,13 +220,9 @@ export function QuoteDetailPage() {
   }
 
   async function handleSave() {
-    if (isLocked) return
+    if (isCancelled) return
     if (!clientId) {
       toast('Veuillez sélectionner un client', 'error')
-      return
-    }
-    if (!campaignId) {
-      toast('Veuillez sélectionner une campagne', 'error')
       return
     }
     if (lines.length === 0 || lines.every((l) => !l.description.trim())) {
@@ -253,7 +253,7 @@ export function QuoteDetailPage() {
         const result = await createQuote.mutateAsync({
           quote_number: finalNumber,
           client_id: clientId,
-          campaign_id: campaignId,
+          campaign_id: campaignId || null,
           status: 'draft',
           issued_at: issuedAt || new Date().toISOString().split('T')[0],
           valid_until: validUntil || new Date(Date.now() + 30 * 86400000).toISOString(),
@@ -266,7 +266,7 @@ export function QuoteDetailPage() {
         await updateQuote.mutateAsync({
           id: quoteId,
           client_id: clientId,
-          campaign_id: campaignId,
+          campaign_id: campaignId || null,
           notes: notes || null,
           client_reference: clientReference || null,
           valid_until: validUntil || undefined,
@@ -554,9 +554,14 @@ export function QuoteDetailPage() {
       )}
 
       {/* Locked banner */}
-      {isLocked && (
+      {isStructureLocked && !isCancelled && (
         <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-600">
-          Ce devis est en statut "{QUOTE_STATUS_CONFIG[quote!.status as QuoteStatus]?.label}" et ne peut plus être modifié.
+          Ce devis est en statut &laquo;{QUOTE_STATUS_CONFIG[quote!.status as QuoteStatus]?.label}&raquo;. Seules les descriptions et notes sont modifiables.
+        </div>
+      )}
+      {isCancelled && (
+        <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-600">
+          Ce devis est en statut &laquo;{QUOTE_STATUS_CONFIG[quote!.status as QuoteStatus]?.label}&raquo; et ne peut plus être modifié.
         </div>
       )}
 
@@ -605,7 +610,7 @@ export function QuoteDetailPage() {
             <select
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              disabled={isLocked}
+              disabled={isStructureLocked}
               className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
               <option value="">Sélectionner...</option>
@@ -615,11 +620,11 @@ export function QuoteDetailPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Campagne *</label>
+            <label className="text-xs font-medium text-muted-foreground">Campagne</label>
             <select
               value={campaignId}
               onChange={(e) => setCampaignId(e.target.value)}
-              disabled={isLocked || !clientId}
+              disabled={isStructureLocked || !clientId}
               className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
             >
               <option value="">
@@ -642,7 +647,7 @@ export function QuoteDetailPage() {
               type="date"
               value={issuedAt}
               onChange={(e) => setIssuedAt(e.target.value)}
-              disabled={isLocked}
+              disabled={isStructureLocked}
               className="text-sm"
             />
           </div>
@@ -652,7 +657,7 @@ export function QuoteDetailPage() {
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
-              disabled={isLocked}
+              disabled={isStructureLocked}
               className="text-sm"
             />
           </div>
@@ -661,7 +666,7 @@ export function QuoteDetailPage() {
             <Input
               value={clientReference}
               onChange={(e) => setClientReference(e.target.value)}
-              disabled={isLocked}
+              disabled={isStructureLocked}
               placeholder="Ex: 25090548"
               className="text-sm"
             />
@@ -671,7 +676,7 @@ export function QuoteDetailPage() {
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              disabled={isLocked}
+              disabled={isCancelled}
               placeholder="Notes..."
               rows={2}
               className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50"
@@ -685,7 +690,7 @@ export function QuoteDetailPage() {
         <CardContent className="space-y-4 pt-6">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Lignes du devis</p>
-            {!isLocked && (
+            {!isStructureLocked && (
               <div className="flex gap-2">
                 {templates && templates.length > 0 && (
                   <select
@@ -727,7 +732,7 @@ export function QuoteDetailPage() {
                   <th className="w-28 px-2 py-2 font-medium text-muted-foreground">Remise</th>
                   <th className="w-20 px-2 py-2 font-medium text-muted-foreground">TVA %</th>
                   <th className="w-24 px-2 py-2 text-right font-medium text-muted-foreground">Total HT</th>
-                  {!isLocked && <th className="w-20" />}
+                  {!isStructureLocked && <th className="w-20" />}
                 </tr>
               </thead>
               <tbody>
@@ -739,7 +744,7 @@ export function QuoteDetailPage() {
                         onChange={(v) => updateLine(line._key, 'description', v)}
                         onSelectCatalog={(sel) => updateLineFromCatalog(line._key, sel)}
                         services={services ?? undefined}
-                        disabled={isLocked}
+                        disabled={isCancelled}
                       />
                     </td>
                     <td className="px-2 py-1.5">
@@ -749,7 +754,7 @@ export function QuoteDetailPage() {
                         step="0.01"
                         value={line.quantity}
                         onChange={(e) => updateLine(line._key, 'quantity', parseFloat(e.target.value) || 0)}
-                        disabled={isLocked}
+                        disabled={isStructureLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -757,7 +762,7 @@ export function QuoteDetailPage() {
                       <Input
                         value={line.unit}
                         onChange={(e) => updateLine(line._key, 'unit', e.target.value)}
-                        disabled={isLocked}
+                        disabled={isStructureLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -768,7 +773,7 @@ export function QuoteDetailPage() {
                         step="0.01"
                         value={line.unit_price}
                         onChange={(e) => updateLine(line._key, 'unit_price', parseFloat(e.target.value) || 0)}
-                        disabled={isLocked}
+                        disabled={isStructureLocked}
                         className="h-8 text-sm"
                       />
                     </td>
@@ -784,14 +789,14 @@ export function QuoteDetailPage() {
                             if (!line.discount_type && val > 0) updateLine(line._key, 'discount_type', 'percent')
                             updateLine(line._key, 'discount_value', val)
                           }}
-                          disabled={isLocked}
+                          disabled={isStructureLocked}
                           placeholder="—"
                           className="h-8 w-16 text-sm"
                         />
                         <select
                           value={line.discount_type ?? ''}
                           onChange={(e) => updateLine(line._key, 'discount_type', e.target.value || null)}
-                          disabled={isLocked}
+                          disabled={isStructureLocked}
                           className="h-8 w-12 rounded-lg border border-input bg-background px-1 text-xs disabled:opacity-50"
                         >
                           <option value="">—</option>
@@ -804,7 +809,7 @@ export function QuoteDetailPage() {
                       <select
                         value={line.tva_rate}
                         onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))}
-                        disabled={isLocked}
+                        disabled={isStructureLocked}
                         className="flex h-8 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                       >
                         <option value={0}>0%</option>
@@ -816,7 +821,7 @@ export function QuoteDetailPage() {
                     <td className="px-2 py-1.5 text-right font-medium tabular-nums">
                       {formatCurrency(line.total_ht)}
                     </td>
-                    {!isLocked && (
+                    {!isStructureLocked && (
                       <td className="px-2 py-1.5">
                         <div className="flex gap-0.5">
                           <button
@@ -854,7 +859,7 @@ export function QuoteDetailPage() {
                 ))}
                 {lines.length === 0 && (
                   <tr>
-                    <td colSpan={isLocked ? 6 : 7} className="px-2 py-8 text-center text-muted-foreground">
+                    <td colSpan={isStructureLocked ? 7 : 8} className="px-2 py-8 text-center text-muted-foreground">
                       <Package className="mx-auto mb-2 size-6" />
                       <p className="text-xs">Ajoutez des lignes au devis</p>
                     </td>
@@ -890,10 +895,10 @@ export function QuoteDetailPage() {
       </Card>
 
       {/* Attachments */}
-      {!isNew && <DocumentAttachments documentType="quote" documentId={id} disabled={isLocked} />}
+      {!isNew && <DocumentAttachments documentType="quote" documentId={id} disabled={isCancelled} />}
 
       {/* Save */}
-      {!isLocked && (
+      {!isCancelled && (
         <div className="flex gap-3">
           <Button onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}

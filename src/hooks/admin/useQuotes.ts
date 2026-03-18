@@ -10,7 +10,7 @@ export function useQuotes() {
     queryFn: async (): Promise<QuoteWithClient[]> => {
       const { data, error } = await supabase
         .from('quotes')
-        .select('*, clients(company_name)')
+        .select('*, clients(company_name), campaigns(name)')
         .order('created_at', { ascending: false })
       if (error) throw error
       return data as unknown as QuoteWithClient[]
@@ -32,7 +32,7 @@ export function usePaginatedQuotes(
     queryFn: async () => {
       let query = supabase
         .from('quotes')
-        .select('*, clients(company_name)', { count: 'exact' })
+        .select('*, clients(company_name), campaigns(name)', { count: 'exact' })
 
       if (!showArchived) query = query.eq('is_archived', false)
       if (status && status !== 'all') query = query.eq('status', status as 'draft')
@@ -67,7 +67,7 @@ export function useQuote(id: string | undefined) {
     queryFn: async (): Promise<QuoteWithClient> => {
       const { data, error } = await supabase
         .from('quotes')
-        .select('*, clients(company_name)')
+        .select('*, clients(company_name), campaigns(name)')
         .eq('id', id!)
         .single()
       if (error) throw error
