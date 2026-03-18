@@ -1,14 +1,33 @@
-import { useState, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { useCampaign } from '@/hooks/useCampaigns'
+import { useState, useRef, useMemo } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useCampaign, useCreateCampaign } from '@/hooks/useCampaigns'
+import { useClients } from '@/hooks/admin/useClients'
 import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { toast } from '@/components/shared/Toast'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, PanelTop, FileText, Upload, Trash2, Loader2, Image as ImageIcon } from 'lucide-react'
-import { CAMPAIGN_STATUS_CONFIG, type PanelStatus, type CampaignStatus } from '@/lib/constants'
+import {
+  ArrowLeft,
+  PanelTop,
+  FileText,
+  Upload,
+  Trash2,
+  Loader2,
+  Image as ImageIcon,
+  Pencil,
+  Copy,
+  Search,
+} from 'lucide-react'
+import {
+  CAMPAIGN_STATUSES,
+  CAMPAIGN_STATUS_CONFIG,
+  type PanelStatus,
+  type CampaignStatus,
+} from '@/lib/constants'
 
 // Hook for campaign visuals
 function useCampaignVisuals(campaignId: string | undefined) {
@@ -27,15 +46,42 @@ function useCampaignVisuals(campaignId: string | undefined) {
   })
 }
 
+const PANELS_PAGE_SIZE = 10
+
 export function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { data: campaign, isLoading } = useCampaign(id)
   const { data: panelTypes } = usePanelTypes()
   const { data: visuals } = useCampaignVisuals(id)
+  const { data: clients } = useClients()
+  const createCampaign = useCreateCampaign()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadFormatId, setUploadFormatId] = useState<string>('')
   const [uploading, setUploading] = useState(false)
+
+  // Inline editing state
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editForm, setEditForm] = useState({
+    name: '',
+    client_id: '',
+    start_date: '',
+    end_date: '',
+    budget: '',
+    target_panel_count: '',
+    description: '',
+    notes: '',
+    status: '' as CampaignStatus | '',
+  })
+
+  // Cloning state
+  const [cloning, setCloning] = useState(false)
+
+  // Panel assignments pagination & search
+  const [panelsExpanded, setPanelsExpanded] = useState(false)
+  const [panelSearch, setPanelSearch] = useState('')
 
   const { data: assignments } = useQuery({
     queryKey: ['campaign-panels', id],
@@ -50,6 +96,30 @@ export function CampaignDetailPage() {
     },
     enabled: !!id,
   })
+
+  // Filtered + paginated assignments
+  const filteredAssignments = useMemo(() => {
+    if (!assignments) return []
+    if (!panelSearch.trim()) return assignments
+    const q = panelSearch.toLowerCase()
+    return assignments.filter((a) => {
+      const panel = (a as Record<string, unknown>).panels as {
+        id: string
+        reference: string
+        name: string | null
+        status: string
+      } | null
+      if (!panel) return false
+      return (
+        panel.reference.toLowerCase().includes(q) ||
+        (panel.name && panel.name.toLowerCase().includes(q))
+      )
+    })
+  }, [assignments, panelSearch])
+
+  const visibleAssignments = panelsExpanded
+    ? filteredAssignments
+    : filteredAssignments.slice(0, PANELS_PAGE_SIZE)
 
   const updateStatus = useMutation({
     mutationFn: async (status: CampaignStatus) => {
@@ -78,6 +148,89 @@ export function CampaignDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['campaign-visuals', id] })
     },
   })
+
+  // --- Inline editing ---
+  function openEdit() {
+    if (!campaign) return
+    setEditForm({
+      name: campaign.name || '',
+      client_id: campaign.client_id ?? '',
+      start_date: campaign.start_date ?? '',
+      end_date: campaign.end_date ?? '',
+      budget: campaign.budget != null ? String(campaign.budget) : '',
+      target_panel_count: campaign.target_panel_count != null ? String(campaign.target_panel_count) : '',
+      description: campaign.description ?? '',
+      notes: campaign.notes ?? '',
+      status: campaign.status as CampaignStatus,
+    })
+    setEditing(true)
+  }
+
+  async function handleSave() {
+    if (!campaign || !id) return
+
+    if (!editForm.name.trim()) {
+      toast('Le nom de la campagne est obligatoire', 'error')
+      return
+    }
+    if (!editForm.start_date || !editForm.end_date) {
+      toast('Les dates de début et fin sont obligatoires', 'error')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({
+          name: editForm.name.trim(),
+          client_id: editForm.client_id || null,
+          start_date: editForm.start_date,
+          end_date: editForm.end_date,
+          budget: editForm.budget ? Number(editForm.budget) : null,
+          target_panel_count: editForm.target_panel_count ? Number(editForm.target_panel_count) : null,
+          description: editForm.description.trim() || null,
+          notes: editForm.notes.trim() || null,
+          status: (editForm.status || campaign.status) as CampaignStatus,
+        })
+        .eq('id', id)
+      if (error) throw error
+
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['campaigns', id] })
+      toast('Campagne mise à jour')
+      setEditing(false)
+    } catch {
+      toast('Erreur lors de la sauvegarde', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // --- Cloning ---
+  async function handleClone() {
+    if (!campaign) return
+    setCloning(true)
+    try {
+      const newCampaign = await createCampaign.mutateAsync({
+        name: `${campaign.name} (copie)`,
+        client_id: campaign.client_id ?? null,
+        start_date: campaign.start_date,
+        end_date: campaign.end_date,
+        budget: campaign.budget ?? null,
+        target_panel_count: campaign.target_panel_count ?? null,
+        description: campaign.description ?? null,
+        notes: campaign.notes ?? null,
+        status: 'draft',
+      })
+      toast('Campagne dupliquée')
+      navigate(`/admin/campaigns/${newCampaign.id}`)
+    } catch {
+      toast('Erreur lors de la duplication', 'error')
+    } finally {
+      setCloning(false)
+    }
+  }
 
   async function handleUploadVisual(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -136,18 +289,32 @@ export function CampaignDetailPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <Link
-            to="/admin/campaigns"
-            className="rounded-md p-1 transition-colors hover:bg-accent"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div>
-            <h2 className="text-2xl font-bold">{campaign.name}</h2>
-            <p className="mt-1 text-muted-foreground">{clientName}</p>
+      <div className="flex items-center gap-3">
+        <Link
+          to="/admin/campaigns"
+          className="rounded-md p-1 transition-colors hover:bg-accent"
+        >
+          <ArrowLeft className="size-5" />
+        </Link>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold">{campaign.name}</h1>
           </div>
+          <p className="mt-1 text-muted-foreground">{clientName}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {!editing && (
+            <>
+              <Button variant="outline" size="sm" onClick={handleClone} disabled={cloning}>
+                {cloning ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Copy className="mr-1.5 size-3.5" />}
+                Dupliquer
+              </Button>
+              <Button variant="outline" size="sm" onClick={openEdit}>
+                <Pencil className="mr-1.5 size-3.5" />
+                Modifier
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -174,40 +341,189 @@ export function CampaignDetailPage() {
         <div className="space-y-6 lg:col-span-2">
           <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="font-semibold">Détails</h3>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-xs text-muted-foreground">Statut</p>
-                <p className="mt-1 text-sm font-medium">
-                  {CAMPAIGN_STATUS_CONFIG[campaign.status as CampaignStatus].label}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Période</p>
-                <p className="mt-1 text-sm">
-                  {new Date(campaign.start_date).toLocaleDateString('fr-FR')} →{' '}
-                  {new Date(campaign.end_date).toLocaleDateString('fr-FR')}
-                </p>
-              </div>
-              {campaign.budget != null && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Budget</p>
-                  <p className="mt-1 text-sm font-medium">
-                    {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.budget)}
-                  </p>
+
+            {editing ? (
+              /* ---- EDIT MODE ---- */
+              <div className="mt-4 space-y-4">
+                {/* Row 1: Nom | Client | Statut */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Nom</label>
+                    <Input
+                      value={editForm.name}
+                      onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                      placeholder="Nom de la campagne"
+                      className="h-9 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Client</label>
+                    <select
+                      value={editForm.client_id}
+                      onChange={(e) => setEditForm((f) => ({ ...f, client_id: e.target.value }))}
+                      className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Aucun client</option>
+                      {clients?.filter((c) => c.is_active).map((c) => (
+                        <option key={c.id} value={c.id}>{c.company_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Statut</label>
+                    <select
+                      value={editForm.status}
+                      onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value as CampaignStatus }))}
+                      className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                    >
+                      {CAMPAIGN_STATUSES.map((s) => (
+                        <option key={s} value={s}>{CAMPAIGN_STATUS_CONFIG[s].label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              )}
-              {target != null && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Panneaux prévus</p>
-                  <p className="mt-1 text-sm font-medium">{target}</p>
+
+                {/* Row 2: Date début | Date fin | Budget | Panneaux cible */}
+                <div className="grid gap-4 sm:grid-cols-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Date début</label>
+                    <Input
+                      type="date"
+                      value={editForm.start_date}
+                      onChange={(e) => setEditForm((f) => ({ ...f, start_date: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Date fin</label>
+                    <Input
+                      type="date"
+                      value={editForm.end_date}
+                      onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Budget (€)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editForm.budget}
+                      onChange={(e) => setEditForm((f) => ({ ...f, budget: e.target.value }))}
+                      placeholder="0.00"
+                      className="h-9 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Panneaux cible</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editForm.target_panel_count}
+                      onChange={(e) => setEditForm((f) => ({ ...f, target_panel_count: e.target.value }))}
+                      placeholder="0"
+                      className="h-9 rounded-lg text-sm"
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
-            {campaign.description && (
-              <div className="mt-4">
-                <p className="text-xs text-muted-foreground">Description</p>
-                <p className="mt-1 text-sm">{campaign.description}</p>
+
+                {/* Row 3: Description (full width) */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Description</label>
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                    rows={2}
+                    className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                    placeholder="Description de la campagne..."
+                  />
+                </div>
+
+                {/* Row 4: Notes (full width) */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                  <textarea
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                    rows={2}
+                    className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                    placeholder="Notes internes..."
+                  />
+                </div>
+
+                {/* Save / Cancel buttons */}
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={handleSave} disabled={saving}>
+                    {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                    Sauvegarder
+                  </Button>
+                  <Button variant="outline" onClick={() => setEditing(false)}>
+                    Annuler
+                  </Button>
+                </div>
               </div>
+            ) : (
+              /* ---- READ MODE ---- */
+              <>
+                {/* Row 1: Nom | Client | Statut */}
+                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Nom</p>
+                    <p className="mt-1 text-sm font-medium">{campaign.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Client</p>
+                    <p className="mt-1 text-sm">{clientName || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Statut</p>
+                    <p className="mt-1">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${CAMPAIGN_STATUS_CONFIG[campaign.status as CampaignStatus].className}`}>
+                        {CAMPAIGN_STATUS_CONFIG[campaign.status as CampaignStatus].label}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                {/* Row 2: Période | Budget | Panneaux */}
+                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Période</p>
+                    <p className="mt-1 text-sm">
+                      {new Date(campaign.start_date).toLocaleDateString('fr-FR')} →{' '}
+                      {new Date(campaign.end_date).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Budget</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {campaign.budget != null
+                        ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.budget)
+                        : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Panneaux</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {target != null ? `${assignedCount} / ${target}` : assignedCount > 0 ? `${assignedCount}` : '—'}
+                    </p>
+                  </div>
+                </div>
+                {/* Row 3: Description */}
+                {campaign.description && (
+                  <div className="mt-4">
+                    <p className="text-xs text-muted-foreground">Description</p>
+                    <p className="mt-1 text-sm">{campaign.description}</p>
+                  </div>
+                )}
+                {/* Row 4: Notes */}
+                {campaign.notes && (
+                  <div className="mt-4 rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                    <p className="text-sm text-muted-foreground">{campaign.notes}</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -219,44 +535,77 @@ export function CampaignDetailPage() {
                 Panneaux assignés ({assignedCount})
               </h3>
             </div>
-            {!assignments?.length ? (
+
+            {/* Search input */}
+            {assignments && assignments.length > 0 && (
+              <div className="relative mt-4">
+                <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={panelSearch}
+                  onChange={(e) => {
+                    setPanelSearch(e.target.value)
+                    setPanelsExpanded(false)
+                  }}
+                  placeholder="Rechercher par nom ou référence..."
+                  className="pl-8 text-sm"
+                />
+              </div>
+            )}
+
+            {!filteredAssignments.length ? (
               <p className="mt-4 text-sm text-muted-foreground">
-                Aucun panneau assigné à cette campagne
+                {panelSearch
+                  ? 'Aucun panneau ne correspond à la recherche'
+                  : 'Aucun panneau assigné à cette campagne'}
               </p>
             ) : (
-              <div className="mt-4 divide-y divide-border">
-                {assignments.map((a) => {
-                  const panel = (a as Record<string, unknown>).panels as {
-                    id: string
-                    reference: string
-                    name: string | null
-                    status: string
-                  } | null
-                  return (
-                    <div key={a.id} className="flex items-center justify-between py-3">
-                      <div>
-                        <Link
-                          to={`/admin/panels/${panel?.id}`}
-                          className="text-sm font-medium text-primary hover:underline"
-                        >
-                          {panel?.reference ?? '—'}
-                        </Link>
-                        <p className="text-xs text-muted-foreground">
-                          {panel?.name || '—'}
-                        </p>
+              <>
+                <div className="mt-4 divide-y divide-border">
+                  {visibleAssignments.map((a) => {
+                    const panel = (a as Record<string, unknown>).panels as {
+                      id: string
+                      reference: string
+                      name: string | null
+                      status: string
+                    } | null
+                    return (
+                      <div key={a.id} className="flex items-center justify-between py-3">
+                        <div>
+                          <Link
+                            to={`/admin/panels/${panel?.id}`}
+                            className="text-sm font-medium text-primary hover:underline"
+                          >
+                            {panel?.reference ?? '—'}
+                          </Link>
+                          <p className="text-xs text-muted-foreground">
+                            {panel?.name || '—'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {panel && (
+                            <StatusBadge status={panel.status as PanelStatus} />
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(a.assigned_at).toLocaleDateString('fr-FR')}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        {panel && (
-                          <StatusBadge status={panel.status as PanelStatus} />
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(a.assigned_at).toLocaleDateString('fr-FR')}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+
+                {/* Show all / collapse button */}
+                {filteredAssignments.length > PANELS_PAGE_SIZE && (
+                  <button
+                    onClick={() => setPanelsExpanded((v) => !v)}
+                    className="mt-3 w-full rounded-lg border border-border px-4 py-2 text-center text-sm font-medium text-primary transition-colors hover:bg-accent"
+                  >
+                    {panelsExpanded
+                      ? 'Réduire'
+                      : `Voir tous les ${filteredAssignments.length} panneaux`}
+                  </button>
+                )}
+              </>
             )}
           </div>
 

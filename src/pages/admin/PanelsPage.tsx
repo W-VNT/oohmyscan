@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Search, Filter, Loader2, PanelTop, ChevronLeft, ChevronRight, Megaphone, Download } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
 import type { PanelWithLocation } from '@/types'
@@ -153,24 +154,19 @@ export function PanelsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link
-            to="/admin/qr"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors hover:bg-accent"
-          >
-            Générer des QR
-          </Link>
-          <button
-            onClick={handleExportCSV}
-            disabled={!panels.length}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors hover:bg-accent disabled:opacity-50"
-          >
-            <Download className="size-3.5" />
-            CSV
-          </button>
+          <h1 className="text-xl font-semibold">Panneaux</h1>
+          <span className="text-sm text-muted-foreground">
+            {total} panneau{total !== 1 ? 'x' : ''}
+          </span>
         </div>
-        <span className="text-sm text-muted-foreground">
-          {total} panneau{total !== 1 ? 'x' : ''}
-        </span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!panels.length}>
+            <Download className="mr-1.5 size-3.5" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/admin/qr'}>
+            Générer des QR
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -182,7 +178,7 @@ export function PanelsPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom, ville, référence..."
-            className="flex h-9 w-full rounded-lg border border-input bg-background pl-10 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="relative">
@@ -199,14 +195,13 @@ export function PanelsPage() {
           </select>
         </div>
         <select
-          value={formatFilter}
-          onChange={(e) => { setFormatFilter(e.target.value); resetPage() }}
+          value={locationFilter}
+          onChange={(e) => { setLocationFilter(e.target.value as 'all' | 'with' | 'without'); resetPage() }}
           className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
         >
-          <option value="">Tous les types</option>
-          {typeNames.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
+          <option value="all">Tous</option>
+          <option value="with">Avec lieu</option>
+          <option value="without">Sans lieu</option>
         </select>
         <select
           value={campaignFilter}
@@ -218,13 +213,14 @@ export function PanelsPage() {
           <option value="without">Sans campagne</option>
         </select>
         <select
-          value={locationFilter}
-          onChange={(e) => { setLocationFilter(e.target.value as 'all' | 'with' | 'without'); resetPage() }}
+          value={formatFilter}
+          onChange={(e) => { setFormatFilter(e.target.value); resetPage() }}
           className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
         >
-          <option value="all">Tous</option>
-          <option value="with">Avec lieu</option>
-          <option value="without">Sans lieu</option>
+          <option value="">Tous les types</option>
+          {typeNames.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
         </select>
       </div>
 
@@ -247,8 +243,8 @@ export function PanelsPage() {
                   <th className="cursor-pointer px-4 py-3 text-left font-medium" onClick={() => handleSort('reference')}>
                     Panneau<SortIcon col="reference" />
                   </th>
-                  <th className="hidden cursor-pointer px-4 py-3 text-left font-medium sm:table-cell" onClick={() => handleSort('reference')}>
-                    Référence<SortIcon col="reference" />
+                  <th className="hidden cursor-pointer px-4 py-3 text-left font-medium sm:table-cell" onClick={() => handleSort('status')}>
+                    Statut<SortIcon col="status" />
                   </th>
                   <th className="hidden cursor-pointer px-4 py-3 text-left font-medium sm:table-cell" onClick={() => handleSort('city')}>
                     Ville<SortIcon col="city" />
@@ -256,8 +252,8 @@ export function PanelsPage() {
                   <th className="hidden cursor-pointer px-4 py-3 text-left font-medium lg:table-cell" onClick={() => handleSort('format')}>
                     Type<SortIcon col="format" />
                   </th>
-                  <th className="cursor-pointer px-4 py-3 text-left font-medium" onClick={() => handleSort('status')}>
-                    Statut<SortIcon col="status" />
+                  <th className="hidden cursor-pointer px-4 py-3 text-left font-medium sm:table-cell" onClick={() => handleSort('reference')}>
+                    Référence<SortIcon col="reference" />
                   </th>
                   <th className="hidden cursor-pointer px-4 py-3 text-left font-medium sm:table-cell" onClick={() => handleSort('updated_at')}>
                     Mis à jour<SortIcon col="updated_at" />
@@ -266,7 +262,7 @@ export function PanelsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {panels.map((panel) => (
-                  <tr key={panel.id} className="transition-colors hover:bg-muted/30">
+                  <tr key={panel.id} className="transition-colors hover:bg-accent/50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Link
@@ -276,13 +272,16 @@ export function PanelsPage() {
                           {panel.locations?.name || panel.name || panel.reference}
                         </Link>
                         {panelCampaigns.has(panel.id) && (
-                          <span title="Campagne active"><Megaphone className="size-3.5 shrink-0 text-red-500" /></span>
+                          <span title="Campagne active"><Megaphone className="size-3.5 shrink-0 text-blue-500" /></span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground sm:hidden">{panel.city || '—'}</p>
+                      <div className="flex items-center gap-2 sm:hidden">
+                        <StatusBadge status={panel.status as PanelStatus} />
+                        <span className="text-xs text-muted-foreground">{panel.city}</span>
+                      </div>
                     </td>
                     <td className="hidden px-4 py-3 sm:table-cell">
-                      <code className="font-mono text-xs text-muted-foreground">{panel.reference}</code>
+                      <StatusBadge status={panel.status as PanelStatus} />
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                       {panel.city || '—'}
@@ -290,8 +289,8 @@ export function PanelsPage() {
                     <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
                       {panel.type || '—'}
                     </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={panel.status as PanelStatus} />
+                    <td className="hidden px-4 py-3 sm:table-cell">
+                      <code className="font-mono text-xs text-muted-foreground">{panel.reference}</code>
                     </td>
                     <td className="hidden px-4 py-3 text-xs text-muted-foreground sm:table-cell">
                       {new Date(panel.updated_at).toLocaleDateString('fr-FR')}

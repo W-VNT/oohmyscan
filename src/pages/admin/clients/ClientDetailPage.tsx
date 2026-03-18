@@ -1,15 +1,17 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useClient } from '@/hooks/admin/useClients'
+import { useClient, useUpdateClient } from '@/hooks/admin/useClients'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useQuotes } from '@/hooks/admin/useQuotes'
 import { useInvoices } from '@/hooks/admin/useInvoices'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { toast } from '@/components/shared/Toast'
 import {
-  ArrowLeft, Loader2, Building2, Mail, Phone, MapPin,
-  Megaphone, FileText, TrendingUp, Clock,
+  ArrowLeft, Loader2,
+  Megaphone, FileText, TrendingUp, Clock, Pencil, Plus,
 } from 'lucide-react'
 import { CAMPAIGN_STATUS_CONFIG, QUOTE_STATUS_CONFIG, INVOICE_STATUS_CONFIG } from '@/lib/constants'
 import type { CampaignStatus, QuoteStatus, InvoiceStatus } from '@/lib/constants'
@@ -18,13 +20,34 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount)
 }
 
+interface EditForm {
+  company_name: string
+  contact_name: string
+  contact_email: string
+  contact_phone: string
+  address: string
+  city: string
+  postal_code: string
+  siret: string
+  tva_number: string
+  notes: string
+}
+
 export function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: client, isLoading } = useClient(id)
+  const updateClient = useUpdateClient()
   const { data: allCampaigns } = useCampaigns()
   const { data: allQuotes } = useQuotes()
   const { data: allInvoices } = useInvoices()
+
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editForm, setEditForm] = useState<EditForm>({
+    company_name: '', contact_name: '', contact_email: '', contact_phone: '',
+    address: '', city: '', postal_code: '', siret: '', tva_number: '', notes: '',
+  })
 
   const campaigns = useMemo(
     () => allCampaigns?.filter((c) => c.client_id === id) ?? [],
@@ -58,6 +81,53 @@ export function ClientDetailPage() {
     }
   }, [campaigns, quotes, invoices])
 
+  function openEdit() {
+    if (!client) return
+    setEditForm({
+      company_name: client.company_name,
+      contact_name: client.contact_name || '',
+      contact_email: client.contact_email || '',
+      contact_phone: client.contact_phone || '',
+      address: client.address || '',
+      city: client.city || '',
+      postal_code: client.postal_code || '',
+      siret: client.siret || '',
+      tva_number: client.tva_number || '',
+      notes: client.notes || '',
+    })
+    setEditing(true)
+  }
+
+  async function handleSave() {
+    if (!client) return
+    if (!editForm.company_name.trim()) {
+      toast('Le nom de la société est obligatoire', 'error')
+      return
+    }
+    setSaving(true)
+    try {
+      await updateClient.mutateAsync({
+        id: client.id,
+        company_name: editForm.company_name.trim(),
+        contact_name: editForm.contact_name.trim() || null,
+        contact_email: editForm.contact_email.trim() || null,
+        contact_phone: editForm.contact_phone.trim() || null,
+        address: editForm.address.trim() || null,
+        city: editForm.city.trim() || null,
+        postal_code: editForm.postal_code.trim() || null,
+        siret: editForm.siret.trim() || null,
+        tva_number: editForm.tva_number.trim() || null,
+        notes: editForm.notes.trim() || null,
+      })
+      toast('Client mis à jour')
+      setEditing(false)
+    } catch {
+      toast('Erreur lors de la mise à jour', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -82,17 +152,43 @@ export function ClientDetailPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/admin/clients')}>
-          <ArrowLeft className="size-4" />
+          <ArrowLeft className="size-5" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-semibold">{client.company_name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold">{client.company_name}</h1>
+            {!client.is_active && (
+              <Badge variant="secondary">Inactif</Badge>
+            )}
+          </div>
           {client.contact_name && (
             <p className="text-sm text-muted-foreground">{client.contact_name}</p>
           )}
         </div>
-        {!client.is_active && (
-          <Badge variant="secondary">Inactif</Badge>
-        )}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate(`/admin/quotes/new?client=${client.id}`)}
+          >
+            <Plus className="mr-1.5 size-3.5" />
+            Nouveau devis
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate(`/admin/invoices/new?client=${client.id}`)}
+          >
+            <Plus className="mr-1.5 size-3.5" />
+            Nouvelle facture
+          </Button>
+          {!editing && (
+            <Button variant="outline" size="sm" onClick={openEdit}>
+              <Pencil className="mr-1.5 size-3.5" />
+              Modifier
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -145,61 +241,210 @@ export function ClientDetailPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Info client */}
-        <Card>
+      {/* Info client — full width */}
+      <Card>
           <CardContent className="p-5">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Informations
             </h2>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-3">
-                <Building2 className="size-4 shrink-0 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">{client.company_name}</p>
-                  {client.siret && <p className="text-xs text-muted-foreground">SIRET : {client.siret}</p>}
-                  {client.tva_number && <p className="text-xs text-muted-foreground">TVA : {client.tva_number}</p>}
-                </div>
-              </div>
-              {(client.address || client.city) && (
-                <div className="flex items-start gap-3">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    {client.address && <p>{client.address}</p>}
-                    <p className="text-muted-foreground">
-                      {[client.postal_code, client.city].filter(Boolean).join(' ')}
-                    </p>
+
+            {editing ? (
+              <div className="space-y-4">
+                {/* Row 1: Société / SIRET / TVA */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Société *</label>
+                    <Input
+                      value={editForm.company_name}
+                      onChange={(e) => setEditForm((f) => ({ ...f, company_name: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                      placeholder="Nom de la société"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">SIRET</label>
+                    <Input
+                      value={editForm.siret}
+                      onChange={(e) => setEditForm((f) => ({ ...f, siret: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                      placeholder="123 456 789 00012"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">TVA</label>
+                    <Input
+                      value={editForm.tva_number}
+                      onChange={(e) => setEditForm((f) => ({ ...f, tva_number: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                      placeholder="FR12345678901"
+                    />
                   </div>
                 </div>
-              )}
-              {client.contact_email && (
-                <div className="flex items-center gap-3">
-                  <Mail className="size-4 text-muted-foreground" />
-                  <a href={`mailto:${client.contact_email}`} className="text-primary hover:underline">
-                    {client.contact_email}
-                  </a>
+
+                {/* Row 2: Contact / Email / Téléphone */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Contact</label>
+                    <Input
+                      value={editForm.contact_name}
+                      onChange={(e) => setEditForm((f) => ({ ...f, contact_name: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                      placeholder="Nom du contact"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Email</label>
+                    <Input
+                      type="email"
+                      value={editForm.contact_email}
+                      onChange={(e) => setEditForm((f) => ({ ...f, contact_email: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                      placeholder="contact@example.com"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Téléphone</label>
+                    <Input
+                      type="tel"
+                      value={editForm.contact_phone}
+                      onChange={(e) => setEditForm((f) => ({ ...f, contact_phone: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                      placeholder="06 12 34 56 78"
+                    />
+                  </div>
                 </div>
-              )}
-              {client.contact_phone && (
-                <div className="flex items-center gap-3">
-                  <Phone className="size-4 text-muted-foreground" />
-                  <a href={`tel:${client.contact_phone}`} className="text-primary hover:underline">
-                    {client.contact_phone}
-                  </a>
+
+                {/* Row 3: Adresse / Ville / Code postal */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Adresse</label>
+                    <Input
+                      value={editForm.address}
+                      onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                      placeholder="12 rue de la Paix"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Ville</label>
+                    <Input
+                      value={editForm.city}
+                      onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                      placeholder="Paris"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Code postal</label>
+                    <Input
+                      value={editForm.postal_code}
+                      onChange={(e) => setEditForm((f) => ({ ...f, postal_code: e.target.value }))}
+                      className="h-9 rounded-lg text-sm"
+                      placeholder="75001"
+                    />
+                  </div>
                 </div>
-              )}
-              {client.notes && (
-                <div className="border-t border-border pt-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Notes</p>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{client.notes}</p>
+
+                {/* Row 4: Notes (full width) */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                  <textarea
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                    rows={2}
+                    className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                    placeholder="Notes internes..."
+                  />
                 </div>
-              )}
-            </div>
+
+                {/* Save / Cancel buttons */}
+                <div className="flex gap-2 pt-2">
+                  <Button onClick={handleSave} disabled={saving || !editForm.company_name.trim()}>
+                    {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                    Sauvegarder
+                  </Button>
+                  <Button variant="outline" onClick={() => setEditing(false)}>
+                    Annuler
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 text-sm">
+                {/* Row 1: Société / SIRET / TVA */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Société</p>
+                    <p className="mt-0.5 font-medium">{client.company_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">SIRET</p>
+                    <p className="mt-0.5">{client.siret || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">TVA</p>
+                    <p className="mt-0.5">{client.tva_number || '—'}</p>
+                  </div>
+                </div>
+
+                {/* Row 2: Contact / Email / Téléphone */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Contact</p>
+                    <p className="mt-0.5">{client.contact_name || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Email</p>
+                    {client.contact_email ? (
+                      <a href={`mailto:${client.contact_email}`} className="mt-0.5 block text-primary hover:underline">
+                        {client.contact_email}
+                      </a>
+                    ) : (
+                      <p className="mt-0.5">—</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Téléphone</p>
+                    {client.contact_phone ? (
+                      <a href={`tel:${client.contact_phone}`} className="mt-0.5 block text-primary hover:underline">
+                        {client.contact_phone}
+                      </a>
+                    ) : (
+                      <p className="mt-0.5">—</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 3: Adresse / Ville / Code postal */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Adresse</p>
+                    <p className="mt-0.5">{client.address || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Ville</p>
+                    <p className="mt-0.5">{client.city || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Code postal</p>
+                    <p className="mt-0.5">{client.postal_code || '—'}</p>
+                  </div>
+                </div>
+
+                {/* Row 4: Notes */}
+                {client.notes && (
+                  <div className="border-t border-border pt-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Notes</p>
+                    <p className="text-muted-foreground whitespace-pre-wrap">{client.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
+      <div className="grid gap-6 lg:grid-cols-3">
         {/* Campagnes */}
-        <Card className="lg:col-span-2">
+        <Card>
           <CardContent className="p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -231,10 +476,7 @@ export function ClientDetailPage() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* Devis + Factures */}
-      <div className="grid gap-6 lg:grid-cols-2">
         {/* Devis */}
         <Card>
           <CardContent className="p-5">
@@ -245,7 +487,7 @@ export function ClientDetailPage() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => navigate('/admin/quotes/new')}
+                onClick={() => navigate(`/admin/quotes/new?client=${client.id}`)}
               >
                 Nouveau devis
               </Button>
@@ -291,7 +533,7 @@ export function ClientDetailPage() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => navigate('/admin/invoices/new')}
+                onClick={() => navigate(`/admin/invoices/new?client=${client.id}`)}
               >
                 Nouvelle facture
               </Button>

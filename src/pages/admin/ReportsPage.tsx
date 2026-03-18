@@ -207,18 +207,20 @@ export function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Rapports</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold">Rapports</h1>
+        </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={exportPanelsCSV}>
-            <Download className="mr-1.5 size-4" />
+          <Button variant="outline" size="sm" onClick={exportPanelsCSV}>
+            <Download className="mr-1.5 size-3.5" />
             Export panneaux
           </Button>
-          <Button variant="outline" onClick={exportFinancialCSV}>
-            <Download className="mr-1.5 size-4" />
+          <Button variant="outline" size="sm" onClick={exportFinancialCSV}>
+            <Download className="mr-1.5 size-3.5" />
             Export factures
           </Button>
-          <Button variant="outline" onClick={exportClientsCSV}>
-            <Download className="mr-1.5 size-4" />
+          <Button variant="outline" size="sm" onClick={exportClientsCSV}>
+            <Download className="mr-1.5 size-3.5" />
             Export clients
           </Button>
         </div>

@@ -41,7 +41,9 @@ const PanelsPage = lazy(() => import('@/pages/admin/PanelsPage').then((m) => ({ 
 const PanelDetailPage = lazy(() => import('@/pages/admin/PanelDetailPage').then((m) => ({ default: m.PanelDetailPage })))
 const CampaignsPage = lazy(() => import('@/pages/admin/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
 const CampaignDetailPage = lazy(() => import('@/pages/admin/CampaignDetailPage').then((m) => ({ default: m.CampaignDetailPage })))
+const CampaignNewPage = lazy(() => import('@/pages/admin/CampaignNewPage').then((m) => ({ default: m.CampaignNewPage })))
 const ClientsPage = lazy(() => import('@/pages/admin/clients/ClientsPage').then((m) => ({ default: m.ClientsPage })))
+const ClientNewPage = lazy(() => import('@/pages/admin/clients/ClientNewPage').then((m) => ({ default: m.ClientNewPage })))
 const ClientDetailPage = lazy(() => import('@/pages/admin/clients/ClientDetailPage').then((m) => ({ default: m.ClientDetailPage })))
 const QuotesPage = lazy(() => import('@/pages/admin/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })))
 const InvoicesPage = lazy(() => import('@/pages/admin/invoices/InvoicesPage').then((m) => ({ default: m.InvoicesPage })))
@@ -132,8 +134,10 @@ export default function App() {
                   <Route path="locations" element={<LocationsPage />} />
                   <Route path="locations/:id" element={<LocationDetailPage />} />
                   <Route path="campaigns" element={<CampaignsPage />} />
+                  <Route path="campaigns/new" element={<CampaignNewPage />} />
                   <Route path="campaigns/:id" element={<CampaignDetailPage />} />
                   <Route path="clients" element={<ClientsPage />} />
+                  <Route path="clients/new" element={<ClientNewPage />} />
                   <Route path="clients/:id" element={<ClientDetailPage />} />
                   <Route path="quotes" element={<QuotesPage />} />
                   <Route path="quotes/:id" element={<QuoteDetailPage />} />

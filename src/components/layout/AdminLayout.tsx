@@ -130,7 +130,7 @@ export function AdminLayout() {
       >
         {/* Logo */}
         <div className="flex h-14 items-center justify-between border-b border-border px-5">
-          <span className="text-[15px] font-bold tracking-tight">OOHMYSCAN</span>
+          <span className="text-[15px] font-bold tracking-tight">OOH MY AD !</span>
           <button onClick={toggleSidebar} className="lg:hidden" aria-label="Fermer">
             <X className="size-5" />
           </button>

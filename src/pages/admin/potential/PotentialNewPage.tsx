@@ -291,7 +291,6 @@ export function PotentialNewPage() {
           }
 
           const currentId = savedIdRef.current
-          console.log('Auto-save: currentId =', currentId, 'isNew =', isNew)
           if (!currentId) {
             savePayload.reference = await getNextPotentialNumber()
             const created = await createRequest.mutateAsync(savePayload as Parameters<typeof createRequest.mutateAsync>[0])
@@ -299,7 +298,12 @@ export function PotentialNewPage() {
             navigate(`/admin/potential/${created.id}`, { replace: true })
             toast('Analyse enregistrée automatiquement')
           } else {
-            await updateRequest.mutateAsync({ id: currentId, ...savePayload })
+            // Update existing — use direct supabase call to avoid type issues
+            const { error: updateErr } = await supabase
+              .from('potential_requests')
+              .update(savePayload)
+              .eq('id', currentId)
+            if (updateErr) throw updateErr
             toast('Analyse mise à jour')
           }
         } catch (err) {

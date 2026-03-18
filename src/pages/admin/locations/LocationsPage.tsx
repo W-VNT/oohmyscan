@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useLocations } from '@/hooks/useLocations'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Landmark, Search, Loader2, Filter, ArrowUpDown, PanelTop, FileCheck } from 'lucide-react'
+import { Landmark, Search, Loader2, Filter, ArrowUpDown, PanelTop, FileCheck, Download } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 type SortOption = 'name' | 'city' | 'newest'
 type ContractFilter = 'all' | 'with_contract' | 'without_contract'
@@ -95,6 +96,30 @@ export function LocationsPage() {
     return result
   }, [locations, contractFilter, debouncedSearch, sort])
 
+  function handleExportCSV() {
+    if (!filtered.length) return
+    const headers = ['Nom', 'Adresse', 'Code Postal', 'Ville', 'Téléphone', 'Bailleur', 'Email', 'Contrat', 'Panneaux']
+    const rows = filtered.map((loc) => [
+      loc.name,
+      loc.address,
+      loc.postal_code,
+      loc.city,
+      loc.phone ?? '',
+      `${loc.owner_first_name} ${loc.owner_last_name}`,
+      loc.owner_email ?? '',
+      loc.has_contract ? 'Oui' : 'Non',
+      String(panelCounts?.get(loc.id) ?? 0),
+    ])
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `lieux-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -109,13 +134,14 @@ export function LocationsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Lieux</h1>
-          <div className="flex gap-1.5 text-xs text-muted-foreground">
-            <span>{locations?.length ?? 0} lieu{(locations?.length ?? 0) !== 1 ? 'x' : ''}</span>
-            <span>·</span>
-            <span>{statusCounts.withContract} avec contrat</span>
-            <span>·</span>
-            <span>{statusCounts.withoutContract} sans contrat</span>
-          </div>
+          <span className="text-sm text-muted-foreground">
+            {locations?.length ?? 0} lieu{(locations?.length ?? 0) !== 1 ? 'x' : ''}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
+            <Download className="mr-1.5 size-3.5" /> CSV
+          </Button>
         </div>
       </div>
 
@@ -198,10 +224,14 @@ export function LocationsPage() {
                           {location.owner_first_name} {location.owner_last_name}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          <Link
+                            to={`/admin/panels?location=${location.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                          >
                             <PanelTop className="size-3" />
                             {panelCount}
-                          </span>
+                          </Link>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {location.has_contract ? (

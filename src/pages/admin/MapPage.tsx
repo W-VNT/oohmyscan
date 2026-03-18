@@ -261,7 +261,7 @@ export function MapPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par référence, nom, adresse..."
-            className="flex h-9 w-56 rounded-lg border border-input bg-background pl-10 pr-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-9 w-56 rounded-lg border border-input bg-background pl-9 pr-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="relative">
@@ -329,8 +329,8 @@ export function MapPage() {
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <Card>
-          <CardContent className="overflow-hidden rounded-lg p-0">
+        <Card className="gap-0 py-0">
+          <CardContent className="overflow-hidden p-0">
             <div className="relative h-[calc(100vh-16rem)] min-h-[400px]">
           <Map
             ref={mapRef}

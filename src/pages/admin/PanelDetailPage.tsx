@@ -10,7 +10,6 @@ import { supabase } from '@/lib/supabase'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/shared/Toast'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, PANEL_ZONES } from '@/lib/constants'
 import {
@@ -50,7 +49,7 @@ export function PanelDetailPage() {
     return panelTypes.find((t) => t.id === companySettings.default_panel_type_id)?.name ?? ''
   }, [companySettings, panelTypes])
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
-  const [editOpen, setEditOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [contractPdfUrl, setContractPdfUrl] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({
     name: '',
@@ -123,7 +122,7 @@ export function PanelDetailPage() {
       lat: panel.lat != null ? String(panel.lat) : '',
       lng: panel.lng != null ? String(panel.lng) : '',
     })
-    setEditOpen(true)
+    setEditing(true)
   }
 
   async function handleSavePanel() {
@@ -163,7 +162,7 @@ export function PanelDetailPage() {
         ...(lngVal != null ? { lng: lngVal } : {}),
       })
       toast('Panneau mis à jour')
-      setEditOpen(false)
+      setEditing(false)
     } catch {
       toast('Erreur lors de la sauvegarde', 'error')
     } finally {
@@ -218,21 +217,24 @@ export function PanelDetailPage() {
           to="/admin/panels"
           className="rounded-md p-1 transition-colors hover:bg-accent"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="size-5" />
         </Link>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold">{displayName}</h2>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold">{displayName}</h1>
+            <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground">{panel.reference}</code>
             <StatusBadge status={panel.status as PanelStatus} />
           </div>
           <p className="mt-1 text-muted-foreground">
             {panel.city || panel.address || panel.reference}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={openEdit}>
-          <Pencil className="mr-1.5 size-3.5" />
-          Modifier
-        </Button>
+        {!editing && (
+          <Button variant="outline" size="sm" onClick={openEdit}>
+            <Pencil className="mr-1.5 size-3.5" />
+            Modifier
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -242,32 +244,219 @@ export function PanelDetailPage() {
           <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="font-semibold">Informations</h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <InfoRow icon={MapPin} label="Coordonnées" value={`${panel.lat.toFixed(6)}, ${panel.lng.toFixed(6)}`} />
-              <InfoRow icon={MapPin} label="Adresse" value={panel.address || '—'} />
-              <InfoRow icon={MapPin} label="Ville" value={panel.city || '—'} />
-              <InfoRow icon={Calendar} label="Type" value={panel.type || defaultTypeName || '—'} />
-              {panel.zone_label && (
-                <InfoRow icon={MapPin} label="Zone" value={PANEL_ZONES.find((z) => z.value === panel.zone_label)?.label ?? panel.zone_label ?? '—'} />
-              )}
-              <InfoRow icon={Calendar} label="Installé le" value={panel.installed_at ? new Date(panel.installed_at).toLocaleDateString('fr-FR') : '—'} />
-              <InfoRow icon={Calendar} label="Dernière vérification" value={panel.last_checked_at ? new Date(panel.last_checked_at).toLocaleDateString('fr-FR') : '—'} />
-              {panel.qr_code && (
-                <div className="flex items-center gap-2">
-                  <InfoRow icon={Calendar} label="QR Code" value="" />
-                  <code className="flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">{panel.qr_code}</code>
-                  <button
-                    onClick={() => { navigator.clipboard.writeText(panel.qr_code); toast('QR copié') }}
-                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    title="Copier"
+              {/* Row 1: Lieu / Zone */}
+              {editing ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Lieu</label>
+                  <select
+                    value={editForm.location_id}
+                    onChange={(e) => {
+                      const locId = e.target.value
+                      const loc = locations?.find((l) => l.id === locId)
+                      setEditForm((f) => ({
+                        ...f,
+                        location_id: locId,
+                        // Auto-fill from location
+                        ...(loc ? {
+                          address: loc.address || f.address,
+                          city: loc.city || f.city,
+                          name: loc.name + (f.zone_label ? ` — ${PANEL_ZONES.find((z) => z.value === f.zone_label)?.label ?? f.zone_label}` : ''),
+                        } : {}),
+                      }))
+                    }}
+                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
                   >
-                    <Copy className="size-3.5" />
-                  </button>
+                    <option value="">Aucun lieu</option>
+                    {locations?.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}{loc.city ? ` — ${loc.city}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <InfoRow icon={MapPin} label="Lieu" value={panel.locations?.name || '—'} />
+              )}
+
+              {editing ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Zone</label>
+                  <select
+                    value={editForm.zone_label}
+                    onChange={(e) => {
+                      const zone = e.target.value
+                      const loc = locations?.find((l) => l.id === editForm.location_id)
+                      setEditForm((f) => ({
+                        ...f,
+                        zone_label: zone,
+                        // Auto-update name when zone changes
+                        ...(loc ? {
+                          name: loc.name + (zone ? ` — ${PANEL_ZONES.find((z) => z.value === zone)?.label ?? zone}` : ''),
+                        } : {}),
+                      }))
+                    }}
+                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Aucune zone</option>
+                    {PANEL_ZONES.map((z) => (
+                      <option key={z.value} value={z.value}>{z.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <InfoRow icon={MapPin} label="Zone" value={panel.zone_label ? (PANEL_ZONES.find((z) => z.value === panel.zone_label)?.label ?? panel.zone_label) : '—'} />
+              )}
+
+              {/* Row 2: Nom / Type */}
+              {editing ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Nom {editForm.location_id && <span className="text-[10px] text-muted-foreground/60">(auto depuis lieu + zone)</span>}</label>
+                  <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nom du panneau" className="text-sm" disabled={!!editForm.location_id} />
+                </div>
+              ) : (
+                <InfoRow icon={Calendar} label="Nom" value={panel.name || '—'} />
+              )}
+
+              {editing ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Type</label>
+                  <select
+                    value={editForm.type}
+                    onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}
+                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Sélectionner...</option>
+                    {panelTypes?.map((pt) => (
+                      <option key={pt.id} value={pt.name}>{pt.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <InfoRow icon={Calendar} label="Type" value={panel.type || defaultTypeName || '—'} />
+              )}
+
+              {/* Row 3: Adresse / Ville */}
+              {editing ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Adresse {editForm.location_id && <span className="text-[10px] text-muted-foreground/60">(depuis le lieu)</span>}</label>
+                  <Input value={editForm.address} onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))} placeholder="Adresse" className="text-sm" disabled={!!editForm.location_id} />
+                </div>
+              ) : (
+                <InfoRow icon={MapPin} label="Adresse" value={panel.address || '—'} />
+              )}
+
+              {editing ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Ville {editForm.location_id && <span className="text-[10px] text-muted-foreground/60">(depuis le lieu)</span>}</label>
+                  <Input value={editForm.city} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} placeholder="Ville" className="text-sm" disabled={!!editForm.location_id} />
+                </div>
+              ) : (
+                <InfoRow icon={MapPin} label="Ville" value={panel.city || '—'} />
+              )}
+
+              {/* Row 4: Statut / Date */}
+              {editing ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Statut</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                  >
+                    {PANEL_STATUSES.map((s) => (
+                      <option key={s} value={s}>{PANEL_STATUS_CONFIG[s].label}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <InfoRow icon={Calendar} label="Statut" value={PANEL_STATUS_CONFIG[panel.status as PanelStatus]?.label ?? panel.status} />
+              )}
+
+              <InfoRow icon={Calendar} label="Installé le" value={panel.installed_at ? new Date(panel.installed_at).toLocaleDateString('fr-FR') : '—'} />
+
+              {/* GPS — only in edit mode */}
+              {editing && (
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-xs font-medium text-muted-foreground">Coordonnées GPS</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Latitude</label>
+                      <Input
+                        type="number"
+                        step="0.000001"
+                        value={editForm.lat}
+                        onChange={(e) => setEditForm((f) => ({ ...f, lat: e.target.value }))}
+                        placeholder="48.856614"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Longitude</label>
+                      <Input
+                        type="number"
+                        step="0.000001"
+                        value={editForm.lng}
+                        onChange={(e) => setEditForm((f) => ({ ...f, lng: e.target.value }))}
+                        placeholder="2.352222"
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* Read-only fields always visible */}
+              {!editing && (
+                <>
+                  <InfoRow icon={Calendar} label="Installé le" value={panel.installed_at ? new Date(panel.installed_at).toLocaleDateString('fr-FR') : '—'} />
+                  <InfoRow icon={Calendar} label="Dernière vérification" value={panel.last_checked_at ? new Date(panel.last_checked_at).toLocaleDateString('fr-FR') : '—'} />
+                  {panel.qr_code && (
+                    <div className="flex items-center gap-2">
+                      <InfoRow icon={Calendar} label="QR Code" value="" />
+                      <code className="flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">{panel.qr_code}</code>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(panel.qr_code); toast('QR copié') }}
+                        className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        title="Copier"
+                      >
+                        <Copy className="size-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-            {panel.notes && (
-              <div className="mt-4 rounded-lg bg-muted/50 p-3">
-                <p className="text-sm text-muted-foreground">{panel.notes}</p>
+
+            {/* Notes */}
+            {editing ? (
+              <div className="mt-4 space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                <textarea
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={3}
+                  className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+                  placeholder="Notes internes..."
+                />
+              </div>
+            ) : (
+              panel.notes && (
+                <div className="mt-4 rounded-lg bg-muted/50 p-3">
+                  <p className="text-sm text-muted-foreground">{panel.notes}</p>
+                </div>
+              )
+            )}
+
+            {/* Save / Cancel buttons */}
+            {editing && (
+              <div className="flex gap-2 pt-4">
+                <Button onClick={handleSavePanel} disabled={saving}>
+                  {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                  Sauvegarder
+                </Button>
+                <Button variant="outline" onClick={() => setEditing(false)}>
+                  Annuler
+                </Button>
               </div>
             )}
           </div>
@@ -304,9 +493,12 @@ export function PanelDetailPage() {
                   return (
                     <div key={a.id} className="flex items-center justify-between py-3">
                       <div>
-                        <p className="text-sm font-medium">
+                        <Link
+                          to={`/admin/campaigns/${a.campaign_id}`}
+                          className="text-sm font-medium text-primary hover:underline"
+                        >
                           {campaign?.name ?? '—'}
-                        </p>
+                        </Link>
                         <p className="text-xs text-muted-foreground">
                           {campaign?.clients?.company_name ?? '—'}
                         </p>
@@ -336,6 +528,7 @@ export function PanelDetailPage() {
               <Camera className="h-4 w-4" />
               <h3 className="font-semibold">Photos ({photos?.length ?? 0})</h3>
             </div>
+            {/* TODO: Add photo upload button here */}
             {!photos?.length ? (
               <p className="mt-4 text-sm text-muted-foreground">Aucune photo</p>
             ) : (
@@ -489,126 +682,6 @@ export function PanelDetailPage() {
           </div>
         </div>
       )}
-
-      {/* Edit Sheet */}
-      <Sheet open={editOpen} onOpenChange={setEditOpen}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Modifier le panneau</SheetTitle>
-          </SheetHeader>
-          <div className="mt-6 space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Nom</label>
-              <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nom du panneau" className="text-sm" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Statut</label>
-              <select
-                value={editForm.status}
-                onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-              >
-                {PANEL_STATUSES.map((s) => (
-                  <option key={s} value={s}>{PANEL_STATUS_CONFIG[s].label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Adresse</label>
-              <Input value={editForm.address} onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))} placeholder="Adresse" className="text-sm" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Ville</label>
-              <Input value={editForm.city} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} placeholder="Ville" className="text-sm" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Lieu</label>
-              <select
-                value={editForm.location_id}
-                onChange={(e) => setEditForm((f) => ({ ...f, location_id: e.target.value }))}
-                className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Aucun lieu</option>
-                {locations?.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name}{loc.city ? ` — ${loc.city}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Zone</label>
-              <select
-                value={editForm.zone_label}
-                onChange={(e) => setEditForm((f) => ({ ...f, zone_label: e.target.value }))}
-                className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Aucune zone</option>
-                {PANEL_ZONES.map((z) => (
-                  <option key={z.value} value={z.value}>{z.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Coordonnées GPS</label>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Latitude</label>
-                  <Input
-                    type="number"
-                    step="0.000001"
-                    value={editForm.lat}
-                    onChange={(e) => setEditForm((f) => ({ ...f, lat: e.target.value }))}
-                    placeholder="48.856614"
-                    className="text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Longitude</label>
-                  <Input
-                    type="number"
-                    step="0.000001"
-                    value={editForm.lng}
-                    onChange={(e) => setEditForm((f) => ({ ...f, lng: e.target.value }))}
-                    placeholder="2.352222"
-                    className="text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Format</label>
-              <select
-                value={editForm.type}
-                onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}
-                className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Sélectionner...</option>
-                {panelTypes?.map((pt) => (
-                  <option key={pt.id} value={pt.name}>{pt.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Notes</label>
-              <textarea
-                value={editForm.notes}
-                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                rows={3}
-                className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
-                placeholder="Notes internes..."
-              />
-            </div>
-            <div className="mt-6 flex gap-3">
-              <Button onClick={handleSavePanel} disabled={saving} className="flex-1">
-                {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
-                Mettre à jour
-              </Button>
-              <Button variant="outline" onClick={() => setEditOpen(false)}>Annuler</Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* Contract PDF Modal */}
       {contractPdfUrl && (

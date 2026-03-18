@@ -93,7 +93,7 @@ export function PotentialPage() {
             {filtered.length}{(statusFilter !== 'all' || debouncedSearch) ? ` / ${requests?.length ?? 0}` : ''} demande{(requests?.length ?? 0) !== 1 ? 's' : ''}
           </span>
         </div>
-        <Button onClick={() => navigate('/admin/potential/new')}>
+        <Button size="sm" onClick={() => navigate('/admin/potential/new')}>
           <Plus className="mr-1.5 size-4" />
           Nouvelle demande
         </Button>

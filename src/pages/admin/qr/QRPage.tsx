@@ -220,7 +220,12 @@ export function QRPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">QR Codes</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold">QR Codes</h1>
+          <span className="text-sm text-muted-foreground">
+            {qrItems?.length ?? 0} QR code{(qrItems?.length ?? 0) !== 1 ? 's' : ''}
+          </span>
+        </div>
         <div className="flex gap-2">
           {selected.size > 0 && (
             <>

@@ -116,7 +116,7 @@ export function QuotesPage() {
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
             <Download className="mr-1.5 size-3.5" /> CSV
           </Button>
-          <Button onClick={() => navigate('/admin/quotes/new')}>
+          <Button size="sm" onClick={() => navigate('/admin/quotes/new')}>
             <Plus className="mr-1.5 size-4" />
             Nouveau devis
           </Button>

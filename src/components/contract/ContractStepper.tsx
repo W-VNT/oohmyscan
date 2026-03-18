@@ -238,12 +238,17 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         uploadSignature(signatureOperator, 'operator'),
       ])
 
-      // 1. Update panel with location_id and zone_label
+      // 1. Update panel with location_id, zone_label + sync name/address/city from location
+      const zoneName = selectedZone ? (zoneLabels[selectedZone] ?? selectedZone) : ''
+      const autoName = location.name + (zoneName ? ` — ${zoneName}` : '')
       const { error: panelErr } = await supabase
         .from('panels')
         .update({
           location_id: location.id,
           zone_label: selectedZone,
+          name: autoName,
+          address: location.address,
+          city: location.city,
           updated_at: now,
         })
         .eq('id', panel.id)

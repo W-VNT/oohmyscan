@@ -237,11 +237,9 @@ export function UsersPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Utilisateurs</h1>
-          <div className="flex gap-1.5 text-xs text-muted-foreground">
-            <span>{roleCounts.admin} admin{roleCounts.admin !== 1 ? 's' : ''}</span>
-            <span>·</span>
-            <span>{roleCounts.operator} opérateur{roleCounts.operator !== 1 ? 's' : ''}</span>
-          </div>
+          <span className="text-sm text-muted-foreground">
+            {users?.length ?? 0} utilisateur{(users?.length ?? 0) !== 1 ? 's' : ''}
+          </span>
         </div>
         <Button onClick={() => { setInviteErrors({}); setInviteOpen(true) }}>
           <UserPlus className="mr-1.5 size-4" />

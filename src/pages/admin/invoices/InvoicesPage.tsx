@@ -124,7 +124,7 @@ export function InvoicesPage() {
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
             <Download className="mr-1.5 size-3.5" /> CSV
           </Button>
-          <Button onClick={() => navigate('/admin/invoices/new')}>
+          <Button size="sm" onClick={() => navigate('/admin/invoices/new')}>
             <Plus className="mr-1.5 size-4" />
             Nouvelle facture
           </Button>
