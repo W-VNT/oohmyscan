@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { usePanel, useUpdatePanel } from '@/hooks/usePanels'
+import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
+import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { supabase } from '@/lib/supabase'
@@ -23,6 +25,7 @@ import {
   ChevronRight,
   Pencil,
   Loader2,
+  ExternalLink,
 } from 'lucide-react'
 import type { PanelStatus } from '@/lib/constants'
 import type { PanelPhoto, PanelCampaign } from '@/types'
@@ -31,8 +34,15 @@ export function PanelDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { data: panel, isLoading } = usePanel(id)
   const updatePanel = useUpdatePanel()
+  const { data: panelTypes } = useActivePanelTypes()
+  const { data: companySettings } = useCompanySettings()
+  const defaultTypeName = useMemo(() => {
+    if (!companySettings?.default_panel_type_id || !panelTypes) return ''
+    return panelTypes.find((t) => t.id === companySettings.default_panel_type_id)?.name ?? ''
+  }, [companySettings, panelTypes])
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const [contractPdfUrl, setContractPdfUrl] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ name: '', address: '', city: '', type: '', status: '', notes: '' })
   const [saving, setSaving] = useState(false)
 
@@ -85,7 +95,7 @@ export function PanelDetailPage() {
       name: panel.name || '',
       address: panel.address || '',
       city: panel.city || '',
-      type: panel.type || '',
+      type: panel.type || defaultTypeName || '',
       status: panel.status,
       notes: panel.notes || '',
     })
@@ -169,7 +179,7 @@ export function PanelDetailPage() {
               <InfoRow icon={MapPin} label="Coordonnées" value={`${panel.lat.toFixed(6)}, ${panel.lng.toFixed(6)}`} />
               <InfoRow icon={MapPin} label="Adresse" value={panel.address || '—'} />
               <InfoRow icon={MapPin} label="Ville" value={panel.city || '—'} />
-              <InfoRow icon={Calendar} label="Type" value={panel.type || '—'} />
+              <InfoRow icon={Calendar} label="Type" value={panel.type || defaultTypeName || '—'} />
               <InfoRow icon={Calendar} label="Installé le" value={panel.installed_at ? new Date(panel.installed_at).toLocaleDateString('fr-FR') : '—'} />
               <InfoRow icon={Calendar} label="Dernière vérification" value={panel.last_checked_at ? new Date(panel.last_checked_at).toLocaleDateString('fr-FR') : '—'} />
             </div>
@@ -303,7 +313,7 @@ export function PanelDetailPage() {
                           toast('Erreur lors de l\'ouverture du PDF', 'error')
                           return
                         }
-                        window.open(data.signedUrl, '_blank')
+                        setContractPdfUrl(data.signedUrl)
                       }}
                       className="rounded-md p-1.5 transition-colors hover:bg-muted"
                       title="Voir le contrat"
@@ -429,6 +439,26 @@ export function PanelDetailPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Contract PDF Modal */}
+      {contractPdfUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setContractPdfUrl(null)}>
+          <div className="relative h-[90vh] w-[90vw] max-w-4xl rounded-lg bg-background shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <p className="text-sm font-medium">Contrat — {contract?.contract_number}</p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => window.open(contractPdfUrl, '_blank')}>
+                  <ExternalLink className="mr-1.5 size-3.5" /> Ouvrir
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setContractPdfUrl(null)}>
+                  <X className="size-4" />
+                </Button>
+              </div>
+            </div>
+            <iframe src={contractPdfUrl} className="h-[calc(100%-3.5rem)] w-full rounded-b-lg" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
