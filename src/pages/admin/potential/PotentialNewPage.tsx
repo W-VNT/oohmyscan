@@ -282,14 +282,17 @@ export function PotentialNewPage() {
             status: (existingRequest?.status ?? 'draft') as 'draft' | 'sent',
           }
 
-          if (!savedIdRef.current) {
+          const currentId = savedIdRef.current
+          console.log('Auto-save: currentId =', currentId, 'isNew =', isNew)
+          if (!currentId) {
             savePayload.reference = await getNextPotentialNumber()
             const created = await createRequest.mutateAsync(savePayload as Parameters<typeof createRequest.mutateAsync>[0])
             savedIdRef.current = created.id
             navigate(`/admin/potential/${created.id}`, { replace: true })
             toast('Analyse enregistrée automatiquement')
           } else {
-            await updateRequest.mutateAsync({ id: savedIdRef.current, ...savePayload })
+            await updateRequest.mutateAsync({ id: currentId, ...savePayload })
+            toast('Analyse mise à jour')
           }
         } catch (err) {
           console.error('Auto-save failed:', err)
