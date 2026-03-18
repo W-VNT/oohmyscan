@@ -243,8 +243,8 @@ export function MapPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-border bg-background px-4 py-3">
+      {/* Toolbar — flush with map */}
+      <div className="flex flex-wrap items-center gap-2 bg-background px-3 py-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
