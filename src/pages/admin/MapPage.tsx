@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { usePanels } from '@/hooks/usePanels'
 import { supabase } from '@/lib/supabase'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { Filter, Loader2, Locate, MapPinOff } from 'lucide-react'
+import { Filter, Loader2, Locate, MapPinOff, Search } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import type { Panel, PanelWithLocation } from '@/types'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -36,13 +36,30 @@ function estimateZoom(panels: Panel[]): number {
 export function MapPage() {
   const { data: panels, isLoading } = usePanels()
   const mapRef = useRef<MapRef>(null)
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
+
+  // Watch for theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedPanel, setSelectedPanel] = useState<PanelWithLocation | null>(null)
   const [viewState, setViewState] = useState(DEFAULT_VIEW)
   const initialCenteredRef = useRef(false)
 
+  // Search with debounce
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+
   const statusFilter = searchParams.get('status') as PanelStatus | null
   const cityFilter = searchParams.get('city')
+  const campaignFilter = searchParams.get('campaign') as 'with' | 'without' | null
 
   // Campaign indicator
   const { data: panelCampaigns = new Set<string>() } = useQuery({
@@ -57,14 +74,36 @@ export function MapPage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value)
+    }, 300)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [])
+
   const filteredPanels = useMemo(() => {
     if (!panels) return []
     return panels.filter((p) => {
       if (statusFilter && p.status !== statusFilter) return false
       if (cityFilter && p.city !== cityFilter) return false
+      if (campaignFilter === 'with' && !panelCampaigns.has(p.id)) return false
+      if (campaignFilter === 'without' && panelCampaigns.has(p.id)) return false
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.trim().toLowerCase()
+        const haystack = [p.reference, p.name, p.address, p.city]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
       return true
     })
-  }, [panels, statusFilter, cityFilter])
+  }, [panels, statusFilter, cityFilter, campaignFilter, panelCampaigns, debouncedSearch])
 
   const cities = useMemo(() => {
     if (!panels) return []
@@ -94,6 +133,25 @@ export function MapPage() {
       zoom: estimateZoom(filteredPanels),
     })
   }, [filteredPanels])
+
+  // Fly to search results when debounced search changes
+  useEffect(() => {
+    if (!debouncedSearch.trim() || !filteredPanels.length) return
+    if (filteredPanels.length === 1) {
+      const p = filteredPanels[0]
+      setViewState({ latitude: p.lat, longitude: p.lng, zoom: 16 })
+      setSelectedPanel(p)
+    } else {
+      const lats = filteredPanels.map((p) => p.lat)
+      const lngs = filteredPanels.map((p) => p.lng)
+      setViewState({
+        latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
+        longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+        zoom: estimateZoom(filteredPanels),
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, filteredPanels])
 
   // GeoJSON for clustering
   const geojson = useMemo(() => {
@@ -188,6 +246,16 @@ export function MapPage() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 border-b border-border bg-background px-4 py-3">
         <div className="relative">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Rechercher par référence, nom, adresse..."
+            className="flex h-9 w-56 rounded-lg border border-input bg-background pl-10 pr-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <div className="relative">
           <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <select
             value={statusFilter ?? ''}
@@ -228,6 +296,15 @@ export function MapPage() {
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+        <select
+          value={campaignFilter ?? ''}
+          onChange={(e) => setFilter('campaign', e.target.value || null)}
+          className="flex h-9 appearance-none rounded-lg border border-input bg-background px-3 py-1 text-sm"
+        >
+          <option value="">Toutes les campagnes</option>
+          <option value="with">Avec campagne</option>
+          <option value="without">Sans campagne</option>
+        </select>
         <button
           onClick={handleCenterOnPanels}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors hover:bg-accent"
@@ -252,7 +329,7 @@ export function MapPage() {
             {...viewState}
             onMove={(evt: { viewState: typeof viewState }) => setViewState(evt.viewState)}
             mapboxAccessToken={MAPBOX_TOKEN}
-            mapStyle="mapbox://styles/mapbox/dark-v11"
+            mapStyle={isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11'}
             style={{ width: '100%', height: '100%' }}
             onClick={handleMapClick}
             interactiveLayerIds={['clusters', 'unclustered-point']}
@@ -348,6 +425,28 @@ export function MapPage() {
               </Popup>
             )}
           </Map>
+
+          {/* Legend */}
+          <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-border bg-background/90 px-3 py-2 backdrop-blur">
+            <div className="flex flex-col gap-1.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="inline-block size-2.5 rounded-full bg-[#22c55e]" />
+                <span>Actif</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block size-2.5 rounded-full bg-[#6b7280]" />
+                <span>Vacant</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block size-2.5 rounded-full bg-[#f97316]" />
+                <span>Maintenance</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block size-2.5 rounded-full bg-[#ef4444]" />
+                <span>Campagne active</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
