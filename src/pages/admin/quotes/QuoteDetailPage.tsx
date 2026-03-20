@@ -604,80 +604,66 @@ export function QuoteDetailPage() {
 
       {/* Client + Campaign + Dates */}
       <Card>
-        <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Client *</label>
-            <select
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              disabled={isStructureLocked}
-              className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
-            >
-              <option value="">Sélectionner...</option>
-              {activeClients.map((c) => (
-                <option key={c.id} value={c.id}>{c.company_name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Campagne</label>
-            <select
-              value={campaignId}
-              onChange={(e) => setCampaignId(e.target.value)}
-              disabled={isStructureLocked || !clientId}
-              className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
-            >
-              <option value="">
-                {!clientId
-                  ? 'Sélectionner un client d\u2019abord'
-                  : clientCampaigns?.length === 0
-                    ? 'Aucune campagne pour ce client'
-                    : 'Sélectionner...'}
-              </option>
-              {clientCampaigns?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.status === 'draft' ? 'Brouillon' : c.status === 'active' ? 'Active' : 'Annulée'})
+        <CardContent className="space-y-4 pt-6">
+          {/* Row 1: Client | Campagne */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Client *</label>
+              <select
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                disabled={isStructureLocked}
+                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+              >
+                <option value="">Sélectionner un client...</option>
+                {activeClients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Campagne</label>
+              <select
+                value={campaignId}
+                onChange={(e) => setCampaignId(e.target.value)}
+                disabled={isStructureLocked || !clientId}
+                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+              >
+                <option value="">
+                  {!clientId ? 'Sélectionner un client d\u2019abord' : 'Aucune (optionnel)'}
                 </option>
-              ))}
-            </select>
+                {clientCampaigns?.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Date d'émission</label>
-            <Input
-              type="date"
-              value={issuedAt}
-              onChange={(e) => setIssuedAt(e.target.value)}
-              disabled={isStructureLocked}
-              className="text-sm"
-            />
+
+          {/* Row 2: Date émission | Valide jusqu'au | Réf. dossier */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Date d'émission</label>
+              <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Valide jusqu'au</label>
+              <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Réf. dossier</label>
+              <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isStructureLocked} placeholder="Ex: 25090548" className="h-9 text-sm" />
+            </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Valide jusqu'au</label>
-            <Input
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              disabled={isStructureLocked}
-              className="text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Réf. dossier / N° commande</label>
-            <Input
-              value={clientReference}
-              onChange={(e) => setClientReference(e.target.value)}
-              disabled={isStructureLocked}
-              placeholder="Ex: 25090548"
-              className="text-sm"
-            />
-          </div>
+
+          {/* Row 3: Notes (full width) */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Notes</label>
+            <p className="text-[10px] text-muted-foreground/70">Affiché sur le PDF du devis, visible par le client.</p>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={isCancelled}
-              placeholder="Notes..."
+              placeholder="Conditions particulières, délais, informations complémentaires..."
               rows={2}
               className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50"
             />

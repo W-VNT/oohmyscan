@@ -831,6 +831,11 @@ export function InvoiceDetailPage() {
                         </button>
                       </>
                     )}
+                    {invoice.status === 'overdue' && (
+                      <button onClick={() => { handleStatusChange('sent' as InvoiceStatus); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                        <Send className="size-3.5" /> Repasser en envoyée
+                      </button>
+                    )}
                     {['paid', 'cancelled'].includes(invoice.status) && !invoice.is_archived && (
                       <button onClick={() => { updateInvoice.mutateAsync({ id: id!, is_archived: true }).then(() => toast('Facture archivée')); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
                         <Archive className="size-3.5" /> Archiver
@@ -880,18 +885,18 @@ export function InvoiceDetailPage() {
       )}
 
 
-      {/* Destinataire */}
+      {/* Facturation — single compact card */}
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <p className="text-sm font-semibold">Destinataire</p>
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* Row 1: Client | Campagne | Type */}
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Client *</label>
               <select
                 value={clientId}
                 onChange={(e) => { setClientId(e.target.value); setValidationErrors((v) => ({ ...v, clientId: false })) }}
                 disabled={isStructureLocked}
-                className={`flex h-9 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-50 ${validationErrors.clientId ? 'border-red-500 ring-1 ring-red-500/30' : 'border-input'}`}
+                className={`flex h-9 w-full rounded-lg border bg-background px-3 text-sm disabled:opacity-50 ${validationErrors.clientId ? 'border-red-500 ring-1 ring-red-500/30' : 'border-input'}`}
               >
                 <option value="">Sélectionner un client...</option>
                 {activeClients.map((c) => (
@@ -907,67 +912,47 @@ export function InvoiceDetailPage() {
                 disabled={isStructureLocked || !clientId}
                 className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
               >
-                <option value="">
-                  {!clientId ? 'Sélectionner un client d\u2019abord' : campaignsLoading ? 'Chargement...' : 'Aucune (optionnel)'}
-                </option>
+                <option value="">{!clientId ? 'Client d\u2019abord' : campaignsLoading ? 'Chargement...' : 'Aucune (optionnel)'}</option>
                 {clientCampaigns?.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Facturation */}
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <p className="text-sm font-semibold">Facturation</p>
-
-          {/* Type selector — compact inline */}
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-medium text-muted-foreground">Type :</span>
-            {(['standard', 'acompte', 'solde'] as InvoiceType[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => !isStructureLocked && setInvoiceType(t)}
-                disabled={isStructureLocked}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
-                  invoiceType === t
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted-foreground hover:border-foreground/30'
-                }`}
-              >
-                {INVOICE_TYPE_LABELS[t]}
-              </button>
-            ))}
-          </div>
-
-          {/* Acompte: percentage input */}
-          {invoiceType === 'acompte' && (
-            <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 px-4 py-3">
-              <label className="text-sm font-medium">Pourcentage d'acompte</label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="number"
-                  min={1}
-                  max={100}
-                  step={1}
-                  value={depositPercentage}
-                  onChange={(e) => setDepositPercentage(Math.max(1, Math.min(100, parseFloat(e.target.value) || 1)))}
-                  disabled={isStructureLocked}
-                  className="h-8 w-20 text-sm"
-                />
-                <span className="text-sm text-muted-foreground">%</span>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Type</label>
+              <div className="flex h-9 items-center gap-1.5">
+                {(['standard', 'acompte', 'solde'] as InvoiceType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => !isStructureLocked && setInvoiceType(t)}
+                    disabled={isStructureLocked}
+                    className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                      invoiceType === t
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-foreground/30'
+                    }`}
+                  >
+                    {INVOICE_TYPE_LABELS[t].replace('Facture ', '').replace("d'", '')}
+                  </button>
+                ))}
               </div>
-              <span className="ml-auto text-xs text-muted-foreground">
-                Montant : {formatCurrency(baseTotals.totalTtc * (depositPercentage || 0) / 100)} TTC
-              </span>
+            </div>
+          </div>
+
+          {/* Conditional: Acompte % */}
+          {invoiceType === 'acompte' && (
+            <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 px-4 py-2.5">
+              <label className="text-xs font-medium">Acompte</label>
+              <div className="flex items-center gap-1">
+                <Input type="number" min={1} max={100} step={1} value={depositPercentage} onChange={(e) => setDepositPercentage(Math.max(1, Math.min(100, parseFloat(e.target.value) || 1)))} disabled={isStructureLocked} className="h-7 w-16 text-sm" />
+                <span className="text-xs text-muted-foreground">%</span>
+              </div>
+              <span className="ml-auto text-xs text-muted-foreground">{formatCurrency(baseTotals.totalTtc * (depositPercentage || 0) / 100)} TTC</span>
             </div>
           )}
 
-          {/* Solde: show deposits summary + selector */}
+          {/* Conditional: Solde summary */}
           {invoiceType === 'solde' && (
             <div className="space-y-3 rounded-md border border-border bg-muted/30 px-4 py-3">
               <p className="text-sm font-medium">Factures d'acompte liées</p>
@@ -1002,14 +987,14 @@ export function InvoiceDetailPage() {
             </div>
           )}
 
-          {/* Dates & terms grid */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Row 2: Dates + terms + ref */}
+          <div className="grid gap-4 sm:grid-cols-4">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Date d'émission</label>
-              <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="text-sm" />
+              <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Conditions de paiement</label>
+              <label className="text-xs font-medium text-muted-foreground">Conditions</label>
               <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)} disabled={isStructureLocked} className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50">
                 {PAYMENT_TERMS.map((t) => (
                   <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
@@ -1018,18 +1003,19 @@ export function InvoiceDetailPage() {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Échéance</label>
-              <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} disabled={isStructureLocked} className="text-sm" />
+              <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Réf. dossier</label>
-              <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isStructureLocked} placeholder="Ex: 25090548" className="text-sm" />
+              <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isCancelled} placeholder="Ex: 25090548" className="h-9 text-sm" />
             </div>
           </div>
 
-          {/* Notes — full width */}
+          {/* Row 3: Notes — full width */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Notes</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={isCancelled} placeholder="Notes internes ou visibles sur le PDF..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50" />
+            <p className="text-[10px] text-muted-foreground/70">Affiché sur le PDF de la facture, visible par le client.</p>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={isCancelled} placeholder="Conditions particulières, informations complémentaires..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50" />
           </div>
         </CardContent>
       </Card>
