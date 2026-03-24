@@ -265,7 +265,7 @@ export function UsersPage() {
       </div>
 
       {/* Table */}
-      <Card>
+      <Card className="overflow-visible">
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
