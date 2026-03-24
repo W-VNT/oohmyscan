@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useUsers, useUpdateUser, useOperatorStats, useInviteUser, type Profile } from '@/hooks/admin/useUsers'
 import { useAppStore } from '@/store/app.store'
+import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/shared/Toast'
-import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2 } from 'lucide-react'
 
 type RoleFilter = 'all' | 'admin' | 'operator'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -54,6 +55,8 @@ export function UsersPage() {
   const [inviting, setInviting] = useState(false)
 
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null)
+  const [userMenuId, setUserMenuId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
@@ -140,6 +143,31 @@ export function UsersPage() {
     updateUser.mutate({ id: user.id, is_active: false })
     setConfirmDeactivate(null)
     toast('Utilisateur désactivé')
+  }
+
+  async function handleResetPassword(userId: string) {
+    setUserMenuId(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-user', { body: { action: 'reset_password', userId } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      toast(data.message || 'Email de réinitialisation envoyé')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erreur', 'error')
+    }
+  }
+
+  async function handleDeleteUser(userId: string) {
+    setConfirmDeleteId(null)
+    setUserMenuId(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-user', { body: { action: 'delete', userId } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      toast('Utilisateur supprimé')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erreur', 'error')
+    }
   }
 
   async function handleInvite() {
@@ -249,6 +277,7 @@ export function UsersPage() {
                 <th className="hidden px-4 py-2.5 font-medium text-muted-foreground lg:table-cell">Photos</th>
                 <th className="hidden px-4 py-2.5 font-medium text-muted-foreground md:table-cell">Activité</th>
                 <th className="px-4 py-2.5 font-medium text-muted-foreground">Statut</th>
+                <th className="w-10" />
                 {editingId && <th className="w-16" />}
               </tr>
             </thead>
@@ -341,6 +370,35 @@ export function UsersPage() {
                           >
                             {user.is_active ? 'Actif' : 'Inactif'}
                           </button>
+                        )}
+                      </td>
+                      <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        {user.id !== currentUserId && (
+                          <div className="relative">
+                            <button onClick={() => setUserMenuId(userMenuId === user.id ? null : user.id)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+                              <MoreHorizontal className="size-4" />
+                            </button>
+                            {userMenuId === user.id && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setUserMenuId(null)} />
+                                <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-popover py-1 shadow-lg">
+                                  <button onClick={() => handleResetPassword(user.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                                    <KeyRound className="size-3.5" /> Reset mot de passe
+                                  </button>
+                                  {confirmDeleteId === user.id ? (
+                                    <div className="flex items-center gap-1 px-3 py-2">
+                                      <button onClick={() => handleDeleteUser(user.id)} className="rounded px-2 py-0.5 text-xs font-medium text-red-600 hover:bg-red-500/10">Confirmer</button>
+                                      <button onClick={() => setConfirmDeleteId(null)} className="rounded px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted">Annuler</button>
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => setConfirmDeleteId(user.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
+                                      <Trash2 className="size-3.5" /> Supprimer le compte
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
                         )}
                       </td>
                       {editingId && <td />}

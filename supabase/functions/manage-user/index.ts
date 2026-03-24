@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
+    // Verify caller is admin
     const {
       data: { user: caller },
       error: callerError,
@@ -59,11 +60,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { email, full_name, role } = await req.json();
+    const { action, userId } = await req.json();
 
-    if (!email || !full_name || !role) {
+    if (!userId || !action) {
       return new Response(
-        JSON.stringify({ error: "Email, nom complet et rôle sont requis" }),
+        JSON.stringify({ error: "action et userId requis" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -71,68 +72,72 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!["admin", "operator"].includes(role)) {
-      return new Response(JSON.stringify({ error: "Rôle invalide" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      email,
-      {
-        data: { full_name, role },
-        redirectTo: "https://oohmyscan.vercel.app/login",
-      },
-    );
-
-    if (error) {
-      console.error("Invite error:", error);
-      if (error.message?.includes("already been registered")) {
-        return new Response(
-          JSON.stringify({ error: "Cet email est déjà enregistré" }),
-          {
-            status: 409,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
+    // Prevent self-deletion
+    if (action === "delete" && userId === caller.id) {
       return new Response(
-        JSON.stringify({ error: "Erreur lors de l'invitation" }),
+        JSON.stringify({ error: "Vous ne pouvez pas supprimer votre propre compte" }),
         {
-          status: 500,
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
     }
 
-    // Create profile immediately with 'invited' status
-    if (data.user?.id) {
-      const { error: profileError } = await supabaseAdmin
-        .from("profiles")
-        .upsert(
+    if (action === "reset_password") {
+      // Get user email
+      const { data: targetUser, error: getUserErr } =
+        await supabaseAdmin.auth.admin.getUserById(userId);
+      if (getUserErr || !targetUser?.user?.email) {
+        return new Response(
+          JSON.stringify({ error: "Utilisateur introuvable" }),
           {
-            id: data.user.id,
-            full_name,
-            role,
-            status: "invited",
-            is_active: true,
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
           },
-          { onConflict: "id" },
         );
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
       }
+
+      // Send reset password email
+      const { error: resetErr } = await supabaseAdmin.auth.resetPasswordForEmail(
+        targetUser.user.email,
+        { redirectTo: `${Deno.env.get("APP_URL") || "https://oohmyscan.vercel.app"}/login` },
+      );
+      if (resetErr) throw resetErr;
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Email de réinitialisation envoyé à ${targetUser.user.email}`,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (action === "delete") {
+      // Delete profile first
+      await supabaseAdmin.from("profiles").delete().eq("id", userId);
+
+      // Delete auth user
+      const { error: deleteErr } =
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (deleteErr) throw deleteErr;
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Utilisateur supprimé" }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Invitation envoyée à ${email}`,
-        userId: data.user?.id,
-      }),
+      JSON.stringify({ error: "Action non reconnue (reset_password ou delete)" }),
       {
-        status: 200,
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
