@@ -56,7 +56,6 @@ export function UsersPage() {
 
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null)
   const [userMenuId, setUserMenuId] = useState<string | null>(null)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
@@ -158,8 +157,6 @@ export function UsersPage() {
   }
 
   async function handleDeleteUser(userId: string) {
-    setConfirmDeleteId(null)
-    setUserMenuId(null)
     try {
       const { data, error } = await supabase.functions.invoke('manage-user', { body: { action: 'delete', userId } })
       if (error) throw error
@@ -381,20 +378,18 @@ export function UsersPage() {
                             {userMenuId === user.id && (
                               <>
                                 <div className="fixed inset-0 z-40" onClick={() => setUserMenuId(null)} />
-                                <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-popover py-1 shadow-lg">
+                                <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-border bg-popover py-1 shadow-lg">
                                   <button onClick={() => handleResetPassword(user.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                                    <KeyRound className="size-3.5" /> Reset mot de passe
+                                    <KeyRound className="size-3.5" /> Réinitialiser le mot de passe
                                   </button>
-                                  {confirmDeleteId === user.id ? (
-                                    <div className="flex items-center gap-1 px-3 py-2">
-                                      <button onClick={() => handleDeleteUser(user.id)} className="rounded px-2 py-0.5 text-xs font-medium text-red-600 hover:bg-red-500/10">Confirmer</button>
-                                      <button onClick={() => setConfirmDeleteId(null)} className="rounded px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted">Annuler</button>
-                                    </div>
-                                  ) : (
-                                    <button onClick={() => setConfirmDeleteId(user.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
-                                      <Trash2 className="size-3.5" /> Supprimer le compte
-                                    </button>
-                                  )}
+                                  <button onClick={() => {
+                                    setUserMenuId(null)
+                                    if (window.confirm(`Supprimer le compte de ${user.full_name} ? Cette action est irréversible.`)) {
+                                      handleDeleteUser(user.id)
+                                    }
+                                  }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
+                                    <Trash2 className="size-3.5" /> Supprimer le compte
+                                  </button>
                                 </div>
                               </>
                             )}
