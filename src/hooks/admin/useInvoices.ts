@@ -17,7 +17,7 @@ export function useInvoices() {
 
       const { data, error } = await supabase
         .from('invoices')
-        .select('*, clients(company_name)')
+        .select('*, clients!invoices_client_id_fkey(company_name)')
         .order('created_at', { ascending: false })
       if (error) throw error
       return data as unknown as InvoiceWithClient[]
@@ -46,7 +46,7 @@ export function usePaginatedInvoices(
 
       let query = supabase
         .from('invoices')
-        .select('*, clients(company_name)', { count: 'exact' })
+        .select('*, clients!invoices_client_id_fkey(company_name)', { count: 'exact' })
 
       if (!showArchived) query = query.eq('is_archived', false)
       if (status && status !== 'all') query = query.eq('status', status as 'draft')
@@ -81,7 +81,7 @@ export function useInvoice(id: string | undefined) {
     queryFn: async (): Promise<InvoiceWithClient> => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('*, clients(company_name)')
+        .select('*, clients!invoices_client_id_fkey(company_name)')
         .eq('id', id!)
         .single()
       if (error) throw error

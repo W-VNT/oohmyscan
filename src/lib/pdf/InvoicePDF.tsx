@@ -1,6 +1,6 @@
 import { Document, Page, View, Text, Image, StyleSheet, Font } from '@react-pdf/renderer'
-import { computeTotals, formatEUR, formatDateFR, formatDateLongFR, getTvaCode, type DocumentLine } from './pdf-helpers'
-import { HtmlContent } from './html-to-pdf'
+import { computeTotals, formatEUR, formatDateFR, formatDateLongFR, type DocumentLine } from './pdf-helpers'
+import { HtmlContent, renderHtmlInline } from './html-to-pdf'
 import { PAYMENT_TERMS_LABELS, type PaymentTerms } from '@/lib/constants'
 
 Font.register({
@@ -270,7 +270,7 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, client, lines, c
           </View>
           {lines.map((line, i) => (
             <View key={i} style={s.trow} wrap={false}>
-              <Text style={[s.td, s.colDesc]}>{line.description}</Text>
+              <Text style={[s.td, s.colDesc]}>{renderHtmlInline(line.description)}</Text>
               <Text style={[s.td, s.colPU]}>{formatEUR(line.unit_price)}</Text>
               <Text style={[s.td, s.colQty]}>{line.quantity}</Text>
               <Text style={[s.td, s.colDiscount]}>
@@ -279,7 +279,7 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, client, lines, c
                   : '—'}
               </Text>
               <Text style={[s.td, s.colTotal]}>{formatEUR(line.total_ht)}</Text>
-              <Text style={[s.td, s.colTVA]}>{line.tva_rate}% {getTvaCode(line.tva_rate, groups)}</Text>
+              <Text style={[s.td, s.colTVA]}>{line.tva_rate}%</Text>
             </View>
           ))}
         </View>
@@ -333,19 +333,17 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, client, lines, c
 
               {/* TVA recap */}
               <View style={s.tvaHeaderRow}>
-                <Text style={[s.tvaColFirst, { fontSize: 7, fontWeight: 'bold' }]}>Code TVA</Text>
-                <Text style={[s.tvaCol, { fontSize: 7, fontWeight: 'bold' }]}>%</Text>
-                <Text style={[s.tvaCol, { fontSize: 7, fontWeight: 'bold' }]}>TTC €</Text>
+                <Text style={[s.tvaColFirst, { fontSize: 7, fontWeight: 'bold' }]}>Taux</Text>
                 <Text style={[s.tvaCol, { fontSize: 7, fontWeight: 'bold' }]}>HT €</Text>
                 <Text style={[s.tvaCol, { fontSize: 7, fontWeight: 'bold' }]}>TVA €</Text>
+                <Text style={[s.tvaCol, { fontSize: 7, fontWeight: 'bold' }]}>TTC €</Text>
               </View>
               {groups.map((g) => (
                 <View key={g.rate} style={s.tvaRow}>
-                  <Text style={s.tvaColFirst}>{g.code}</Text>
-                  <Text style={s.tvaCol}>{g.rate}</Text>
-                  <Text style={s.tvaCol}>{formatEUR(g.totalTTC)}</Text>
+                  <Text style={s.tvaColFirst}>{g.rate}%</Text>
                   <Text style={s.tvaCol}>{formatEUR(g.baseHT)}</Text>
                   <Text style={s.tvaCol}>{formatEUR(g.montantTVA)}</Text>
+                  <Text style={s.tvaCol}>{formatEUR(g.totalTTC)}</Text>
                 </View>
               ))}
 

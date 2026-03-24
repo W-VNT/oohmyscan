@@ -145,7 +145,7 @@ export function ProfilePage() {
 
       {/* Profile */}
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <User className="size-4" />
             Profil
@@ -214,14 +214,14 @@ export function ProfilePage() {
 
       {/* Preferences */}
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Sun className="size-4" />
             Préférences
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Thème</label>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Thème</label>
             <div className="flex gap-2">
               {([
                 { value: 'light' as const, icon: Sun, label: 'Clair' },
@@ -248,7 +248,7 @@ export function ProfilePage() {
 
       {/* Security */}
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Lock className="size-4" />
             Sécurité
@@ -256,8 +256,8 @@ export function ProfilePage() {
 
           {showPassword ? (
             <div className="max-w-sm space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Nouveau mot de passe</label>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Nouveau mot de passe</label>
                 <Input
                   type="password"
                   value={newPassword}
@@ -266,8 +266,8 @@ export function ProfilePage() {
                   className="text-sm"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Confirmer</label>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Confirmer</label>
                 <Input
                   type="password"
                   value={confirmPassword}

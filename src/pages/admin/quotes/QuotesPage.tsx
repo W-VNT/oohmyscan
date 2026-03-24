@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive, ArrowRight } from 'lucide-react'
 import { QUOTE_STATUSES, QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
+import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 
 type SortOption = 'newest' | 'oldest' | 'amount_desc' | 'amount_asc' | 'number'
 
@@ -34,6 +35,7 @@ export function QuotesPage() {
   const [showArchived, setShowArchived] = useState(false)
   const { data: paginatedData, isLoading } = usePaginatedQuotes(page, debouncedSearch, statusFilter, sort, showArchived)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+  useListPageHotkeys('/admin/quotes/new')
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
@@ -228,7 +230,7 @@ export function QuotesPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'}>
+                            <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'} className={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.className}>
                               {QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.label ?? quote.status}
                             </Badge>
                             {quote.status === 'accepted' && (

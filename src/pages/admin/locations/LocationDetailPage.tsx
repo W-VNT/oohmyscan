@@ -142,7 +142,7 @@ export function LocationDetailPage() {
                 {/* Nom */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1 sm:col-span-2">
-                    <label className="text-xs font-medium text-muted-foreground">Nom</label>
+                    <label className="mb-2 block text-sm font-medium">Nom</label>
                     <Input
                       value={editForm.name}
                       onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
@@ -152,7 +152,7 @@ export function LocationDetailPage() {
 
                   {/* Adresse */}
                   <div className="space-y-1 sm:col-span-2">
-                    <label className="text-xs font-medium text-muted-foreground">Adresse</label>
+                    <label className="mb-2 block text-sm font-medium">Adresse</label>
                     <Input
                       value={editForm.address}
                       onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
@@ -161,16 +161,16 @@ export function LocationDetailPage() {
                   </div>
 
                   {/* Code postal / Ville */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Code postal</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Code postal</label>
                     <Input
                       value={editForm.postal_code}
                       onChange={(e) => setEditForm((f) => ({ ...f, postal_code: e.target.value }))}
                       className="h-9 rounded-lg text-sm"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Ville</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Ville</label>
                     <Input
                       value={editForm.city}
                       onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
@@ -180,7 +180,7 @@ export function LocationDetailPage() {
 
                   {/* Téléphone */}
                   <div className="space-y-1 sm:col-span-2">
-                    <label className="text-xs font-medium text-muted-foreground">Téléphone</label>
+                    <label className="mb-2 block text-sm font-medium">Téléphone</label>
                     <Input
                       value={editForm.phone}
                       onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
@@ -193,32 +193,32 @@ export function LocationDetailPage() {
                 <div className="border-t border-border pt-4">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bailleur</p>
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">Prénom</label>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">Prénom</label>
                       <Input
                         value={editForm.owner_first_name}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_first_name: e.target.value }))}
                         className="h-9 rounded-lg text-sm"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">Nom</label>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">Nom</label>
                       <Input
                         value={editForm.owner_last_name}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_last_name: e.target.value }))}
                         className="h-9 rounded-lg text-sm"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">Fonction</label>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">Fonction</label>
                       <Input
                         value={editForm.owner_role}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_role: e.target.value }))}
                         className="h-9 rounded-lg text-sm"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">Email</label>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">Email</label>
                       <Input
                         type="email"
                         value={editForm.owner_email}
@@ -230,8 +230,8 @@ export function LocationDetailPage() {
                 </div>
 
                 {/* Fermeture */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Mois de fermeture</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Mois de fermeture</label>
                   <Input
                     value={editForm.closing_months}
                     onChange={(e) => setEditForm((f) => ({ ...f, closing_months: e.target.value }))}

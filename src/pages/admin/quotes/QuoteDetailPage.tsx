@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useQuote, useQuoteLines, useCreateQuote, useUpdateQuote, useSaveQuoteLines, type QuoteLine } from '@/hooks/admin/useQuotes'
 import { useClients, useClient } from '@/hooks/admin/useClients'
 import { useClientCampaigns } from '@/hooks/useCampaigns'
@@ -14,13 +15,16 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download, Copy, Ban, Eye, ChevronUp, ChevronDown, Bookmark, BookmarkPlus, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download, Copy, Ban, Eye, Bookmark, BookmarkPlus, MoreHorizontal } from 'lucide-react'
 import { LineDescriptionEditor } from '@/components/shared/LineDescriptionEditor'
 import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
+import { SendDocumentModal, replaceVars } from '@/components/shared/SendDocumentModal'
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { QuotePDF } from '@/lib/pdf/QuotePDF'
 import { QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
+import { Kbd } from '@/components/shared/KeyboardShortcuts'
+import { useDetailPageHotkeys } from '@/hooks/usePageHotkeys'
 
 type EditableLine = Omit<QuoteLine, 'id' | 'quote_id'> & { _key: string }
 
@@ -51,6 +55,7 @@ function computeLineTotal(qty: number, unitPrice: number, discountType: string |
 export function QuoteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const isNew = id === 'new'
 
   const { data: quote, isLoading: quoteLoading } = useQuote(isNew ? undefined : id)
@@ -71,11 +76,15 @@ export function QuoteDetailPage() {
   const [campaignId, setCampaignId] = useState('')
   const [notes, setNotes] = useState('')
   const [clientReference, setClientReference] = useState('')
+  const [selectedContactEmail, setSelectedContactEmail] = useState('')
   const [issuedAt, setIssuedAt] = useState(new Date().toISOString().split('T')[0])
   const [validUntil, setValidUntil] = useState('')
   const [lines, setLines] = useState<EditableLine[]>([newLine(0)])
   const [saving, setSaving] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sendPdfBlob, setSendPdfBlob] = useState<Blob | null>(null)
 
   const { data: clientData } = useClient(clientId || undefined)
 
@@ -177,28 +186,6 @@ export function QuoteDetailPage() {
     setLines((prev) => prev.filter((l) => l._key !== key))
   }
 
-  function moveLineUp(key: string) {
-    if (isStructureLocked) return
-    setLines((prev) => {
-      const idx = prev.findIndex((l) => l._key === key)
-      if (idx <= 0) return prev
-      const next = [...prev]
-      ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
-      return next
-    })
-  }
-
-  function moveLineDown(key: string) {
-    if (isStructureLocked) return
-    setLines((prev) => {
-      const idx = prev.findIndex((l) => l._key === key)
-      if (idx === -1 || idx >= prev.length - 1) return prev
-      const next = [...prev]
-      ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
-      return next
-    })
-  }
-
   const totals = useMemo(() => {
     const totalHt = lines.reduce((sum, l) => sum + l.total_ht, 0)
     const tvaByRate: Record<number, number> = {}
@@ -294,7 +281,8 @@ export function QuoteDetailPage() {
       })
 
       toast(isNew ? 'Devis créé' : 'Devis mis à jour')
-      if (isNew) navigate(`/admin/quotes/${quoteId}`, { replace: true })
+      await queryClient.invalidateQueries({ queryKey: ['quotes'] })
+      navigate('/admin/quotes')
     } catch {
       toast('Erreur lors de la sauvegarde', 'error')
     } finally {
@@ -312,13 +300,13 @@ export function QuoteDetailPage() {
     }
   }
 
-  async function handleDownloadPDF() {
+  async function generatePdfBlob(): Promise<Blob | null> {
     if (!quote || !clientData || !settings) {
       toast('Données manquantes pour le PDF', 'error')
-      return
+      return null
     }
     try {
-      const blob = await pdf(
+      return await pdf(
         <QuotePDF
           quote={quote}
           contactName={profile?.full_name}
@@ -344,49 +332,41 @@ export function QuoteDetailPage() {
           termsHtml={settings.terms_and_conditions}
         />,
       ).toBlob()
-      saveAs(blob, `${quote.quote_number}.pdf`)
     } catch {
       toast('Erreur lors de la génération du PDF', 'error')
+      return null
     }
   }
 
+  async function handleDownloadPDF() {
+    const blob = await generatePdfBlob()
+    if (blob && quote) saveAs(blob, `${quote.quote_number}.pdf`)
+  }
+
   async function handlePreviewPDF() {
-    if (!quote || !clientData || !settings) {
-      toast('Données manquantes pour le PDF', 'error')
-      return
-    }
+    const blob = await generatePdfBlob()
+    if (blob) setPreviewUrl(URL.createObjectURL(blob))
+  }
+
+  async function handleOpenSendModal() {
+    // Generate PDF with 'sent' status to avoid BROUILLON watermark
+    if (!quote || !clientData || !settings) return
     try {
       const blob = await pdf(
         <QuotePDF
-          quote={quote}
+          quote={{ ...quote, status: 'sent' }}
           contactName={profile?.full_name}
-          client={{
-            ...clientData,
-            email: clientData.contact_email,
-            phone: clientData.contact_phone,
-          }}
-          lines={lines.filter((l) => l.description.trim()).map((l) => ({
-            description: l.description,
-            quantity: l.quantity,
-            unit: l.unit,
-            unit_price: l.unit_price,
-            tva_rate: l.tva_rate,
-            total_ht: l.total_ht,
-          }))}
-          company={{
-            ...settings,
-            logo_url: settings.logo_path
-              ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
-              : null,
-          }}
+          client={{ ...clientData, email: clientData.contact_email, phone: clientData.contact_phone }}
+          lines={lines.filter((l) => l.description.trim()).map((l) => ({ description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tva_rate: l.tva_rate, total_ht: l.total_ht }))}
+          company={{ ...settings, logo_url: settings.logo_path ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl : null }}
           termsHtml={settings.terms_and_conditions}
         />,
       ).toBlob()
-      const url = URL.createObjectURL(blob)
-      setPreviewUrl(url)
+      setSendPdfBlob(blob)
     } catch {
-      toast('Erreur lors de la génération du PDF', 'error')
+      setSendPdfBlob(null)
     }
+    setShowSendModal(true)
   }
 
   async function handleDuplicate() {
@@ -488,6 +468,8 @@ export function QuoteDetailPage() {
     toast(`Modèle "${tpl.name}" chargé`)
   }
 
+  useDetailPageHotkeys({ onSend: handleOpenSendModal, onDuplicate: handleDuplicate, onPreviewPdf: handlePreviewPDF })
+
   if (!isNew && (quoteLoading || linesLoading)) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -511,30 +493,71 @@ export function QuoteDetailPage() {
           </h1>
         </div>
         {!isNew && quote && (
-          <>
-            <Button size="sm" variant="outline" onClick={handleDuplicate} disabled={saving}>
-              <Copy className="mr-1.5 size-3.5" /> Dupliquer
-            </Button>
-            {quote.public_token && (
-              <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/view/${quote.public_token}`); toast('Lien copié') }}>
-                <ExternalLink className="mr-1 size-3.5" /> Lien
+          <div className="flex items-center gap-2">
+            {/* Status action buttons */}
+            {quote.status === 'draft' && (
+              <>
+                <Button size="sm" onClick={handleOpenSendModal}>
+                  <Send className="mr-1.5 size-3.5" /> Envoyer <Kbd>E</Kbd>
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
+                  <Ban className="mr-1.5 size-3.5" /> Annuler
+                </Button>
+              </>
+            )}
+            {quote.status === 'sent' && (
+              <>
+                <Button size="sm" onClick={() => handleStatusChange('accepted')} disabled={!!(quote.valid_until && new Date(quote.valid_until) < new Date())}>
+                  <Check className="mr-1.5 size-3.5" /> Accepter
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => handleStatusChange('rejected')}>
+                  Refuser
+                </Button>
+              </>
+            )}
+            {quote.status === 'accepted' && (
+              <Button size="sm" onClick={() => navigate(`/admin/invoices/new?from_quote=${id}`)}>
+                <Receipt className="mr-1.5 size-3.5" /> Convertir en facture
               </Button>
             )}
-            <Button size="sm" variant="outline" onClick={handlePreviewPDF}>
-              <Eye className="mr-1.5 size-3.5" /> Aperçu
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
-              <Download className="mr-1.5 size-3.5" /> PDF
-            </Button>
-            {['converted', 'cancelled', 'rejected'].includes(quote.status) && !quote.is_archived && (
-              <Button size="sm" variant="ghost" onClick={() => updateQuote.mutateAsync({ id: id!, is_archived: true }).then(() => toast('Devis archivé'))}>
-                Archiver
-              </Button>
-            )}
-            <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'}>
+
+            <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'} className={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.className}>
               {QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.label ?? quote.status}
             </Badge>
-          </>
+
+            {/* Menu ⋯ */}
+            <div className="relative">
+              <Button size="sm" variant="outline" onClick={() => setShowActionsMenu((v) => !v)}>
+                <MoreHorizontal className="size-4" />
+              </Button>
+              {showActionsMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowActionsMenu(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-popover py-1 shadow-lg">
+                    <button onClick={() => { setShowActionsMenu(false); handlePreviewPDF() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                      <Eye className="size-3.5" /> Aperçu PDF <Kbd>P</Kbd>
+                    </button>
+                    <button onClick={() => { setShowActionsMenu(false); handleDownloadPDF() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                      <Download className="size-3.5" /> Télécharger PDF
+                    </button>
+                    <button onClick={() => { setShowActionsMenu(false); handleDuplicate() }} disabled={saving} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted disabled:opacity-50">
+                      <Copy className="size-3.5" /> Dupliquer <Kbd>D</Kbd>
+                    </button>
+                    {quote.status === 'sent' && (
+                      <button onClick={() => { setShowActionsMenu(false); handleStatusChange('cancelled') }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
+                        <Ban className="size-3.5" /> Annuler
+                      </button>
+                    )}
+                    {['converted', 'cancelled', 'rejected'].includes(quote.status) && !quote.is_archived && (
+                      <button onClick={() => { setShowActionsMenu(false); updateQuote.mutateAsync({ id: id!, is_archived: true }).then(() => toast('Devis archivé')) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-muted">
+                        Archiver
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
@@ -553,62 +576,30 @@ export function QuoteDetailPage() {
         </div>
       )}
 
-      {/* Locked banner */}
+      {/* Banners */}
+      {!isNew && quote?.status === 'sent' && quote.valid_until && new Date(quote.valid_until) < new Date() && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
+          Ce devis a expiré le {new Date(quote.valid_until).toLocaleDateString('fr-FR')}.
+        </div>
+      )}
       {isStructureLocked && !isCancelled && (
         <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-600">
-          Ce devis est en statut &laquo;{QUOTE_STATUS_CONFIG[quote!.status as QuoteStatus]?.label}&raquo;. Seules les descriptions et notes sont modifiables.
+          Seules les descriptions et notes sont modifiables.
         </div>
       )}
       {isCancelled && (
-        <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-600">
-          Ce devis est en statut &laquo;{QUOTE_STATUS_CONFIG[quote!.status as QuoteStatus]?.label}&raquo; et ne peut plus être modifié.
-        </div>
-      )}
-
-      {/* Status actions */}
-      {!isNew && quote?.status === 'draft' && (
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => handleStatusChange('sent')}>
-            <Send className="mr-1.5 size-3.5" /> Marquer envoyé
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
-            <Ban className="mr-1.5 size-3.5" /> Annuler
-          </Button>
-        </div>
-      )}
-      {!isNew && quote?.status === 'sent' && quote.valid_until && new Date(quote.valid_until) < new Date() && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
-          Ce devis a expiré le {new Date(quote.valid_until).toLocaleDateString('fr-FR')}. Vous pouvez le dupliquer pour créer un nouveau devis.
-        </div>
-      )}
-      {!isNew && quote?.status === 'sent' && (
-        <div className="flex gap-2">
-          <Button size="sm" onClick={() => handleStatusChange('accepted')} disabled={!!(quote.valid_until && new Date(quote.valid_until) < new Date())}>
-            <Check className="mr-1.5 size-3.5" /> Accepter
-          </Button>
-          <Button size="sm" variant="destructive" onClick={() => handleStatusChange('rejected')}>
-            <X className="mr-1.5 size-3.5" /> Refuser
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
-            <Ban className="mr-1.5 size-3.5" /> Annuler
-          </Button>
-        </div>
-      )}
-      {!isNew && quote?.status === 'accepted' && (
-        <div className="flex gap-2">
-          <Button size="sm" onClick={() => navigate(`/admin/invoices/new?from_quote=${id}`)}>
-            <Receipt className="mr-1.5 size-3.5" /> Convertir en facture
-          </Button>
+        <div className="rounded-md border border-muted bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+          Ce devis ne peut plus être modifié.
         </div>
       )}
 
       {/* Client + Campaign + Dates */}
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           {/* Row 1: Client | Campagne */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Client *</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Client *</label>
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
@@ -621,8 +612,8 @@ export function QuoteDetailPage() {
                 ))}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Campagne</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Campagne</label>
               <select
                 value={campaignId}
                 onChange={(e) => setCampaignId(e.target.value)}
@@ -639,31 +630,48 @@ export function QuoteDetailPage() {
             </div>
           </div>
 
+          {/* Row 1b: Contact */}
+          {clientData && (clientData.contact_email || clientData.billing_email || clientData.commercial_email) && (
+            <div>
+              <label className="mb-2 block text-sm font-medium">Contact</label>
+              <select
+                value={selectedContactEmail}
+                onChange={(e) => setSelectedContactEmail(e.target.value)}
+                disabled={isStructureLocked}
+                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+              >
+                <option value="">Sélectionner un contact...</option>
+                {clientData.contact_email && <option value={clientData.contact_email}>{clientData.contact_name ? `${clientData.contact_name} — ` : ''}{clientData.contact_email} (principal)</option>}
+                {clientData.billing_email && <option value={clientData.billing_email}>{clientData.billing_email} (comptable)</option>}
+                {clientData.commercial_email && <option value={clientData.commercial_email}>{clientData.commercial_email} (commercial)</option>}
+              </select>
+            </div>
+          )}
+
           {/* Row 2: Date émission | Valide jusqu'au | Réf. dossier */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Date d'émission</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Date d'émission</label>
               <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Valide jusqu'au</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Valide jusqu'au</label>
               <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Réf. dossier</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Réf. dossier</label>
               <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isStructureLocked} placeholder="Ex: 25090548" className="h-9 text-sm" />
             </div>
           </div>
 
           {/* Row 3: Notes (full width) */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Notes</label>
-            <p className="text-[10px] text-muted-foreground/70">Affiché sur le PDF du devis, visible par le client.</p>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Notes</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={isCancelled}
-              placeholder="Conditions particulières, délais, informations complémentaires..."
+              placeholder="Affiché sur le PDF — conditions particulières, délais, informations complémentaires..."
               rows={2}
               className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50"
             />
@@ -673,7 +681,7 @@ export function QuoteDetailPage() {
 
       {/* Lines */}
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Lignes du devis</p>
             {!isStructureLocked && (
@@ -696,9 +704,6 @@ export function QuoteDetailPage() {
                     <BookmarkPlus className="mr-1 size-3" /> Sauver modèle
                   </Button>
                 )}
-                <Button size="sm" variant="ghost" onClick={() => setLines((prev) => [...prev, newLine(prev.length, 'section')])} className="h-7 text-xs">
-                  + Section
-                </Button>
                 <Button size="sm" variant="outline" onClick={addLine}>
                   <Plus className="mr-1 size-3.5" /> Ligne
                 </Button>
@@ -706,154 +711,89 @@ export function QuoteDetailPage() {
             )}
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="min-w-[200px] px-2 py-2 font-medium text-muted-foreground">Description</th>
-                  <th className="w-20 px-2 py-2 font-medium text-muted-foreground">Qté</th>
-                  <th className="w-24 px-2 py-2 font-medium text-muted-foreground">Unité</th>
-                  <th className="w-24 px-2 py-2 font-medium text-muted-foreground">PU HT</th>
-                  <th className="w-28 px-2 py-2 font-medium text-muted-foreground">Remise</th>
-                  <th className="w-20 px-2 py-2 font-medium text-muted-foreground">TVA %</th>
-                  <th className="w-24 px-2 py-2 text-right font-medium text-muted-foreground">Total HT</th>
-                  {!isStructureLocked && <th className="w-20" />}
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((line) => (
-                  <tr key={line._key} className="border-b border-border/50">
-                    <td className="px-2 py-1.5">
-                      <LineDescriptionEditor
-                        value={line.description}
-                        onChange={(v) => updateLine(line._key, 'description', v)}
-                        onSelectCatalog={(sel) => updateLineFromCatalog(line._key, sel)}
-                        services={services ?? undefined}
-                        disabled={isCancelled}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={line.quantity}
-                        onChange={(e) => updateLine(line._key, 'quantity', parseFloat(e.target.value) || 0)}
-                        disabled={isStructureLocked}
-                        className="h-8 text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        value={line.unit}
-                        onChange={(e) => updateLine(line._key, 'unit', e.target.value)}
-                        disabled={isStructureLocked}
-                        className="h-8 text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={line.unit_price}
-                        onChange={(e) => updateLine(line._key, 'unit_price', parseFloat(e.target.value) || 0)}
-                        disabled={isStructureLocked}
-                        className="h-8 text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <div className="flex gap-1">
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={line.discount_value || ''}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0
-                            if (!line.discount_type && val > 0) updateLine(line._key, 'discount_type', 'percent')
-                            updateLine(line._key, 'discount_value', val)
-                          }}
-                          disabled={isStructureLocked}
-                          placeholder="—"
-                          className="h-8 w-16 text-sm"
-                        />
-                        <select
-                          value={line.discount_type ?? ''}
-                          onChange={(e) => updateLine(line._key, 'discount_type', e.target.value || null)}
-                          disabled={isStructureLocked}
-                          className="h-8 w-12 rounded-lg border border-input bg-background px-1 text-xs disabled:opacity-50"
-                        >
-                          <option value="">—</option>
+          {/* Lines table */}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="rounded-l-md py-2 text-left text-xs font-semibold text-muted-foreground">Désignation</th>
+                <th className="w-20 px-2 py-2 text-center text-xs font-semibold text-muted-foreground">Qté</th>
+                <th className="w-20 px-2 py-2 text-center text-xs font-semibold text-muted-foreground">Unité</th>
+                <th className="w-28 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">PU HT</th>
+                <th className="w-20 px-2 py-2 text-center text-xs font-semibold text-muted-foreground">TVA</th>
+                <th className="w-28 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">Montant HT</th>
+                {!isStructureLocked && <th className="w-8 rounded-r-md" />}
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line) => (
+                <tr key={line._key} className="group border-b border-border/30 last:border-0">
+                  <td className="max-w-0 py-1.5">
+                    <LineDescriptionEditor
+                      value={line.description}
+                      onChange={(v) => updateLine(line._key, 'description', v)}
+                      onSelectCatalog={(sel) => updateLineFromCatalog(line._key, sel)}
+                      services={services ?? undefined}
+                      disabled={isCancelled}
+                    />
+                    {/* Inline discount */}
+                    {line.discount_type ? (
+                      <div className="mt-1 flex items-center gap-1.5 pl-1">
+                        <span className="text-xs text-muted-foreground">Remise :</span>
+                        <Input type="number" min={0} step={1} value={line.discount_value || ''} onChange={(e) => updateLine(line._key, 'discount_value', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} className="h-6 w-16 text-xs" placeholder="0" />
+                        <select value={line.discount_type} onChange={(e) => updateLine(line._key, 'discount_type', e.target.value)} disabled={isStructureLocked} className="h-6 rounded border border-input bg-background px-1 text-[10px] disabled:opacity-50">
                           <option value="percent">%</option>
                           <option value="amount">€</option>
                         </select>
+                        {!isStructureLocked && (
+                          <button onClick={() => { updateLine(line._key, 'discount_value', 0); updateLine(line._key, 'discount_type', null) }} className="text-muted-foreground hover:text-destructive" title="Retirer la remise">
+                            <X className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                    ) : !isStructureLocked && (
+                      <button onClick={() => updateLine(line._key, 'discount_type', 'percent')} className="mt-1 pl-1 text-xs text-muted-foreground/50 hover:text-primary">
+                        + Remise
+                      </button>
+                    )}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input type="number" min={0} step={1} value={line.quantity || ''} onChange={(e) => updateLine(line._key, 'quantity', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} placeholder="0" className="h-8 text-center text-sm" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input value={line.unit} onChange={(e) => updateLine(line._key, 'unit', e.target.value)} disabled={isStructureLocked} className="h-8 text-center text-sm" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input type="number" min={0} step={1} value={line.unit_price || ''} onChange={(e) => updateLine(line._key, 'unit_price', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} placeholder="0,00" className="h-8 text-right text-sm" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <select value={line.tva_rate} onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))} disabled={isStructureLocked} className="flex h-8 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50">
+                      <option value={0}>0%</option>
+                      <option value={5.5}>5,5%</option>
+                      <option value={10}>10%</option>
+                      <option value={20}>20%</option>
+                    </select>
+                  </td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">
+                    {formatCurrency(line.total_ht)}
+                  </td>
+                  {!isStructureLocked && (
+                    <td className="px-1 py-1.5">
+                      <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button onClick={() => duplicateLine(line._key)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Dupliquer"><Copy className="size-3" /></button>
+                        <button onClick={() => removeLine(line._key)} className="rounded p-1 text-muted-foreground hover:text-destructive" title="Supprimer"><Trash2 className="size-3" /></button>
                       </div>
                     </td>
-                    <td className="px-2 py-1.5">
-                      <select
-                        value={line.tva_rate}
-                        onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))}
-                        disabled={isStructureLocked}
-                        className="flex h-8 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-                      >
-                        <option value={0}>0%</option>
-                        <option value={5.5}>5,5%</option>
-                        <option value={10}>10%</option>
-                        <option value={20}>20%</option>
-                      </select>
-                    </td>
-                    <td className="px-2 py-1.5 text-right font-medium tabular-nums">
-                      {formatCurrency(line.total_ht)}
-                    </td>
-                    {!isStructureLocked && (
-                      <td className="px-2 py-1.5">
-                        <div className="flex gap-0.5">
-                          <button
-                            onClick={() => moveLineUp(line._key)}
-                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            title="Monter"
-                          >
-                            <ChevronUp className="size-3.5" />
-                          </button>
-                          <button
-                            onClick={() => moveLineDown(line._key)}
-                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            title="Descendre"
-                          >
-                            <ChevronDown className="size-3.5" />
-                          </button>
-                          <button
-                            onClick={() => duplicateLine(line._key)}
-                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            title="Dupliquer"
-                          >
-                            <Copy className="size-3.5" />
-                          </button>
-                          <button
-                            onClick={() => removeLine(line._key)}
-                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {lines.length === 0 && (
-                  <tr>
-                    <td colSpan={isStructureLocked ? 7 : 8} className="px-2 py-8 text-center text-muted-foreground">
-                      <Package className="mx-auto mb-2 size-6" />
-                      <p className="text-xs">Ajoutez des lignes au devis</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {lines.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+              <Package className="mb-2 size-6" />
+              <p className="text-xs">Ajoutez des lignes au devis</p>
+            </div>
+          )}
 
           <Separator />
 
@@ -888,12 +828,39 @@ export function QuoteDetailPage() {
         <div className="flex gap-3">
           <Button onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
-            {isNew ? 'Créer le devis' : 'Enregistrer'}
+            {isNew ? 'Créer le brouillon' : 'Enregistrer'}
           </Button>
           <Button variant="outline" onClick={() => navigate('/admin/quotes')}>
             Annuler
           </Button>
         </div>
+      )}
+
+      {/* Send email modal */}
+      {quote && settings && (
+        <SendDocumentModal
+          open={showSendModal}
+          onClose={() => setShowSendModal(false)}
+          onSent={() => handleStatusChange('sent')}
+          documentType="quote"
+          clientEmail={selectedContactEmail || clientData?.commercial_email || clientData?.contact_email || null}
+          defaultSubject={replaceVars(settings.email_quote_subject ?? 'Votre devis {numero}', {
+            numero: quote.quote_number,
+            client: clientData?.company_name ?? '',
+            montant_ttc: totals.totalTtc.toFixed(2),
+            date_validite: quote.valid_until ? new Date(quote.valid_until).toLocaleDateString('fr-FR') : '',
+            entreprise: settings.company_name ?? '',
+          })}
+          defaultBody={replaceVars(settings.email_quote_body ?? '', {
+            numero: quote.quote_number,
+            client: clientData?.company_name ?? '',
+            montant_ttc: totals.totalTtc.toFixed(2),
+            date_validite: quote.valid_until ? new Date(quote.valid_until).toLocaleDateString('fr-FR') : '',
+            entreprise: settings.company_name ?? '',
+          })}
+          pdfBlob={sendPdfBlob}
+          pdfFilename={`${quote.quote_number}.pdf`}
+        />
       )}
     </div>
   )

@@ -1,6 +1,5 @@
 export type TvaGroup = {
   rate: number
-  code: string // A, B, C...
   baseHT: number
   montantTVA: number
   totalTTC: number
@@ -17,10 +16,6 @@ export type DocumentLine = {
   total_ht: number
 }
 
-/** Map tva_rate index to letter code (A=20%, B=10%, C=5.5%, D=0%) */
-const TVA_CODE_MAP: Record<number, string> = { 20: 'A', 10: 'B', 5.5: 'C', 0: 'D' }
-let nextCode = 0
-
 export function computeTvaGroups(lines: DocumentLine[]): TvaGroup[] {
   const groups = new Map<number, number>()
 
@@ -29,26 +24,12 @@ export function computeTvaGroups(lines: DocumentLine[]): TvaGroup[] {
     groups.set(line.tva_rate, (groups.get(line.tva_rate) ?? 0) + ht)
   }
 
-  // Reset dynamic code counter
-  nextCode = 0
-  const usedCodes = new Set<string>()
-
   return Array.from(groups.entries())
     .sort(([a], [b]) => b - a)
     .map(([rate, baseHT]) => {
-      let code = TVA_CODE_MAP[rate]
-      if (!code || usedCodes.has(code)) {
-        // Fallback for custom rates
-        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        while (usedCodes.has(letters[nextCode])) nextCode++
-        code = letters[nextCode] ?? '?'
-      }
-      usedCodes.add(code)
-
       const montantTVA = rate === 0 ? 0 : baseHT * (rate / 100)
       return {
         rate,
-        code,
         baseHT: Math.round(baseHT * 100) / 100,
         montantTVA: Math.round(montantTVA * 100) / 100,
         totalTTC: Math.round((baseHT + montantTVA) * 100) / 100,
@@ -66,11 +47,6 @@ export function computeTotals(lines: DocumentLine[]) {
     totalTTC: Math.round((totalHT + totalTVA) * 100) / 100,
     groups,
   }
-}
-
-/** Get TVA code letter for a given rate, based on computed groups */
-export function getTvaCode(rate: number, groups: TvaGroup[]): string {
-  return groups.find((g) => g.rate === rate)?.code ?? '?'
 }
 
 export function formatEUR(amount: number, _currency = 'EUR'): string {

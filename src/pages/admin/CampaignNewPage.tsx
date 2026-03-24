@@ -179,8 +179,8 @@ export function CampaignNewPage() {
         <CardContent className="p-6 space-y-4">
           {/* Row 1: Nom | Client | Statut */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Nom *</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Nom *</label>
               <Input
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -188,8 +188,8 @@ export function CampaignNewPage() {
                 className="h-9 rounded-lg text-sm"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Client *</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Client *</label>
               <select
                 value={form.client_id}
                 onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
@@ -201,8 +201,8 @@ export function CampaignNewPage() {
                 ))}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Statut</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Statut</label>
               <select
                 disabled
                 value="draft"
@@ -215,8 +215,8 @@ export function CampaignNewPage() {
 
           {/* Row 2: Date début | Date fin | Budget | Panneaux cible */}
           <div className="grid gap-4 sm:grid-cols-4">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Date début *</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Date début *</label>
               <Input
                 type="date"
                 value={form.start_date}
@@ -224,8 +224,8 @@ export function CampaignNewPage() {
                 className="h-9 rounded-lg text-sm"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Date fin *</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Date fin *</label>
               <Input
                 type="date"
                 value={form.end_date}
@@ -234,8 +234,8 @@ export function CampaignNewPage() {
                 className="h-9 rounded-lg text-sm"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Budget (€)</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Budget (€)</label>
               <Input
                 type="number"
                 min="0"
@@ -246,8 +246,8 @@ export function CampaignNewPage() {
                 className="h-9 rounded-lg text-sm"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Panneaux cible</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Panneaux cible</label>
               <Input
                 type="number"
                 min="0"
@@ -260,8 +260,8 @@ export function CampaignNewPage() {
           </div>
 
           {/* Row 3: Description */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Description</label>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Description</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -272,8 +272,8 @@ export function CampaignNewPage() {
           </div>
 
           {/* Row 4: Notes */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Notes internes</label>
+          <div>
+            <label className="mb-2 block text-sm font-medium">Notes internes</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}

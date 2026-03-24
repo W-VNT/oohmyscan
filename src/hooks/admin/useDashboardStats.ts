@@ -171,7 +171,7 @@ export function useFinanceStats() {
       // Fetch invoices for aging + monthly CA
       const { data: invoices, error: invErr } = await supabase
         .from('invoices')
-        .select('status, total_ttc, due_at, paid_at, issued_at, client_id, clients(company_name)')
+        .select('status, total_ttc, due_at, paid_at, issued_at, client_id, clients!invoices_client_id_fkey(company_name)')
         .neq('status', 'cancelled')
       if (invErr) throw invErr
 
@@ -286,7 +286,7 @@ export function useRecentInvoices() {
     queryFn: async (): Promise<RecentInvoice[]> => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, invoice_number, status, total_ttc, issued_at, clients(company_name)')
+        .select('id, invoice_number, status, total_ttc, issued_at, clients!invoices_client_id_fkey(company_name)')
         .order('created_at', { ascending: false })
         .limit(5)
       if (error) throw error

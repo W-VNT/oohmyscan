@@ -347,8 +347,8 @@ export function CampaignDetailPage() {
               <div className="mt-4 space-y-4">
                 {/* Row 1: Nom | Client | Statut */}
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Nom</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Nom</label>
                     <Input
                       value={editForm.name}
                       onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
@@ -356,8 +356,8 @@ export function CampaignDetailPage() {
                       className="h-9 rounded-lg text-sm"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Client</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Client</label>
                     <select
                       value={editForm.client_id}
                       onChange={(e) => setEditForm((f) => ({ ...f, client_id: e.target.value }))}
@@ -369,8 +369,8 @@ export function CampaignDetailPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Statut</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Statut</label>
                     <select
                       value={editForm.status}
                       onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value as CampaignStatus }))}
@@ -385,8 +385,8 @@ export function CampaignDetailPage() {
 
                 {/* Row 2: Date début | Date fin | Budget | Panneaux cible */}
                 <div className="grid gap-4 sm:grid-cols-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Date début</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Date début</label>
                     <Input
                       type="date"
                       value={editForm.start_date}
@@ -394,8 +394,8 @@ export function CampaignDetailPage() {
                       className="h-9 rounded-lg text-sm"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Date fin</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Date fin</label>
                     <Input
                       type="date"
                       value={editForm.end_date}
@@ -403,8 +403,8 @@ export function CampaignDetailPage() {
                       className="h-9 rounded-lg text-sm"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Budget (€)</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Budget (€)</label>
                     <Input
                       type="number"
                       step="0.01"
@@ -415,8 +415,8 @@ export function CampaignDetailPage() {
                       className="h-9 rounded-lg text-sm"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Panneaux cible</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Panneaux cible</label>
                     <Input
                       type="number"
                       min="0"
@@ -429,8 +429,8 @@ export function CampaignDetailPage() {
                 </div>
 
                 {/* Row 3: Description (full width) */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Description</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Description</label>
                   <textarea
                     value={editForm.description}
                     onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
@@ -441,8 +441,8 @@ export function CampaignDetailPage() {
                 </div>
 
                 {/* Row 4: Notes (full width) */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Notes</label>
                   <textarea
                     value={editForm.notes}
                     onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}

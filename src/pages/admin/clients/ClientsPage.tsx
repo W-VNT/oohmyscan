@@ -8,7 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone } from 'lucide-react'
+import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone, Download, Upload, X } from 'lucide-react'
+import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
+import { saveAs } from 'file-saver'
+import { useCreateClient } from '@/hooks/admin/useClients'
 
 type SortOption = 'name' | 'city' | 'newest' | 'oldest'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -28,8 +31,13 @@ export function ClientsPage() {
   const navigate = useNavigate()
   const { data: clients, isLoading } = useClients()
   const updateClient = useUpdateClient()
+  const createClient = useCreateClient()
+  useListPageHotkeys('/admin/clients/new')
 
   const [search, setSearch] = useState('')
+  const [showImport, setShowImport] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [importing, setImporting] = useState(false)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [sort, setSort] = useState<SortOption>('name')
@@ -143,6 +151,68 @@ export function ClientsPage() {
     toast('Client désactivé')
   }
 
+  function handleExportCSV() {
+    if (!clients?.length) return
+    const headers = ['company_name', 'contact_name', 'contact_email', 'billing_email', 'commercial_email', 'contact_phone', 'address', 'postal_code', 'city', 'siret', 'tva_number', 'notes', 'is_active']
+    const rows = clients.map((c) => headers.map((h) => { const val = c[h as keyof Client]; return val != null ? String(val) : '' }))
+    const csv = [headers.join(';'), ...rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(';'))].join('\n')
+    saveAs(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }), `clients-${new Date().toISOString().slice(0, 10)}.csv`)
+    toast('CSV exporté')
+  }
+
+  async function handleImportCSV() {
+    if (!importText.trim()) return
+    setImporting(true)
+    try {
+      const lines = importText.split('\n').map((l) => l.trim()).filter((l) => l)
+      if (lines.length < 2) { toast('Le CSV doit avoir un header + au moins 1 ligne', 'error'); return }
+
+      const headerLine = lines[0]
+      const sep = headerLine.includes(';') ? ';' : ','
+      const headers = headerLine.split(sep).map((h) => h.replace(/"/g, '').trim().toLowerCase())
+
+      const nameIdx = headers.findIndex((h) => h.includes('soci') || h.includes('company') || h.includes('nom') || h.includes('raison'))
+      if (nameIdx === -1) { toast('Colonne société/company_name introuvable', 'error'); return }
+
+      let created = 0
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(sep).map((c) => c.replace(/^"|"$/g, '').trim())
+        const name = cols[nameIdx]
+        if (!name) continue
+
+        const findCol = (...keys: string[]) => {
+          const idx = headers.findIndex((h) => keys.some((k) => h.includes(k)))
+          return idx >= 0 ? cols[idx] || null : null
+        }
+
+        await createClient.mutateAsync({
+          company_name: name,
+          contact_name: findCol('contact', 'prenom', 'nom_contact'),
+          contact_email: findCol('email', 'mail'),
+          billing_email: findCol('compta', 'billing', 'facturation'),
+          commercial_email: findCol('commercial'),
+          contact_phone: findCol('tel', 'phone', 'mobile'),
+          address: findCol('adresse', 'address', 'rue'),
+          city: findCol('ville', 'city'),
+          postal_code: findCol('postal', 'cp', 'code_postal', 'zip'),
+          siret: findCol('siret', 'siren'),
+          tva_number: findCol('tva', 'vat'),
+          notes: findCol('notes', 'commentaire'),
+          is_active: true,
+        })
+        created++
+      }
+
+      toast(`${created} client${created > 1 ? 's' : ''} importé${created > 1 ? 's' : ''}`)
+      setShowImport(false)
+      setImportText('')
+    } catch (err) {
+      toast(`Erreur : ${err instanceof Error ? err.message : 'Import échoué'}`, 'error')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -161,11 +231,48 @@ export function ClientsPage() {
             {clients?.length ?? 0} client{(clients?.length ?? 0) !== 1 ? 's' : ''}
           </span>
         </div>
-        <Button size="sm" onClick={() => navigate('/admin/clients/new')}>
-          <Plus className="mr-1.5 size-4" />
-          Nouveau client
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleExportCSV}>
+            <Download className="mr-1.5 size-3.5" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>
+            <Upload className="mr-1.5 size-3.5" /> Importer
+          </Button>
+          <Button size="sm" onClick={() => navigate('/admin/clients/new')}>
+            <Plus className="mr-1.5 size-4" /> Nouveau
+          </Button>
+        </div>
       </div>
+
+      {/* Import CSV inline */}
+      {showImport && (
+        <Card>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">Importer des clients (CSV)</p>
+              <button onClick={() => setShowImport(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Collez votre CSV avec un header. Colonnes reconnues : société/company_name, contact, email, tel/phone, adresse, ville, cp, siret, tva. Séparateur : <code>;</code> ou <code>,</code>
+            </p>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder={"société;contact;email;tel;adresse;ville;cp;siret\nACME Corp;Jean Dupont;jean@acme.fr;0123456789;12 rue de Rivoli;Paris;75001;12345678900012"}
+              rows={6}
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-xs placeholder:text-muted-foreground"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleImportCSV} disabled={importing || !importText.trim()}>
+                {importing && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                Importer
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowImport(false)}>Annuler</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -253,7 +360,7 @@ export function ClientsPage() {
                             )}
                           </div>
                           {!client.is_active && (
-                            <span className="text-[10px] text-muted-foreground">Inactif</span>
+                            <span className="text-xs text-muted-foreground">Inactif</span>
                           )}
                         </td>
                         <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">

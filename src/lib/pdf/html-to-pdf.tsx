@@ -86,6 +86,20 @@ function renderInline(children: (HtmlNode | string)[]): React.ReactNode[] {
   })
 }
 
+/** Render HTML as inline Text children (for table cells) */
+export function renderHtmlInline(html: string): React.ReactNode[] {
+  if (!html) return []
+  const nodes = parseHtml(html)
+  const result: React.ReactNode[] = []
+
+  nodes.forEach((node, i) => {
+    if (i > 0) result.push('\n')
+    result.push(...renderInline(node.children))
+  })
+
+  return result.length > 0 ? result : [html]
+}
+
 /** Render parsed HTML nodes to react-pdf components */
 export function HtmlContent({ html }: { html: string }) {
   const nodes = parseHtml(html)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useInvoice, useInvoiceLines, useCreateInvoice, useUpdateInvoice, useSaveInvoiceLines, useCampaignDepositInvoices, type InvoiceLine } from '@/hooks/admin/useInvoices'
 import { useInvoicePayments, useCreatePayment, useDeletePayment, PAYMENT_METHOD_LABELS, type Payment } from '@/hooks/admin/usePayments'
 import { useQuote, useQuoteLines, useUpdateQuote } from '@/hooks/admin/useQuotes'
@@ -15,14 +16,17 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText, Eye, X, ChevronUp, ChevronDown, ExternalLink, MoreHorizontal, Archive } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText, Eye, X, MoreHorizontal, Archive } from 'lucide-react'
 import { LineDescriptionEditor } from '@/components/shared/LineDescriptionEditor'
 import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
+import { SendDocumentModal, replaceVars } from '@/components/shared/SendDocumentModal'
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { InvoicePDF } from '@/lib/pdf/InvoicePDF'
 import { generateEPCQR } from '@/lib/pdf/epc-qr'
 import { INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, PAYMENT_TERMS, PAYMENT_TERMS_LABELS, computeDueDate, type InvoiceStatus, type InvoiceType, type PaymentTerms } from '@/lib/constants'
+import { useDetailPageHotkeys } from '@/hooks/usePageHotkeys'
+import { Kbd } from '@/components/shared/KeyboardShortcuts'
 
 type EditableLine = Omit<InvoiceLine, 'id' | 'invoice_id'> & { _key: string }
 
@@ -54,6 +58,7 @@ export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const isNew = id === 'new'
   const fromQuoteId = searchParams.get('from_quote')
 
@@ -76,6 +81,7 @@ export function InvoiceDetailPage() {
   const [campaignId, setCampaignId] = useState('')
   const [quoteId, setQuoteId] = useState('')
   const [notes, setNotes] = useState('')
+  const [selectedContactEmail, setSelectedContactEmail] = useState('')
   const [clientReference, setClientReference] = useState('')
   const [dueAt, setDueAt] = useState(() => computeDueDate(new Date().toISOString(), '30_days'))
   const [invoiceType, setInvoiceType] = useState<InvoiceType>('standard')
@@ -87,6 +93,8 @@ export function InvoiceDetailPage() {
   const [saving, setSaving] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sendPdfBlob, setSendPdfBlob] = useState<Blob | null>(null)
 
   // Payments
   const { data: payments } = useInvoicePayments(!isNew ? id : undefined)
@@ -230,28 +238,6 @@ export function InvoiceDetailPage() {
     setLines((prev) => prev.filter((l) => l._key !== key))
   }
 
-  function moveLineUp(key: string) {
-    if (isStructureLocked) return
-    setLines((prev) => {
-      const idx = prev.findIndex((l) => l._key === key)
-      if (idx <= 0) return prev
-      const next = [...prev]
-      ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
-      return next
-    })
-  }
-
-  function moveLineDown(key: string) {
-    if (isStructureLocked) return
-    setLines((prev) => {
-      const idx = prev.findIndex((l) => l._key === key)
-      if (idx === -1 || idx >= prev.length - 1) return prev
-      const next = [...prev]
-      ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
-      return next
-    })
-  }
-
   // Base totals (full line amounts)
   const baseTotals = useMemo(() => {
     const totalHt = lines.reduce((sum, l) => sum + l.total_ht, 0)
@@ -313,7 +299,6 @@ export function InvoiceDetailPage() {
 
   const remainingToPay = Math.max(0, Math.round((totals.totalTtc - totalPaid) * 100) / 100)
 
-  const hasAnyDiscount = lines.some((l) => l.discount_value && l.discount_value > 0)
 
   async function handleAddPayment() {
     if (!id || isNew) return
@@ -455,7 +440,7 @@ export function InvoiceDetailPage() {
         const result = await createInvoice.mutateAsync({
           invoice_number: finalNumber,
           client_id: clientId,
-          campaign_id: campaignId,
+          campaign_id: campaignId || null,
           quote_id: quoteId || null,
           status: 'draft',
           invoice_type: invoiceType,
@@ -480,7 +465,7 @@ export function InvoiceDetailPage() {
         await updateInvoice.mutateAsync({
           id: invoiceId,
           client_id: clientId,
-          campaign_id: campaignId,
+          campaign_id: campaignId || null,
           invoice_type: invoiceType,
           deposit_percentage: invoiceType === 'acompte' ? depositPercentage : null,
           deposit_invoice_id: invoiceType === 'solde' && depositInvoiceId ? depositInvoiceId : null,
@@ -511,15 +496,12 @@ export function InvoiceDetailPage() {
           })),
       })
 
-      if (isNew) {
-        const num = lines.length > 0 ? ` — ${lines.filter((l) => l.description.trim()).length} ligne${lines.filter((l) => l.description.trim()).length > 1 ? 's' : ''}` : ''
-        toast(`Facture créée${num}`)
-        navigate(`/admin/invoices/${invoiceId}`, { replace: true })
-      } else {
-        toast('Facture mise à jour')
-      }
-    } catch {
-      toast('Erreur lors de la sauvegarde', 'error')
+      toast(isNew ? 'Facture créée' : 'Facture mise à jour')
+      await queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      navigate('/admin/invoices')
+    } catch (err) {
+      console.error('Save error:', err)
+      toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'error')
     } finally {
       setSaving(false)
     }
@@ -537,10 +519,10 @@ export function InvoiceDetailPage() {
     }
   }
 
-  async function handleDownloadPDF() {
+  async function generatePdfBlob(): Promise<Blob | null> {
     if (!invoice || !clientData || !settings) {
       toast('Données manquantes pour le PDF', 'error')
-      return
+      return null
     }
     try {
       const depositInvNumber = invoice.deposit_invoice_id && depositInvoices
@@ -553,14 +535,13 @@ export function InvoiceDetailPage() {
         amount: totals.totalTtc,
         reference: invoice.invoice_number,
       }) : null
-      const invoiceForPdf = {
-        ...invoice,
-        invoice_type: (invoice.invoice_type as 'standard' | 'acompte' | 'solde' | 'avoir') ?? 'standard',
-        deposit_invoice_number: depositInvNumber,
-      }
-      const blob = await pdf(
+      return await pdf(
         <InvoicePDF
-          invoice={invoiceForPdf}
+          invoice={{
+            ...invoice,
+            invoice_type: (invoice.invoice_type as 'standard' | 'acompte' | 'solde' | 'avoir') ?? 'standard',
+            deposit_invoice_number: depositInvNumber,
+          }}
           quoteNumber={sourceQuote?.quote_number}
           contactName={profile?.full_name}
           client={{
@@ -586,66 +567,47 @@ export function InvoiceDetailPage() {
           qrCodeDataUrl={qrCode}
         />,
       ).toBlob()
-      saveAs(blob, `${invoice.invoice_number}.pdf`)
     } catch {
       toast('Erreur lors de la génération du PDF', 'error')
+      return null
     }
   }
 
+  async function handleDownloadPDF() {
+    const blob = await generatePdfBlob()
+    if (blob && invoice) saveAs(blob, `${invoice.invoice_number}.pdf`)
+  }
+
   async function handlePreviewPDF() {
-    if (!invoice || !clientData || !settings) {
-      toast('Données manquantes pour le PDF', 'error')
-      return
-    }
+    const blob = await generatePdfBlob()
+    if (blob) setPreviewUrl(URL.createObjectURL(blob))
+  }
+
+  async function handleOpenSendModal() {
+    // Generate PDF with 'sent' status to avoid BROUILLON watermark
+    if (!invoice || !clientData || !settings) return
     try {
       const depositInvNumber = invoice.deposit_invoice_id && depositInvoices
         ? depositInvoices.find((d) => d.id === invoice.deposit_invoice_id)?.invoice_number ?? null
         : null
-      const qrCode = settings.iban ? await generateEPCQR({
-        name: settings.company_name ?? 'OOHMYAD',
-        iban: settings.iban,
-        bic: settings.bic ?? undefined,
-        amount: totals.totalTtc,
-        reference: invoice.invoice_number,
-      }) : null
-      const invoiceForPdf = {
-        ...invoice,
-        invoice_type: (invoice.invoice_type as 'standard' | 'acompte' | 'solde' | 'avoir') ?? 'standard',
-        deposit_invoice_number: depositInvNumber,
-      }
+      const qrCode = settings.iban ? await generateEPCQR({ name: settings.company_name ?? 'OOHMYAD', iban: settings.iban, bic: settings.bic ?? undefined, amount: totals.totalTtc, reference: invoice.invoice_number }) : null
       const blob = await pdf(
         <InvoicePDF
-          invoice={invoiceForPdf}
+          invoice={{ ...invoice, status: 'sent', invoice_type: (invoice.invoice_type as 'standard' | 'acompte' | 'solde' | 'avoir') ?? 'standard', deposit_invoice_number: depositInvNumber }}
           quoteNumber={sourceQuote?.quote_number}
           contactName={profile?.full_name}
-          client={{
-            ...clientData,
-            email: clientData.contact_email,
-            phone: clientData.contact_phone,
-          }}
-          lines={lines.filter((l) => l.description.trim()).map((l) => ({
-            description: l.description,
-            quantity: l.quantity,
-            unit: l.unit,
-            unit_price: l.unit_price,
-            tva_rate: l.tva_rate,
-            total_ht: l.total_ht,
-          }))}
-          company={{
-            ...settings,
-            logo_url: settings.logo_path
-              ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
-              : null,
-          }}
+          client={{ ...clientData, email: clientData.contact_email, phone: clientData.contact_phone }}
+          lines={lines.filter((l) => l.description.trim()).map((l) => ({ description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tva_rate: l.tva_rate, total_ht: l.total_ht }))}
+          company={{ ...settings, logo_url: settings.logo_path ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl : null }}
           termsHtml={settings.terms_and_conditions}
           qrCodeDataUrl={qrCode}
         />,
       ).toBlob()
-      const url = URL.createObjectURL(blob)
-      setPreviewUrl(url)
+      setSendPdfBlob(blob)
     } catch {
-      toast('Erreur lors de la génération du PDF', 'error')
+      setSendPdfBlob(null)
     }
+    setShowSendModal(true)
   }
 
   function handleMailto() {
@@ -721,6 +683,8 @@ export function InvoiceDetailPage() {
     }
   }
 
+  useDetailPageHotkeys({ onSend: handleOpenSendModal, onDuplicate: handleDuplicate, onPreviewPdf: handlePreviewPDF })
+
   if (!isNew && (invoiceLoading || linesLoading)) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -749,11 +713,6 @@ export function InvoiceDetailPage() {
                 {INVOICE_TYPE_LABELS[invoice.invoice_type as InvoiceType]}{invoice.invoice_type === 'acompte' && invoice.deposit_percentage ? ` ${invoice.deposit_percentage}%` : ''}
               </span>
             )}
-            {!isNew && invoice && (
-              <Badge variant={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.variant ?? 'secondary'}>
-                {INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.label ?? invoice.status}
-              </Badge>
-            )}
           </div>
           {linkedQuoteId && sourceQuote && (
             <Link to={`/admin/quotes/${linkedQuoteId}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
@@ -762,58 +721,52 @@ export function InvoiceDetailPage() {
           )}
         </div>
 
-        {/* Status actions — visible directly in header */}
-        {!isNew && invoice?.status === 'draft' && (
-          <Button size="sm" onClick={() => handleStatusChange('sent')}>
-            <Send className="mr-1.5 size-3.5" /> Envoyer
-          </Button>
-        )}
-        {!isNew && invoice?.status === 'sent' && (
-          <Button size="sm" onClick={() => handleStatusChange('paid')}>
-            <Check className="mr-1.5 size-3.5" /> Payée
-          </Button>
-        )}
-        {!isNew && invoice?.status === 'overdue' && (
-          <Button size="sm" onClick={() => handleStatusChange('paid')}>
-            <Check className="mr-1.5 size-3.5" /> Payée
-          </Button>
-        )}
-
-        {/* Primary actions */}
+        {/* Header actions */}
         {!isNew && invoice && (
-          <div className="flex items-center gap-1">
-            <Button size="sm" variant="outline" onClick={handlePreviewPDF}>
-              <Eye className="mr-1.5 size-3.5" /> Aperçu
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleDownloadPDF}>
-              <Download className="mr-1.5 size-3.5" /> PDF
-            </Button>
-
-            {/* More actions dropdown */}
+          <div className="flex items-center gap-2">
+            {invoice.status === 'draft' && (
+              <Button size="sm" onClick={handleOpenSendModal}>
+                <Send className="mr-1.5 size-3.5" /> Envoyer <Kbd>E</Kbd>
+              </Button>
+            )}
+            {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+              <Button size="sm" onClick={() => handleStatusChange('paid')}>
+                <Check className="mr-1.5 size-3.5" /> Payée
+              </Button>
+            )}
+            <Badge variant={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.variant ?? 'secondary'} className={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.className}>
+              {INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.label ?? invoice.status}
+            </Badge>
             <div className="relative">
-              <Button size="sm" variant="ghost" onClick={() => setShowActionsMenu((v) => !v)}>
+              <Button size="sm" variant="outline" onClick={() => setShowActionsMenu((v) => !v)}>
                 <MoreHorizontal className="size-4" />
               </Button>
               {showActionsMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowActionsMenu(false)} />
-                  <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-background py-1 shadow-lg">
-                    <button onClick={() => { handleDuplicate(); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                      <Copy className="size-3.5" /> Dupliquer
+                  <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-md border border-border bg-popover py-1 shadow-lg">
+                    <button onClick={() => { setShowActionsMenu(false); handlePreviewPDF() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                      <Eye className="size-3.5" /> Aperçu PDF <Kbd>P</Kbd>
                     </button>
-                    {invoice.public_token && (
-                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/view/${invoice.public_token}`); toast('Lien copié'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                        <ExternalLink className="size-3.5" /> Copier le lien public
-                      </button>
-                    )}
+                    <button onClick={() => { setShowActionsMenu(false); handleDownloadPDF() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                      <Download className="size-3.5" /> Télécharger PDF
+                    </button>
+                    <button onClick={() => { setShowActionsMenu(false); handleDuplicate() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                      <Copy className="size-3.5" /> Dupliquer <Kbd>D</Kbd>
+                    </button>
                     {(invoice.status === 'sent' || invoice.status === 'overdue') && (
-                      <button onClick={() => { handleMailto(); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                      <button onClick={() => { setShowActionsMenu(false); handleMailto() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
                         <Mail className="size-3.5" /> Relancer par email
                       </button>
                     )}
                     {invoice.status !== 'draft' && invoice.status !== 'cancelled' && invoice.invoice_type !== 'avoir' && (
-                      <button onClick={() => { handleCreateCreditNote(); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                      <button onClick={() => { setShowActionsMenu(false); handleCreateCreditNote() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
                         <Ban className="size-3.5" /> Émettre un avoir
+                      </button>
+                    )}
+                    {invoice.status === 'overdue' && (
+                      <button onClick={() => { handleStatusChange('sent' as InvoiceStatus); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                        <Send className="size-3.5" /> Repasser en envoyée
                       </button>
                     )}
                     {invoice.status === 'draft' && (
@@ -822,18 +775,8 @@ export function InvoiceDetailPage() {
                       </button>
                     )}
                     {(invoice.status === 'sent' || invoice.status === 'overdue') && (
-                      <>
-                        <button onClick={() => { handleStatusChange('overdue'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-muted">
-                          En retard
-                        </button>
-                        <button onClick={() => { handleStatusChange('cancelled'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
-                          <Ban className="size-3.5" /> Annuler
-                        </button>
-                      </>
-                    )}
-                    {invoice.status === 'overdue' && (
-                      <button onClick={() => { handleStatusChange('sent' as InvoiceStatus); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                        <Send className="size-3.5" /> Repasser en envoyée
+                      <button onClick={() => { handleStatusChange('cancelled'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
+                        <Ban className="size-3.5" /> Annuler
                       </button>
                     )}
                     {['paid', 'cancelled'].includes(invoice.status) && !invoice.is_archived && (
@@ -887,11 +830,11 @@ export function InvoiceDetailPage() {
 
       {/* Facturation — single compact card */}
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           {/* Row 1: Client | Campagne | Type */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Client *</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Client *</label>
               <select
                 value={clientId}
                 onChange={(e) => { setClientId(e.target.value); setValidationErrors((v) => ({ ...v, clientId: false })) }}
@@ -904,8 +847,8 @@ export function InvoiceDetailPage() {
                 ))}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Campagne</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Campagne</label>
               <select
                 value={campaignId}
                 onChange={(e) => setCampaignId(e.target.value)}
@@ -918,8 +861,8 @@ export function InvoiceDetailPage() {
                 ))}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Type</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Type</label>
               <div className="flex h-9 items-center gap-1.5">
                 {(['standard', 'acompte', 'solde'] as InvoiceType[]).map((t) => (
                   <button
@@ -987,42 +930,59 @@ export function InvoiceDetailPage() {
             </div>
           )}
 
+          {/* Contact selector */}
+          {clientData && (clientData.contact_email || clientData.billing_email || clientData.commercial_email) && (
+            <div>
+              <label className="mb-2 block text-sm font-medium">Contact</label>
+              <select
+                value={selectedContactEmail}
+                onChange={(e) => setSelectedContactEmail(e.target.value)}
+                disabled={isStructureLocked}
+                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+              >
+                <option value="">Sélectionner un contact...</option>
+                {clientData.contact_email && <option value={clientData.contact_email}>{clientData.contact_name ? `${clientData.contact_name} — ` : ''}{clientData.contact_email} (principal)</option>}
+                {clientData.billing_email && <option value={clientData.billing_email}>{clientData.billing_email} (comptable)</option>}
+                {clientData.commercial_email && <option value={clientData.commercial_email}>{clientData.commercial_email} (commercial)</option>}
+              </select>
+            </div>
+          )}
+
           {/* Row 2: Dates + terms + ref */}
           <div className="grid gap-4 sm:grid-cols-4">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Date d'émission</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Date d'émission</label>
               <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Conditions</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Conditions</label>
               <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)} disabled={isStructureLocked} className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50">
                 {PAYMENT_TERMS.map((t) => (
                   <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
                 ))}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Échéance</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Échéance</label>
               <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Réf. dossier</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Réf. dossier</label>
               <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isCancelled} placeholder="Ex: 25090548" className="h-9 text-sm" />
             </div>
           </div>
 
           {/* Row 3: Notes — full width */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Notes</label>
-            <p className="text-[10px] text-muted-foreground/70">Affiché sur le PDF de la facture, visible par le client.</p>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={isCancelled} placeholder="Conditions particulières, informations complémentaires..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50" />
+          <div>
+            <label className="mb-2 block text-sm font-medium">Notes</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={isCancelled} placeholder="Affiché sur le PDF — conditions particulières, informations complémentaires..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:opacity-50" />
           </div>
         </CardContent>
       </Card>
 
       {/* Lines */}
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">Lignes de la facture</p>
             {!isStructureLocked && (
@@ -1032,155 +992,88 @@ export function InvoiceDetailPage() {
             )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="min-w-[200px] px-2 py-2 font-medium text-muted-foreground">Description</th>
-                  <th className="w-20 px-2 py-2 font-medium text-muted-foreground">Qté</th>
-                  <th className="w-24 px-2 py-2 font-medium text-muted-foreground">Unité</th>
-                  <th className="w-24 px-2 py-2 font-medium text-muted-foreground">PU HT</th>
-                  {(hasAnyDiscount || !isStructureLocked) && <th className="w-28 px-2 py-2 font-medium text-muted-foreground">Remise</th>}
-                  <th className="w-20 px-2 py-2 font-medium text-muted-foreground">TVA %</th>
-                  <th className="w-24 px-2 py-2 text-right font-medium text-muted-foreground">Total HT</th>
-                  {!isStructureLocked && <th className="w-20" />}
+          {/* Lines table */}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="rounded-l-md py-2 text-left text-xs font-semibold text-muted-foreground">Désignation</th>
+                <th className="w-20 px-2 py-2 text-center text-xs font-semibold text-muted-foreground">Qté</th>
+                <th className="w-20 px-2 py-2 text-center text-xs font-semibold text-muted-foreground">Unité</th>
+                <th className="w-28 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">PU HT</th>
+                <th className="w-20 px-2 py-2 text-center text-xs font-semibold text-muted-foreground">TVA</th>
+                <th className="w-28 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">Montant HT</th>
+                {!isStructureLocked && <th className="w-8 rounded-r-md" />}
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line) => (
+                <tr key={line._key} className="group border-b border-border/30 last:border-0">
+                  <td className="max-w-0 py-1.5">
+                    <LineDescriptionEditor
+                      value={line.description}
+                      onChange={(v) => updateLine(line._key, 'description', v)}
+                      onSelectCatalog={isStructureLocked ? undefined : (sel) => updateLineFromCatalog(line._key, sel)}
+                      services={isStructureLocked ? undefined : (services ?? undefined)}
+                      disabled={isCancelled}
+                    />
+                    {line.discount_type ? (
+                      <div className="mt-1 flex items-center gap-1.5 pl-1">
+                        <span className="text-xs text-muted-foreground">Remise :</span>
+                        <Input type="number" min={0} step={1} value={line.discount_value || ''} onChange={(e) => updateLine(line._key, 'discount_value', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} className="h-6 w-16 text-xs" placeholder="0" />
+                        <select value={line.discount_type} onChange={(e) => updateLine(line._key, 'discount_type', e.target.value)} disabled={isStructureLocked} className="h-6 rounded border border-input bg-background px-1 text-[10px] disabled:opacity-50">
+                          <option value="percent">%</option>
+                          <option value="amount">€</option>
+                        </select>
+                        {!isStructureLocked && (
+                          <button onClick={() => { updateLine(line._key, 'discount_value', 0); updateLine(line._key, 'discount_type', null) }} className="text-muted-foreground hover:text-destructive" title="Retirer la remise">
+                            <X className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                    ) : !isStructureLocked && (
+                      <button onClick={() => updateLine(line._key, 'discount_type', 'percent')} className="mt-1 pl-1 text-xs text-muted-foreground/50 hover:text-primary">
+                        + Remise
+                      </button>
+                    )}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input type="number" min={0} step={1} value={line.quantity || ''} onChange={(e) => updateLine(line._key, 'quantity', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} placeholder="0" className="h-8 text-center text-sm" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input value={line.unit} onChange={(e) => updateLine(line._key, 'unit', e.target.value)} disabled={isStructureLocked} className="h-8 text-center text-sm" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input type="number" min={0} step={1} value={line.unit_price || ''} onChange={(e) => updateLine(line._key, 'unit_price', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} placeholder="0,00" className="h-8 text-right text-sm" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <select value={line.tva_rate} onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))} disabled={isStructureLocked} className="flex h-8 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50">
+                      <option value={0}>0%</option>
+                      <option value={5.5}>5,5%</option>
+                      <option value={10}>10%</option>
+                      <option value={20}>20%</option>
+                    </select>
+                  </td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">
+                    {formatCurrency(line.total_ht)}
+                  </td>
+                  {!isStructureLocked && (
+                    <td className="px-1 py-1.5">
+                      <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button onClick={() => duplicateLine(line._key)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Dupliquer"><Copy className="size-3" /></button>
+                        <button onClick={() => removeLine(line._key)} className="rounded p-1 text-muted-foreground hover:text-destructive" title="Supprimer"><Trash2 className="size-3" /></button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
-              </thead>
-              <tbody>
-                {lines.map((line) => (
-                  <tr key={line._key} className={`border-b border-border/50 ${!line.description.trim() ? 'bg-muted/20 opacity-60' : ''}`}>
-                    <td className="px-2 py-1.5">
-                      <LineDescriptionEditor
-                        value={line.description}
-                        onChange={(v) => updateLine(line._key, 'description', v)}
-                        onSelectCatalog={isStructureLocked ? undefined : (sel) => updateLineFromCatalog(line._key, sel)}
-                        services={isStructureLocked ? undefined : (services ?? undefined)}
-                        disabled={isCancelled}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={line.quantity}
-                        onChange={(e) => updateLine(line._key, 'quantity', parseFloat(e.target.value) || 0)}
-                        disabled={isStructureLocked}
-                        className="h-8 text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        value={line.unit}
-                        onChange={(e) => updateLine(line._key, 'unit', e.target.value)}
-                        disabled={isStructureLocked}
-                        className="h-8 text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={line.unit_price}
-                        onChange={(e) => updateLine(line._key, 'unit_price', parseFloat(e.target.value) || 0)}
-                        disabled={isStructureLocked}
-                        className="h-8 text-sm"
-                      />
-                    </td>
-                    {(hasAnyDiscount || !isStructureLocked) && (
-                      <td className="px-2 py-1.5">
-                        <div className="flex gap-1">
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={line.discount_value || ''}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0
-                              if (!line.discount_type && val > 0) updateLine(line._key, 'discount_type', 'percent')
-                              updateLine(line._key, 'discount_value', val)
-                            }}
-                            disabled={isStructureLocked}
-                            placeholder="—"
-                            className="h-8 w-16 text-sm"
-                          />
-                          <select
-                            value={line.discount_type ?? ''}
-                            onChange={(e) => updateLine(line._key, 'discount_type', e.target.value || null)}
-                            disabled={isStructureLocked}
-                            className="h-8 w-12 rounded-lg border border-input bg-background px-1 text-xs disabled:opacity-50"
-                          >
-                            <option value="">—</option>
-                            <option value="percent">%</option>
-                            <option value="amount">€</option>
-                          </select>
-                        </div>
-                      </td>
-                    )}
-                    <td className="px-2 py-1.5">
-                      <select
-                        value={line.tva_rate}
-                        onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))}
-                        disabled={isStructureLocked}
-                        className="flex h-8 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
-                      >
-                        <option value={0}>0%</option>
-                        <option value={5.5}>5,5%</option>
-                        <option value={10}>10%</option>
-                        <option value={20}>20%</option>
-                      </select>
-                    </td>
-                    <td className="px-2 py-1.5 text-right font-medium tabular-nums">
-                      {formatCurrency(line.total_ht)}
-                    </td>
-                    {!isStructureLocked && (
-                      <td className="px-2 py-1.5">
-                        <div className="flex gap-0.5">
-                          <button
-                            onClick={() => moveLineUp(line._key)}
-                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            title="Monter"
-                          >
-                            <ChevronUp className="size-3.5" />
-                          </button>
-                          <button
-                            onClick={() => moveLineDown(line._key)}
-                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            title="Descendre"
-                          >
-                            <ChevronDown className="size-3.5" />
-                          </button>
-                          <button
-                            onClick={() => duplicateLine(line._key)}
-                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            title="Dupliquer"
-                          >
-                            <Copy className="size-3.5" />
-                          </button>
-                          <button
-                            onClick={() => removeLine(line._key)}
-                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {lines.length === 0 && (
-                  <tr>
-                    <td colSpan={isStructureLocked ? 6 : 7} className="px-2 py-8 text-center text-muted-foreground">
-                      <Package className="mx-auto mb-2 size-6" />
-                      <p className="text-xs">Ajoutez des lignes à la facture</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
+          {lines.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+              <Package className="mb-2 size-6" />
+              <p className="text-xs">Ajoutez des lignes à la facture</p>
+            </div>
+          )}
 
           <Separator />
 
@@ -1229,7 +1122,7 @@ export function InvoiceDetailPage() {
       {/* Payments section */}
       {!isNew && invoice && invoice.invoice_type !== 'avoir' && (
         <Card>
-          <CardContent className="space-y-4 pt-6">
+          <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">Paiements</p>
               {!isCancelled && (
@@ -1262,8 +1155,8 @@ export function InvoiceDetailPage() {
             {showPaymentForm && (
               <div className="rounded-md border border-border bg-muted/30 p-4 space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Montant *</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Montant *</label>
                     <Input
                       type="number"
                       min={0}
@@ -1274,8 +1167,8 @@ export function InvoiceDetailPage() {
                       className="text-sm"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Méthode</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Méthode</label>
                     <select
                       value={paymentForm.method}
                       onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value as Payment['payment_method'] }))}
@@ -1286,8 +1179,8 @@ export function InvoiceDetailPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Date</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Date</label>
                     <Input
                       type="date"
                       value={paymentForm.date}
@@ -1295,8 +1188,8 @@ export function InvoiceDetailPage() {
                       className="text-sm"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Référence</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Référence</label>
                     <Input
                       value={paymentForm.reference}
                       onChange={(e) => setPaymentForm((f) => ({ ...f, reference: e.target.value }))}
@@ -1348,28 +1241,50 @@ export function InvoiceDetailPage() {
       {/* Attachments */}
       {!isNew && <DocumentAttachments documentType="invoice" documentId={id} disabled={isCancelled} />}
 
-      {/* Spacer for sticky bar */}
-      {!isCancelled && <div className="h-16" />}
-
       {/* Sticky save bar */}
       {!isCancelled && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-            <div className="text-sm">
-              <span className="text-muted-foreground">Total TTC :</span>{' '}
-              <span className="text-lg font-bold tabular-nums">{formatCurrency(totals.totalTtc)}</span>
-            </div>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => navigate('/admin/invoices')}>
-                Annuler
-              </Button>
-              <Button onClick={handleSave} disabled={saving || !clientId}>
-                {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
-                {isNew ? 'Créer la facture' : 'Enregistrer'}
-              </Button>
-            </div>
+        <div className="flex items-center justify-between pt-4">
+          <div className="text-sm">
+            <span className="text-muted-foreground">Total TTC :</span>{' '}
+            <span className="text-lg font-bold tabular-nums">{formatCurrency(totals.totalTtc)}</span>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => navigate('/admin/invoices')}>
+              Annuler
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !clientId}>
+              {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+              {isNew ? 'Créer le brouillon' : 'Enregistrer'}
+            </Button>
           </div>
         </div>
+      )}
+
+      {/* Send email modal */}
+      {invoice && settings && (
+        <SendDocumentModal
+          open={showSendModal}
+          onClose={() => setShowSendModal(false)}
+          onSent={() => handleStatusChange('sent')}
+          documentType="invoice"
+          clientEmail={selectedContactEmail || clientData?.billing_email || clientData?.contact_email || null}
+          defaultSubject={replaceVars(settings.email_invoice_subject ?? 'Votre facture {numero}', {
+            numero: invoice.invoice_number,
+            client: clientData?.company_name ?? '',
+            montant_ttc: totals.totalTtc.toFixed(2),
+            date_echeance: invoice.due_at ? new Date(invoice.due_at).toLocaleDateString('fr-FR') : '',
+            entreprise: settings.company_name ?? '',
+          })}
+          defaultBody={replaceVars(settings.email_invoice_body ?? '', {
+            numero: invoice.invoice_number,
+            client: clientData?.company_name ?? '',
+            montant_ttc: totals.totalTtc.toFixed(2),
+            date_echeance: invoice.due_at ? new Date(invoice.due_at).toLocaleDateString('fr-FR') : '',
+            entreprise: settings.company_name ?? '',
+          })}
+          pdfBlob={sendPdfBlob}
+          pdfFilename={`${invoice.invoice_number}.pdf`}
+        />
       )}
     </div>
   )

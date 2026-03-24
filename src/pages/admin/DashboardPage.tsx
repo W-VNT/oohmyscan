@@ -103,14 +103,14 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link to="/admin/invoices/new" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-xs font-medium transition-colors hover:bg-muted">
-            <Plus className="size-3" /> Facture
+          <Link to="/admin/quotes/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
+            <Plus className="size-4" /> Devis
           </Link>
-          <Link to="/admin/quotes/new" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-xs font-medium transition-colors hover:bg-muted">
-            <Plus className="size-3" /> Devis
+          <Link to="/admin/invoices/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
+            <Plus className="size-4" /> Facture
           </Link>
-          <Link to="/admin/campaigns" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-xs font-medium transition-colors hover:bg-muted">
-            <Plus className="size-3" /> Campagne
+          <Link to="/admin/campaigns/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted">
+            <Plus className="size-4" /> Campagne
           </Link>
         </div>
       </div>
@@ -264,7 +264,7 @@ export function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Status breakdown */}
         <Card>
-          <CardContent className="pt-6">
+          <CardContent>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Répartition par statut</h3>
               <Link to="/admin/panels" className="text-[11px] font-medium text-primary hover:underline">
@@ -447,7 +447,7 @@ export function DashboardPage() {
                     {financeStats.aging.map((bucket) => (
                       <div key={bucket.label} className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
                         <div className={`mx-auto mb-1 size-1.5 rounded-full ${bucket.color}`} />
-                        <p className="text-[10px] text-muted-foreground">{bucket.label.replace(' jours', 'j')}</p>
+                        <p className="text-xs text-muted-foreground">{bucket.label.replace(' jours', 'j')}</p>
                         <p className="text-xs font-bold tabular-nums">{bucket.count}</p>
                       </div>
                     ))}
@@ -460,7 +460,7 @@ export function DashboardPage() {
             <Card>
               <CardContent className="pt-5 pb-4">
                 <h3 className="text-sm font-semibold">CA encaissé</h3>
-                <p className="text-[10px] text-muted-foreground">6 derniers mois</p>
+                <p className="text-xs text-muted-foreground">6 derniers mois</p>
                 {financeStats.monthlyCA.every((m) => m.amount === 0) ? (
                   <div className="flex items-center justify-center py-8 text-muted-foreground">
                     <p className="text-xs">Aucun encaissement sur la période</p>
@@ -509,7 +509,7 @@ export function DashboardPage() {
                       >
                         <div className="min-w-0">
                           <p className="truncate text-[12px] font-medium">{inv.invoice_number}</p>
-                          <p className="truncate text-[10px] text-muted-foreground">{inv.client_name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{inv.client_name}</p>
                         </div>
                         <div className="shrink-0 text-right">
                           <p className="text-[12px] font-medium tabular-nums">{formatCurrency(inv.total_ttc)}</p>

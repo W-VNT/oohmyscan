@@ -36,7 +36,7 @@ export function useRecurringInvoices() {
     queryFn: async (): Promise<RecurringInvoiceWithClient[]> => {
       const { data, error } = await supabase
         .from('recurring_invoices')
-        .select('*, clients(company_name)')
+        .select('*, clients!recurring_invoices_client_id_fkey(company_name)')
         .order('next_issue_date')
       if (error) throw error
       return data as unknown as RecurringInvoiceWithClient[]

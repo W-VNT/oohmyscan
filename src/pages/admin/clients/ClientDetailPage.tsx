@@ -25,6 +25,8 @@ interface EditForm {
   contact_name: string
   contact_email: string
   contact_phone: string
+  billing_email: string
+  commercial_email: string
   address: string
   city: string
   postal_code: string
@@ -46,6 +48,7 @@ export function ClientDetailPage() {
   const [saving, setSaving] = useState(false)
   const [editForm, setEditForm] = useState<EditForm>({
     company_name: '', contact_name: '', contact_email: '', contact_phone: '',
+    billing_email: '', commercial_email: '',
     address: '', city: '', postal_code: '', siret: '', tva_number: '', notes: '',
   })
 
@@ -88,6 +91,8 @@ export function ClientDetailPage() {
       contact_name: client.contact_name || '',
       contact_email: client.contact_email || '',
       contact_phone: client.contact_phone || '',
+      billing_email: client.billing_email || '',
+      commercial_email: client.commercial_email || '',
       address: client.address || '',
       city: client.city || '',
       postal_code: client.postal_code || '',
@@ -112,6 +117,8 @@ export function ClientDetailPage() {
         contact_name: editForm.contact_name.trim() || null,
         contact_email: editForm.contact_email.trim() || null,
         contact_phone: editForm.contact_phone.trim() || null,
+        billing_email: editForm.billing_email.trim() || null,
+        commercial_email: editForm.commercial_email.trim() || null,
         address: editForm.address.trim() || null,
         city: editForm.city.trim() || null,
         postal_code: editForm.postal_code.trim() || null,
@@ -252,8 +259,8 @@ export function ClientDetailPage() {
               <div className="space-y-4">
                 {/* Row 1: Société / SIRET / TVA */}
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Société *</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Société *</label>
                     <Input
                       value={editForm.company_name}
                       onChange={(e) => setEditForm((f) => ({ ...f, company_name: e.target.value }))}
@@ -261,8 +268,8 @@ export function ClientDetailPage() {
                       placeholder="Nom de la société"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">SIRET</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">SIRET</label>
                     <Input
                       value={editForm.siret}
                       onChange={(e) => setEditForm((f) => ({ ...f, siret: e.target.value }))}
@@ -270,8 +277,8 @@ export function ClientDetailPage() {
                       placeholder="123 456 789 00012"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">TVA</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">TVA</label>
                     <Input
                       value={editForm.tva_number}
                       onChange={(e) => setEditForm((f) => ({ ...f, tva_number: e.target.value }))}
@@ -281,43 +288,38 @@ export function ClientDetailPage() {
                   </div>
                 </div>
 
-                {/* Row 2: Contact / Email / Téléphone */}
+                {/* Row 2: Contact / Téléphone */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Contact</label>
+                    <Input value={editForm.contact_name} onChange={(e) => setEditForm((f) => ({ ...f, contact_name: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="Nom du contact" />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Téléphone</label>
+                    <Input type="tel" value={editForm.contact_phone} onChange={(e) => setEditForm((f) => ({ ...f, contact_phone: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="06 12 34 56 78" />
+                  </div>
+                </div>
+
+                {/* Row 2b: Emails qualifiés */}
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Contact</label>
-                    <Input
-                      value={editForm.contact_name}
-                      onChange={(e) => setEditForm((f) => ({ ...f, contact_name: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
-                      placeholder="Nom du contact"
-                    />
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Email principal</label>
+                    <Input type="email" value={editForm.contact_email} onChange={(e) => setEditForm((f) => ({ ...f, contact_email: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="contact@example.com" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Email</label>
-                    <Input
-                      type="email"
-                      value={editForm.contact_email}
-                      onChange={(e) => setEditForm((f) => ({ ...f, contact_email: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
-                      placeholder="contact@example.com"
-                    />
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Email comptable</label>
+                    <Input type="email" value={editForm.billing_email} onChange={(e) => setEditForm((f) => ({ ...f, billing_email: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="compta@example.com" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Téléphone</label>
-                    <Input
-                      type="tel"
-                      value={editForm.contact_phone}
-                      onChange={(e) => setEditForm((f) => ({ ...f, contact_phone: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
-                      placeholder="06 12 34 56 78"
-                    />
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Email commercial</label>
+                    <Input type="email" value={editForm.commercial_email} onChange={(e) => setEditForm((f) => ({ ...f, commercial_email: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="commercial@example.com" />
                   </div>
                 </div>
 
                 {/* Row 3: Adresse / Ville / Code postal */}
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Adresse</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Adresse</label>
                     <Input
                       value={editForm.address}
                       onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
@@ -325,8 +327,8 @@ export function ClientDetailPage() {
                       placeholder="12 rue de la Paix"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Ville</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Ville</label>
                     <Input
                       value={editForm.city}
                       onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
@@ -334,8 +336,8 @@ export function ClientDetailPage() {
                       placeholder="Paris"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Code postal</label>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Code postal</label>
                     <Input
                       value={editForm.postal_code}
                       onChange={(e) => setEditForm((f) => ({ ...f, postal_code: e.target.value }))}
@@ -346,8 +348,8 @@ export function ClientDetailPage() {
                 </div>
 
                 {/* Row 4: Notes (full width) */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Notes</label>
                   <textarea
                     value={editForm.notes}
                     onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
@@ -393,24 +395,32 @@ export function ClientDetailPage() {
                     <p className="mt-0.5">{client.contact_name || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Email</p>
-                    {client.contact_email ? (
-                      <a href={`mailto:${client.contact_email}`} className="mt-0.5 block text-primary hover:underline">
-                        {client.contact_email}
-                      </a>
-                    ) : (
-                      <p className="mt-0.5">—</p>
-                    )}
-                  </div>
-                  <div>
                     <p className="text-xs font-medium text-muted-foreground">Téléphone</p>
                     {client.contact_phone ? (
-                      <a href={`tel:${client.contact_phone}`} className="mt-0.5 block text-primary hover:underline">
-                        {client.contact_phone}
-                      </a>
-                    ) : (
-                      <p className="mt-0.5">—</p>
-                    )}
+                      <a href={`tel:${client.contact_phone}`} className="mt-0.5 block text-primary hover:underline">{client.contact_phone}</a>
+                    ) : <p className="mt-0.5">—</p>}
+                  </div>
+                </div>
+
+                {/* Row 2b: Emails */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Email principal</p>
+                    {client.contact_email ? (
+                      <a href={`mailto:${client.contact_email}`} className="mt-0.5 block text-primary hover:underline">{client.contact_email}</a>
+                    ) : <p className="mt-0.5">—</p>}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Email comptable</p>
+                    {client.billing_email ? (
+                      <a href={`mailto:${client.billing_email}`} className="mt-0.5 block text-primary hover:underline">{client.billing_email}</a>
+                    ) : <p className="mt-0.5">—</p>}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Email commercial</p>
+                    {client.commercial_email ? (
+                      <a href={`mailto:${client.commercial_email}`} className="mt-0.5 block text-primary hover:underline">{client.commercial_email}</a>
+                    ) : <p className="mt-0.5">—</p>}
                   </div>
                 </div>
 
@@ -512,7 +522,7 @@ export function ClientDetailPage() {
                       <span className="text-sm font-medium tabular-nums">
                         {formatCurrency(q.total_ttc)}
                       </span>
-                      <Badge variant={QUOTE_STATUS_CONFIG[q.status as QuoteStatus]?.variant ?? 'secondary'}>
+                      <Badge variant={QUOTE_STATUS_CONFIG[q.status as QuoteStatus]?.variant ?? 'secondary'} className={QUOTE_STATUS_CONFIG[q.status as QuoteStatus]?.className}>
                         {QUOTE_STATUS_CONFIG[q.status as QuoteStatus]?.label ?? q.status}
                       </Badge>
                     </div>
@@ -561,7 +571,7 @@ export function ClientDetailPage() {
                       <span className="text-sm font-medium tabular-nums">
                         {formatCurrency(inv.total_ttc)}
                       </span>
-                      <Badge variant={INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.variant ?? 'secondary'}>
+                      <Badge variant={INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.variant ?? 'secondary'} className={INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.className}>
                         {INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.label ?? inv.status}
                       </Badge>
                     </div>

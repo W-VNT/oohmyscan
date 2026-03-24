@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Receipt, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Clock, Download, Archive } from 'lucide-react'
 import { INVOICE_STATUSES, INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, type InvoiceStatus, type InvoiceType } from '@/lib/constants'
+import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 
 type SortOption = 'newest' | 'oldest' | 'due_date' | 'amount_desc' | 'amount_asc' | 'number'
 
@@ -47,6 +48,7 @@ export function InvoicesPage() {
   const [showArchived, setShowArchived] = useState(false)
   const { data: paginatedData, isLoading } = usePaginatedInvoices(page, debouncedSearch, statusFilter, sort, showArchived)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+  useListPageHotkeys('/admin/invoices/new')
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
@@ -238,7 +240,7 @@ export function InvoicesPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant={INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.variant ?? 'secondary'}>
+                          <Badge variant={INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.variant ?? 'secondary'} className={INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.className}>
                             {INVOICE_STATUS_CONFIG[inv.status as InvoiceStatus]?.label ?? inv.status}
                           </Badge>
                         </td>

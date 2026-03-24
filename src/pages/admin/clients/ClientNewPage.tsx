@@ -14,6 +14,8 @@ const emptyForm: ClientForm = {
   contact_name: null,
   contact_email: null,
   contact_phone: null,
+  billing_email: null,
+  commercial_email: null,
   address: null,
   city: null,
   postal_code: null,
@@ -111,8 +113,8 @@ export function ClientNewPage() {
   ) {
     const error = formErrors[key]
     return (
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <div>
+        <label className="mb-2 block text-sm font-medium">{label}</label>
         <Input
           value={(form[key] as string) ?? ''}
           onChange={(e) => {
@@ -145,8 +147,8 @@ export function ClientNewPage() {
             {/* Row 1: Société / SIRET / TVA */}
             <div className="grid gap-4 sm:grid-cols-3">
               {field('company_name', 'Société *', 'ACME Corp')}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">SIRET</label>
+              <div>
+                <label className="mb-2 block text-sm font-medium">SIRET</label>
                 <div className="flex gap-2">
                   <Input
                     value={(form.siret as string) ?? ''}
@@ -174,11 +176,17 @@ export function ClientNewPage() {
               {field('tva_number', 'TVA', 'FR12345678901')}
             </div>
 
-            {/* Row 2: Contact / Email / Téléphone */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            {/* Row 2: Contact / Téléphone */}
+            <div className="grid gap-4 sm:grid-cols-2">
               {field('contact_name', 'Contact', 'Jean Dupont')}
-              {field('contact_email', 'Email', 'jean@acme.fr', 'email')}
               {field('contact_phone', 'Téléphone', '01 23 45 67 89', 'tel')}
+            </div>
+
+            {/* Row 2b: Emails */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              {field('contact_email', 'Email principal', 'contact@acme.fr', 'email')}
+              {field('billing_email', 'Email comptable', 'compta@acme.fr', 'email')}
+              {field('commercial_email', 'Email commercial', 'commercial@acme.fr', 'email')}
             </div>
 
             {/* Row 3: Adresse / Ville / Code postal */}
@@ -189,8 +197,8 @@ export function ClientNewPage() {
             </div>
 
             {/* Row 4: Notes (full width) */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Notes</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Notes</label>
               <textarea
                 value={form.notes ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value || null }))}

@@ -52,10 +52,11 @@ export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
 export const QUOTE_STATUS_CONFIG: Record<QuoteStatus, {
   label: string
   variant: 'default' | 'secondary' | 'destructive' | 'outline'
+  className?: string
 }> = {
-  draft: { label: 'Brouillon', variant: 'secondary' },
+  draft: { label: 'Brouillon', variant: 'outline', className: 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
   sent: { label: 'Envoyé', variant: 'default' },
-  accepted: { label: 'Accepté', variant: 'default' },
+  accepted: { label: 'Accepté', variant: 'default', className: 'bg-green-600 text-white' },
   rejected: { label: 'Refusé', variant: 'destructive' },
   converted: { label: 'Converti', variant: 'default' },
   cancelled: { label: 'Annulé', variant: 'outline' },
@@ -67,10 +68,11 @@ export type InvoiceStatus = (typeof INVOICE_STATUSES)[number]
 export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, {
   label: string
   variant: 'default' | 'secondary' | 'destructive' | 'outline'
+  className?: string
 }> = {
-  draft: { label: 'Brouillon', variant: 'secondary' },
-  sent: { label: 'Envoyée', variant: 'default' },
-  paid: { label: 'Payée', variant: 'default' },
+  draft: { label: 'Brouillon', variant: 'outline', className: 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+  sent: { label: 'Envoyée', variant: 'default', className: 'bg-blue-600 text-white' },
+  paid: { label: 'Payée', variant: 'default', className: 'bg-green-600 text-white' },
   overdue: { label: 'En retard', variant: 'destructive' },
   cancelled: { label: 'Annulée', variant: 'outline' },
 }

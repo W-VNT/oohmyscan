@@ -73,7 +73,7 @@ export function DocumentAttachments({ documentType, documentId, disabled }: Docu
 
   return (
     <Card>
-      <CardContent className="space-y-3 pt-6">
+      <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Paperclip className="size-4" />

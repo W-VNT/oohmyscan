@@ -24,6 +24,13 @@ export interface CompanySettings {
   default_panel_type_id: string | null
   late_penalty_text: string | null
   terms_and_conditions: string | null
+  resend_api_key: string | null
+  email_from: string | null
+  email_from_name: string | null
+  email_quote_subject: string | null
+  email_quote_body: string | null
+  email_invoice_subject: string | null
+  email_invoice_body: string | null
 }
 
 /**
@@ -42,7 +49,7 @@ export function useCompanySettings() {
         .limit(1)
         .single()
       if (error) throw error
-      return data
+      return data as unknown as CompanySettings
     },
   })
 }

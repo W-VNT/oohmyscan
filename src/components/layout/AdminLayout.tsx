@@ -25,6 +25,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { ShortcutHelpProvider } from '@/components/shared/KeyboardShortcuts'
 
 const PAGE_TITLES: Record<string, string> = {
   '/admin': 'Dashboard',
@@ -222,6 +223,7 @@ export function AdminLayout() {
           </ErrorBoundary>
         </main>
       </div>
+      <ShortcutHelpProvider />
     </div>
   )
 }

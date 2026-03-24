@@ -246,8 +246,8 @@ export function PanelDetailPage() {
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {/* Row 1: Lieu / Zone */}
               {editing ? (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Lieu</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Lieu</label>
                   <select
                     value={editForm.location_id}
                     onChange={(e) => {
@@ -279,8 +279,8 @@ export function PanelDetailPage() {
               )}
 
               {editing ? (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Zone</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Zone</label>
                   <select
                     value={editForm.zone_label}
                     onChange={(e) => {
@@ -309,8 +309,8 @@ export function PanelDetailPage() {
 
               {/* Row 2: Nom / Type */}
               {editing ? (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Nom {editForm.location_id && <span className="text-[10px] text-muted-foreground/60">(auto depuis lieu + zone)</span>}</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Nom {editForm.location_id && <span className="text-xs text-muted-foreground/60">(auto depuis lieu + zone)</span>}</label>
                   <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nom du panneau" className="text-sm" disabled={!!editForm.location_id} />
                 </div>
               ) : (
@@ -318,8 +318,8 @@ export function PanelDetailPage() {
               )}
 
               {editing ? (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Type</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Type</label>
                   <select
                     value={editForm.type}
                     onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}
@@ -337,8 +337,8 @@ export function PanelDetailPage() {
 
               {/* Row 3: Adresse / Ville */}
               {editing ? (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Adresse {editForm.location_id && <span className="text-[10px] text-muted-foreground/60">(depuis le lieu)</span>}</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Adresse {editForm.location_id && <span className="text-xs text-muted-foreground/60">(depuis le lieu)</span>}</label>
                   <Input value={editForm.address} onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))} placeholder="Adresse" className="text-sm" disabled={!!editForm.location_id} />
                 </div>
               ) : (
@@ -346,8 +346,8 @@ export function PanelDetailPage() {
               )}
 
               {editing ? (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Ville {editForm.location_id && <span className="text-[10px] text-muted-foreground/60">(depuis le lieu)</span>}</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Ville {editForm.location_id && <span className="text-xs text-muted-foreground/60">(depuis le lieu)</span>}</label>
                   <Input value={editForm.city} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} placeholder="Ville" className="text-sm" disabled={!!editForm.location_id} />
                 </div>
               ) : (
@@ -356,8 +356,8 @@ export function PanelDetailPage() {
 
               {/* Row 4: Statut / Date */}
               {editing ? (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Statut</label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Statut</label>
                   <select
                     value={editForm.status}
                     onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
@@ -377,7 +377,7 @@ export function PanelDetailPage() {
               {/* GPS — only in edit mode */}
               {editing && (
                 <div className="space-y-1 sm:col-span-2">
-                  <label className="text-xs font-medium text-muted-foreground">Coordonnées GPS</label>
+                  <label className="mb-2 block text-sm font-medium">Coordonnées GPS</label>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-muted-foreground">Latitude</label>
@@ -430,7 +430,7 @@ export function PanelDetailPage() {
             {/* Notes */}
             {editing ? (
               <div className="mt-4 space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                <label className="mb-2 block text-sm font-medium">Notes</label>
                 <textarea
                   value={editForm.notes}
                   onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}

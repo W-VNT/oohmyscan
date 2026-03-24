@@ -45,7 +45,7 @@ import { POTENTIAL_STATUS_CONFIG, type PotentialStatus } from '@/lib/constants'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
-const DEFAULT_RADIUS_PER_CITY = 5 // km per city when multi-city
+const COMMUNE_ONLY_RADIUS = 2 // km when slider = 0 (commune center only)
 
 interface VacantPanel {
   id: string
@@ -192,13 +192,13 @@ export function PotentialNewPage() {
       const newCities = parsed.filter((c) => !existing.has(c))
       return [...prev, ...newCities]
     })
+    setRadiusKm(0) // CSV = communes exactes, pas de rayon
     setImportText('')
     setShowImportModal(false)
     toast(`${parsed.length} commune${parsed.length > 1 ? 's' : ''} importée${parsed.length > 1 ? 's' : ''}`)
   }
 
   // --- Analysis ---
-  const isMultiCity = cities.length > 1
   const canAnalyze = prospectName.trim() && cities.length > 0
 
   const runAnalysis = useCallback(async () => {
@@ -211,7 +211,7 @@ export function PotentialNewPage() {
       const allSpots: PotentialSpot[] = []
       let firstCenter: { lat: number; lng: number } | null = null
       const totalCities = cities.length
-      const radius = isMultiCity ? DEFAULT_RADIUS_PER_CITY : radiusKm
+      const radius = radiusKm || COMMUNE_ONLY_RADIUS
 
       for (let i = 0; i < totalCities; i++) {
         const cityName = cities[i]
@@ -265,7 +265,7 @@ export function PotentialNewPage() {
       if (firstCenter) {
         mapRef.current?.flyTo({
           center: [firstCenter.lng, firstCenter.lat],
-          zoom: isMultiCity ? 8 : 11,
+          zoom: totalCities > 1 ? 8 : 11,
           duration: 1500,
         })
       }
@@ -317,7 +317,7 @@ export function PotentialNewPage() {
       setAnalyzing(false)
       setAnalysisProgress('')
     }
-  }, [canAnalyze, allPanels, cities, radiusKm, supportType, isMultiCity, prospectName, existingRequest, createRequest, updateRequest, navigate])
+  }, [canAnalyze, allPanels, cities, radiusKm, supportType, prospectName, existingRequest, createRequest, updateRequest, navigate])
 
 
   // --- Status change ---
@@ -346,7 +346,7 @@ export function PotentialNewPage() {
       const reference = existingRequest?.reference ?? 'POT-DRAFT'
       const supportLabel = SUPPORT_TYPES.find((s) => s.value === supportType)?.label ?? 'Tous les supports'
       const cityDisplay = cities.join(', ')
-      const radius = isMultiCity ? DEFAULT_RADIUS_PER_CITY : radiusKm
+      const radius = radiusKm
 
       const blob = await pdf(
         <PotentialPDF
@@ -375,7 +375,7 @@ export function PotentialNewPage() {
     } finally {
       setGeneratingPdf(false)
     }
-  }, [companySettings, existingRequest, prospectName, cities, radiusKm, isMultiCity, vacantPanels, potentialSpots, supportType])
+  }, [companySettings, existingRequest, prospectName, cities, radiusKm, vacantPanels, potentialSpots, supportType])
 
   function handleExportCSV() {
     const headers = ['Type', 'Nom / Référence', 'Adresse', 'Ville', 'Type de lieu']
@@ -400,9 +400,9 @@ export function PotentialNewPage() {
 
   // Map viewport
   const mapCenter = useMemo(() => {
-    if (center) return { longitude: center.lng, latitude: center.lat, zoom: isMultiCity ? 8 : 11 }
+    if (center) return { longitude: center.lng, latitude: center.lat, zoom: cities.length > 1 ? 8 : 11 }
     return { longitude: 2.3522, latitude: 46.6034, zoom: 5 }
-  }, [center, isMultiCity])
+  }, [center, cities.length])
 
   if (!isNew && loadingRequest) {
     return (
@@ -462,10 +462,10 @@ export function PotentialNewPage() {
 
       {/* Form */}
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Prospect *</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Prospect *</label>
               <Input
                 value={prospectName}
                 onChange={(e) => setProspectName(e.target.value)}
@@ -473,8 +473,8 @@ export function PotentialNewPage() {
                 className="text-sm"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Type de support</label>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Type de support</label>
               <select
                 value={supportType}
                 onChange={(e) => setSupportType(e.target.value as SupportType)}
@@ -485,25 +485,25 @@ export function PotentialNewPage() {
                 ))}
               </select>
             </div>
-            {!isMultiCity && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Rayon : {radiusKm} km</label>
-                <input
-                  type="range"
-                  min={1}
-                  max={50}
-                  value={radiusKm}
-                  onChange={(e) => setRadiusKm(parseInt(e.target.value))}
-                  className="mt-2 w-full"
-                />
-              </div>
-            )}
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Rayon : {radiusKm === 0 ? 'Communes uniquement' : `${radiusKm} km`}
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={50}
+                value={radiusKm}
+                onChange={(e) => setRadiusKm(parseInt(e.target.value))}
+                className="mt-2 w-full"
+              />
+            </div>
           </div>
 
           {/* Multi-city input */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="mb-2 block text-sm font-medium">
                 Communes * {cities.length > 0 && `(${cities.length})`}
               </label>
               <Button
@@ -566,11 +566,6 @@ export function PotentialNewPage() {
               )}
             </div>
 
-            {isMultiCity && (
-              <p className="text-[10px] text-muted-foreground">
-                Rayon automatique de {DEFAULT_RADIUS_PER_CITY} km par commune.
-              </p>
-            )}
           </div>
 
           <Button onClick={runAnalysis} disabled={!canAnalyze || analyzing}>
@@ -624,7 +619,7 @@ export function PotentialNewPage() {
           {/* KPIs */}
           <div className="grid gap-4 sm:grid-cols-3">
             <Card>
-              <CardContent className="pt-6">
+              <CardContent>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-muted-foreground">Panneaux vacants</p>
                   <PanelTop className="size-4 text-blue-600" />
@@ -634,7 +629,7 @@ export function PotentialNewPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
+              <CardContent>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-muted-foreground">Emplacements potentiels</p>
                   <MapPin className="size-4 text-orange-600" />
@@ -644,11 +639,16 @@ export function PotentialNewPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
+              <CardContent>
                 <p className="text-xs font-medium text-muted-foreground">Potentiel total</p>
                 <p className="mt-1 text-2xl font-bold tabular-nums">{vacantPanels.length + potentialSpots.length}</p>
                 <p className="text-xs text-muted-foreground">
-                  {cities.length === 1 ? `${cities[0]} — rayon ${radiusKm} km` : `${cities.length} communes`}
+                  {radiusKm === 0
+                    ? `${cities.length} commune${cities.length > 1 ? 's' : ''} (exactes)`
+                    : cities.length === 1
+                      ? `${cities[0]} — rayon ${radiusKm} km`
+                      : `${cities.length} communes — rayon ${radiusKm} km`
+                  }
                 </p>
               </CardContent>
             </Card>
@@ -702,7 +702,7 @@ export function PotentialNewPage() {
           {/* Details tables */}
           {vacantPanels.length > 0 && (
             <Card>
-              <CardContent className="pt-6">
+              <CardContent>
                 <h3 className="mb-4 text-sm font-semibold">Panneaux vacants disponibles ({vacantPanels.length})</h3>
                 <table className="w-full text-sm">
                   <thead>
@@ -730,7 +730,7 @@ export function PotentialNewPage() {
 
           {potentialSpots.length > 0 && (
             <Card>
-              <CardContent className="pt-6">
+              <CardContent>
                 <h3 className="mb-4 text-sm font-semibold">Emplacements potentiels ({potentialSpots.length})</h3>
                 <table className="w-full text-sm">
                   <thead>

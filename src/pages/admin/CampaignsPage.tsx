@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Loader2, Plus, Megaphone, Search, Filter, ArrowUpDown } from 'lucide-react'
 import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_CONFIG, type CampaignStatus } from '@/lib/constants'
+import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 
 type SortOption = 'newest' | 'oldest' | 'name' | 'start_date' | 'end_date'
 
@@ -29,6 +30,7 @@ export function CampaignsPage() {
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'all'>('all')
   const [sort, setSort] = useState<SortOption>('newest')
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+  useListPageHotkeys('/admin/campaigns/new')
 
   // Panel counts per campaign
   const { data: panelCounts = new Map<string, number>() } = useQuery({
@@ -191,7 +193,7 @@ export function CampaignsPage() {
                       <tr
                         key={campaign.id}
                         onClick={() => navigate(`/admin/campaigns/${campaign.id}`)}
-                        className="cursor-pointer transition-colors hover:bg-accent/50"
+                        className="cursor-pointer transition-colors hover:bg-muted/50"
                       >
                         <td className="px-4 py-3">
                           <Link

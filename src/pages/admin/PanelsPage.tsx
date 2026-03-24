@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
@@ -50,6 +50,7 @@ function usePaginatedPanels(
 type SortCol = 'updated_at' | 'reference' | 'city' | 'format' | 'status'
 
 export function PanelsPage() {
+  const navigate = useNavigate()
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -262,15 +263,12 @@ export function PanelsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {panels.map((panel) => (
-                  <tr key={panel.id} className="transition-colors hover:bg-accent/50">
+                  <tr key={panel.id} onClick={() => navigate(`/admin/panels/${panel.id}`)} className="cursor-pointer transition-colors hover:bg-muted/50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Link
-                          to={`/admin/panels/${panel.id}`}
-                          className="font-medium text-primary hover:underline"
-                        >
+                        <span className="font-medium">
                           {panel.locations?.name || panel.name || panel.reference}
-                        </Link>
+                        </span>
                         {panelCampaigns.has(panel.id) && (
                           <span title="Campagne active"><Megaphone className="size-3.5 shrink-0 text-blue-500" /></span>
                         )}

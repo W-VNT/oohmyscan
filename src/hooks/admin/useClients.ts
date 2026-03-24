@@ -7,6 +7,8 @@ export interface Client {
   contact_name: string | null
   contact_email: string | null
   contact_phone: string | null
+  billing_email: string | null
+  commercial_email: string | null
   address: string | null
   city: string | null
   postal_code: string | null
@@ -27,7 +29,7 @@ export function useClients() {
         .select('*')
         .order('company_name')
       if (error) throw error
-      return data
+      return data as unknown as Client[]
     },
   })
 }
@@ -42,7 +44,7 @@ export function useClient(id: string | undefined) {
         .eq('id', id!)
         .single()
       if (error) throw error
-      return data
+      return data as unknown as Client
     },
     enabled: !!id,
   })

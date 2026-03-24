@@ -25,7 +25,7 @@ export function PublicDocumentPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/30">
         <Card className="max-w-sm">
-          <CardContent className="pt-6 text-center">
+          <CardContent className="text-center">
             <FileText className="mx-auto size-12 text-muted-foreground" />
             <h1 className="mt-4 text-lg font-semibold">Document introuvable</h1>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -43,7 +43,7 @@ export function PublicDocumentPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
         <Card className="w-full max-w-lg">
-          <CardContent className="space-y-4 pt-6">
+          <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="size-5 text-primary" />
@@ -101,7 +101,7 @@ export function PublicDocumentPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-lg">
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Receipt className="size-5 text-primary" />
