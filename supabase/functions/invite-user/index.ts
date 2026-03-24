@@ -106,6 +106,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Create profile immediately with 'invited' status
+    if (data.user?.id) {
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .upsert(
+          {
+            id: data.user.id,
+            full_name,
+            role,
+            status: "invited",
+            is_active: true,
+          },
+          { onConflict: "id" },
+        );
+      if (profileError) {
+        console.error("Profile creation error:", profileError);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

@@ -158,10 +158,9 @@ export interface InvoicePDFProps {
     late_penalty_text?: string | null
   }
   termsHtml?: string | null
-  qrCodeDataUrl?: string | null
 }
 
-export function InvoicePDF({ invoice, quoteNumber, contactName, client, lines, company, termsHtml, qrCodeDataUrl }: InvoicePDFProps) {
+export function InvoicePDF({ invoice, quoteNumber, contactName, client, lines, company, termsHtml }: InvoicePDFProps) {
   const base = computeTotals(lines)
   const invoiceType = invoice.invoice_type ?? 'standard'
   const depositPct = invoice.deposit_percentage ?? 0
@@ -312,12 +311,6 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, client, lines, c
                   <Text style={s.bankLabel}>IBAN</Text>
                   <Text style={s.bankValue}>{company.iban ?? '—'}</Text>
                 </View>
-                {qrCodeDataUrl && (
-                  <View style={{ marginTop: 8, alignItems: 'center' }}>
-                    <Image src={qrCodeDataUrl} style={{ width: 80, height: 80 }} />
-                    <Text style={{ fontSize: 6, color: c.muted, marginTop: 2 }}>Scanner pour payer</Text>
-                  </View>
-                )}
               </View>
             )}
           </View>

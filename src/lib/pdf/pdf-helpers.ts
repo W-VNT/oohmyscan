@@ -51,10 +51,12 @@ export function computeTotals(lines: DocumentLine[]) {
 
 export function formatEUR(amount: number, _currency = 'EUR'): string {
   // Format number without currency symbol (symbol added manually in PDF)
+  // Replace narrow no-break space (U+202F) and no-break space (U+00A0) with regular space
+  // to avoid rendering issues in @react-pdf/renderer
   return new Intl.NumberFormat('fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount)
+  }).format(amount).replace(/[\u202F\u00A0]/g, ' ')
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF' }

@@ -305,9 +305,16 @@ export function UsersPage() {
                         </div>
                       </td>
                       <td className="px-4 py-2.5">
-                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                          {user.role === 'admin' ? 'Admin' : 'Opérateur'}
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            {user.role === 'admin' ? 'Admin' : 'Opérateur'}
+                          </Badge>
+                          {user.status === 'invited' && (
+                            <Badge variant="outline" className="border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                              Invité
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="hidden px-4 py-2.5 md:table-cell">
                         {user.phone ? <span>{user.phone}</span> : <span className="text-muted-foreground">—</span>}

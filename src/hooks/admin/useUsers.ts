@@ -7,6 +7,7 @@ export interface Profile {
   role: 'admin' | 'operator'
   phone: string | null
   avatar_url: string | null
+  status: 'invited' | 'active'
   is_active: boolean
   created_at: string
 }

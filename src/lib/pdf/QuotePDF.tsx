@@ -69,6 +69,13 @@ const s = StyleSheet.create({
   accordText: { fontSize: 8, color: c.muted, lineHeight: 1.6 },
   signatureArea: { height: 50, marginTop: 8, borderBottomWidth: 0.5, borderBottomColor: c.border },
 
+  // Bank info
+  bankBox: { borderWidth: 0.5, borderColor: c.border, padding: 8, marginTop: 8 },
+  bankTitle: { fontSize: 8, fontWeight: 'bold', marginBottom: 4, textDecorationLine: 'underline' },
+  bankRow: { flexDirection: 'row', paddingVertical: 2 },
+  bankLabel: { width: 55, fontSize: 8, fontWeight: 'bold' },
+  bankValue: { flex: 1, fontSize: 8 },
+
   // Totals
   totalsBox: { borderWidth: 0.5, borderColor: c.border },
   totalsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3, paddingHorizontal: 8 },
@@ -124,6 +131,8 @@ export interface QuotePDFProps {
     legal_mentions: string | null
     logo_url?: string | null
     late_penalty_text?: string | null
+    iban: string | null
+    bic: string | null
   }
   termsHtml?: string | null
 }
@@ -244,6 +253,19 @@ export function QuotePDF({ quote, contactName, client, lines, company, termsHtml
               </Text>
               <View style={s.signatureArea} />
             </View>
+            {(company.iban || company.bic) && (
+              <View style={s.bankBox}>
+                <Text style={s.bankTitle}>Coordonnées bancaires</Text>
+                <View style={s.bankRow}>
+                  <Text style={s.bankLabel}>BIC</Text>
+                  <Text style={s.bankValue}>{company.bic ?? '—'}</Text>
+                </View>
+                <View style={s.bankRow}>
+                  <Text style={s.bankLabel}>IBAN</Text>
+                  <Text style={s.bankValue}>{company.iban ?? '—'}</Text>
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Totals + TVA */}

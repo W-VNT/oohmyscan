@@ -23,7 +23,6 @@ import { SendDocumentModal, replaceVars } from '@/components/shared/SendDocument
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { InvoicePDF } from '@/lib/pdf/InvoicePDF'
-import { generateEPCQR } from '@/lib/pdf/epc-qr'
 import { INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, PAYMENT_TERMS, PAYMENT_TERMS_LABELS, computeDueDate, type InvoiceStatus, type InvoiceType, type PaymentTerms } from '@/lib/constants'
 import { useDetailPageHotkeys } from '@/hooks/usePageHotkeys'
 import { Kbd } from '@/components/shared/KeyboardShortcuts'
@@ -528,13 +527,6 @@ export function InvoiceDetailPage() {
       const depositInvNumber = invoice.deposit_invoice_id && depositInvoices
         ? depositInvoices.find((d) => d.id === invoice.deposit_invoice_id)?.invoice_number ?? null
         : null
-      const qrCode = settings.iban ? await generateEPCQR({
-        name: settings.company_name ?? 'OOHMYAD',
-        iban: settings.iban,
-        bic: settings.bic ?? undefined,
-        amount: totals.totalTtc,
-        reference: invoice.invoice_number,
-      }) : null
       return await pdf(
         <InvoicePDF
           invoice={{
@@ -564,7 +556,6 @@ export function InvoiceDetailPage() {
               : null,
           }}
           termsHtml={settings.terms_and_conditions}
-          qrCodeDataUrl={qrCode}
         />,
       ).toBlob()
     } catch {
@@ -590,7 +581,6 @@ export function InvoiceDetailPage() {
       const depositInvNumber = invoice.deposit_invoice_id && depositInvoices
         ? depositInvoices.find((d) => d.id === invoice.deposit_invoice_id)?.invoice_number ?? null
         : null
-      const qrCode = settings.iban ? await generateEPCQR({ name: settings.company_name ?? 'OOHMYAD', iban: settings.iban, bic: settings.bic ?? undefined, amount: totals.totalTtc, reference: invoice.invoice_number }) : null
       const blob = await pdf(
         <InvoicePDF
           invoice={{ ...invoice, status: 'sent', invoice_type: (invoice.invoice_type as 'standard' | 'acompte' | 'solde' | 'avoir') ?? 'standard', deposit_invoice_number: depositInvNumber }}
@@ -600,7 +590,6 @@ export function InvoiceDetailPage() {
           lines={lines.filter((l) => l.description.trim()).map((l) => ({ description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tva_rate: l.tva_rate, total_ht: l.total_ht }))}
           company={{ ...settings, logo_url: settings.logo_path ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl : null }}
           termsHtml={settings.terms_and_conditions}
-          qrCodeDataUrl={qrCode}
         />,
       ).toBlob()
       setSendPdfBlob(blob)
