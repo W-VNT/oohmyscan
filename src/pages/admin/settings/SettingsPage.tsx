@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useCompanySettings, useUpdateCompanySettings, type CompanySettings } from '@/hooks/admin/useCompanySettings'
 import { usePanelTypes, useCreatePanelType, useDeletePanelType } from '@/hooks/admin/usePanelTypes'
 import { useServiceCatalog, useCreateServiceItem, useUpdateServiceItem } from '@/hooks/admin/useServiceCatalog'
+import { sanitizeHtml } from '@/lib/sanitize'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -132,6 +133,15 @@ export function SettingsPage() {
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
+    if (!ALLOWED_MIMES.includes(file.type)) {
+      toast('Format non supporté. Utilisez JPG, PNG, WebP ou SVG.', 'error')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast('Fichier trop volumineux (max 5 Mo)', 'error')
+      return
+    }
     setUploadingLogo(true)
     try {
       const path = `logo-${crypto.randomUUID()}.${file.name.split('.').pop() || 'png'}`
@@ -351,7 +361,7 @@ export function SettingsPage() {
                       <Badge variant={s.is_active ? 'default' : 'secondary'} className="cursor-pointer text-[10px]" onClick={() => updateService.mutate({ id: s.id, is_active: !s.is_active })}>
                         {s.is_active ? 'Actif' : 'Inactif'}
                       </Badge>
-                      <span className={`flex-1 text-sm [&_p]:my-0 ${!s.is_active ? 'text-muted-foreground line-through' : ''}`} dangerouslySetInnerHTML={{ __html: s.name }} />
+                      <span className={`flex-1 text-sm [&_p]:my-0 ${!s.is_active ? 'text-muted-foreground line-through' : ''}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(s.name) }} />
                       <span className="text-xs text-muted-foreground">{s.unit}</span>
                       <span className="text-xs text-muted-foreground">{s.default_tva_rate}%</span>
                       <button onClick={() => startEditService(s)} className="text-muted-foreground hover:text-foreground"><Pencil className="size-3.5" /></button>

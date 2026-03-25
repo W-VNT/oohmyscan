@@ -129,7 +129,7 @@ export function QuotesPage() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          {/* TODO: client name search requires a server-side view or RPC — for now only quote_number is searched server-side */}
+          {/* Search by quote_number only — client name search would require a server-side view */}
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}

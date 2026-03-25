@@ -23,6 +23,7 @@ import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { QuotePDF } from '@/lib/pdf/QuotePDF'
 import { QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
+import { urlToDataUrl } from '@/lib/image-utils'
 import { Kbd } from '@/components/shared/KeyboardShortcuts'
 import { useDetailPageHotkeys } from '@/hooks/usePageHotkeys'
 
@@ -300,12 +301,19 @@ export function QuoteDetailPage() {
     }
   }
 
+  async function getLogoDataUrl(): Promise<string | null> {
+    if (!settings?.logo_path) return null
+    const publicUrl = supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
+    return urlToDataUrl(publicUrl)
+  }
+
   async function generatePdfBlob(): Promise<Blob | null> {
     if (!quote || !clientData || !settings) {
       toast('Données manquantes pour le PDF', 'error')
       return null
     }
     try {
+      const logoDataUrl = await getLogoDataUrl()
       return await pdf(
         <QuotePDF
           quote={quote}
@@ -325,9 +333,7 @@ export function QuoteDetailPage() {
           }))}
           company={{
             ...settings,
-            logo_url: settings.logo_path
-              ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
-              : null,
+            logo_url: logoDataUrl,
           }}
           termsHtml={settings.terms_and_conditions}
         />,
@@ -352,13 +358,14 @@ export function QuoteDetailPage() {
     // Generate PDF with 'sent' status to avoid BROUILLON watermark
     if (!quote || !clientData || !settings) return
     try {
+      const logoDataUrl = await getLogoDataUrl()
       const blob = await pdf(
         <QuotePDF
           quote={{ ...quote, status: 'sent' }}
           contactName={profile?.full_name}
           client={{ ...clientData, email: clientData.contact_email, phone: clientData.contact_phone }}
           lines={lines.filter((l) => l.description.trim()).map((l) => ({ description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tva_rate: l.tva_rate, total_ht: l.total_ht }))}
-          company={{ ...settings, logo_url: settings.logo_path ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl : null }}
+          company={{ ...settings, logo_url: logoDataUrl }}
           termsHtml={settings.terms_and_conditions}
         />,
       ).toBlob()

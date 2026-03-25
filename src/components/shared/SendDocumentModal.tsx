@@ -86,8 +86,7 @@ export function SendDocumentModal({
       })
 
       if (error) {
-        console.error('Edge Function error:', error)
-        throw new Error(error.message || "Erreur lors de l'appel à la fonction d'envoi")
+throw new Error(error.message || "Erreur lors de l'appel à la fonction d'envoi")
       }
       if (data?.error) throw new Error(data.error)
 

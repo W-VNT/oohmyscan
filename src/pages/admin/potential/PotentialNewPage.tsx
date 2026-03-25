@@ -307,8 +307,7 @@ export function PotentialNewPage() {
             toast('Analyse mise à jour')
           }
         } catch (err) {
-          console.error('Auto-save failed:', err)
-          toast("Erreur lors de l'enregistrement automatique", 'error')
+toast("Erreur lors de l'enregistrement automatique", 'error')
         }
       }
     } catch {

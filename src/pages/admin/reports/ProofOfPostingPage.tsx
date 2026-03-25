@@ -356,8 +356,7 @@ export function ProofOfPostingPage() {
       saveAs(blob, `justificatif-${campaign.name.replace(/\s+/g, '-')}.pdf`)
       toast('PDF exporté')
     } catch (err) {
-      console.error('PDF export error:', err)
-      toast("Erreur lors de l'export", 'error')
+toast("Erreur lors de l'export", 'error')
     } finally {
       _setExporting(false)
     }

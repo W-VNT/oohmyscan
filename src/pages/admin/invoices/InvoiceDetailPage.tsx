@@ -25,6 +25,7 @@ import { saveAs } from 'file-saver'
 import { InvoicePDF } from '@/lib/pdf/InvoicePDF'
 import { INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, PAYMENT_TERMS, PAYMENT_TERMS_LABELS, computeDueDate, type InvoiceStatus, type InvoiceType, type PaymentTerms } from '@/lib/constants'
 import { useDetailPageHotkeys } from '@/hooks/usePageHotkeys'
+import { urlToDataUrl } from '@/lib/image-utils'
 import { Kbd } from '@/components/shared/KeyboardShortcuts'
 
 type EditableLine = Omit<InvoiceLine, 'id' | 'invoice_id'> & { _key: string }
@@ -499,8 +500,7 @@ export function InvoiceDetailPage() {
       await queryClient.invalidateQueries({ queryKey: ['invoices'] })
       navigate('/admin/invoices')
     } catch (err) {
-      console.error('Save error:', err)
-      toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'error')
+toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'error')
     } finally {
       setSaving(false)
     }
@@ -518,6 +518,12 @@ export function InvoiceDetailPage() {
     }
   }
 
+  async function getLogoDataUrl(): Promise<string | null> {
+    if (!settings?.logo_path) return null
+    const publicUrl = supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
+    return urlToDataUrl(publicUrl)
+  }
+
   async function generatePdfBlob(): Promise<Blob | null> {
     if (!invoice || !clientData || !settings) {
       toast('Données manquantes pour le PDF', 'error')
@@ -527,6 +533,7 @@ export function InvoiceDetailPage() {
       const depositInvNumber = invoice.deposit_invoice_id && depositInvoices
         ? depositInvoices.find((d) => d.id === invoice.deposit_invoice_id)?.invoice_number ?? null
         : null
+      const logoDataUrl = await getLogoDataUrl()
       return await pdf(
         <InvoicePDF
           invoice={{
@@ -551,9 +558,7 @@ export function InvoiceDetailPage() {
           }))}
           company={{
             ...settings,
-            logo_url: settings.logo_path
-              ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
-              : null,
+            logo_url: logoDataUrl,
           }}
           termsHtml={settings.terms_and_conditions}
         />,
@@ -581,6 +586,7 @@ export function InvoiceDetailPage() {
       const depositInvNumber = invoice.deposit_invoice_id && depositInvoices
         ? depositInvoices.find((d) => d.id === invoice.deposit_invoice_id)?.invoice_number ?? null
         : null
+      const logoDataUrl = await getLogoDataUrl()
       const blob = await pdf(
         <InvoicePDF
           invoice={{ ...invoice, status: 'sent', invoice_type: (invoice.invoice_type as 'standard' | 'acompte' | 'solde' | 'avoir') ?? 'standard', deposit_invoice_number: depositInvNumber }}
@@ -588,7 +594,7 @@ export function InvoiceDetailPage() {
           contactName={profile?.full_name}
           client={{ ...clientData, email: clientData.contact_email, phone: clientData.contact_phone }}
           lines={lines.filter((l) => l.description.trim()).map((l) => ({ description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tva_rate: l.tva_rate, total_ht: l.total_ht }))}
-          company={{ ...settings, logo_url: settings.logo_path ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl : null }}
+          company={{ ...settings, logo_url: logoDataUrl }}
           termsHtml={settings.terms_and_conditions}
         />,
       ).toBlob()

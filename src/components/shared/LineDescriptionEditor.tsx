@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { MiniRichEditor } from './MiniRichEditor'
+import { sanitizeHtml } from '@/lib/sanitize'
 import type { ServiceCatalogItem } from '@/hooks/admin/useServiceCatalog'
 
 interface CatalogSelection {
@@ -106,7 +107,7 @@ export function LineDescriptionEditor({
             >
               <span
                 className="flex-1 font-medium"
-                dangerouslySetInnerHTML={{ __html: firstLine(s.name) }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(firstLine(s.name)) }}
               />
               <span className="ml-2 shrink-0 text-xs text-muted-foreground">
                 {s.default_unit_price}€ / {s.unit} · TVA {s.default_tva_rate}%

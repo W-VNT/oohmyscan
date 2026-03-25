@@ -528,7 +528,6 @@ export function PanelDetailPage() {
               <Camera className="h-4 w-4" />
               <h3 className="font-semibold">Photos ({photos?.length ?? 0})</h3>
             </div>
-            {/* TODO: Add photo upload button here */}
             {!photos?.length ? (
               <p className="mt-4 text-sm text-muted-foreground">Aucune photo</p>
             ) : (
