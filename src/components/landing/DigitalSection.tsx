@@ -87,45 +87,7 @@ function SectionHeader({ inView }: { inView: boolean }) {
   )
 }
 
-/* ══════════════════════════════════════════════════════════
-   VERSION A — Gradient reveal (fond uniforme, glow hover)
-   Conservee mais non utilisee — disponible via DigitalSectionVariantA
-   ══════════════════════════════════════════════════════════ */
-
-export function DigitalSectionVariantA() {
-  const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
-
-  return (
-    <section id="digital" className="relative overflow-hidden bg-[#FAFAFA] dark:bg-[#0A0A0A] py-20 md:py-28">
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#F5C400]/20 to-transparent" />
-      <div ref={ref} className="mx-auto max-w-6xl px-6">
-        <SectionHeader inView={inView} />
-        <div className="mt-12 grid gap-6 md:grid-cols-2">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.7, delay: 0.15 }}
-            className="group rounded-2xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-6 md:p-8 transition-all duration-500 hover:border-[#F5C400]/20 hover:shadow-[0_0_40px_rgba(245,196,0,0.06)]"
-          >
-            <SmsContent />
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.7, delay: 0.3 }}
-            className="group rounded-2xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-6 md:p-8 transition-all duration-500 hover:border-[#F5C400]/20 hover:shadow-[0_0_40px_rgba(245,196,0,0.06)]"
-          >
-            <DisplayContent />
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/* ══════════════════════════════════════════════════════════
-   VERSION C — Tabs interactifs (ACTIVE)
-   ══════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════ */
 
 export function DigitalSection() {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
