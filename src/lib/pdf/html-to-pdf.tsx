@@ -19,6 +19,20 @@ interface HtmlNode {
   children: (HtmlNode | string)[]
 }
 
+/** Decode HTML entities */
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+}
+
 /** Very simple HTML parser — handles flat structure from TipTap output */
 function parseHtml(html: string): HtmlNode[] {
   const nodes: HtmlNode[] = []
@@ -35,7 +49,7 @@ function parseHtml(html: string): HtmlNode[] {
   // If no tags found, treat as plain text paragraphs
   if (nodes.length === 0 && html.trim()) {
     html.split('\n').filter((l) => l.trim()).forEach((line) => {
-      nodes.push({ tag: 'p', children: [line.trim()] })
+      nodes.push({ tag: 'p', children: [decodeEntities(line.trim())] })
     })
   }
 
@@ -52,7 +66,7 @@ function parseInline(html: string): (HtmlNode | string)[] {
   while ((match = inlineRegex.exec(html)) !== null) {
     // Text before this tag
     if (match.index > lastIndex) {
-      const text = html.slice(lastIndex, match.index).replace(/<[^>]+>/g, '')
+      const text = decodeEntities(html.slice(lastIndex, match.index).replace(/<[^>]+>/g, ''))
       if (text) result.push(text)
     }
 
@@ -61,7 +75,7 @@ function parseInline(html: string): (HtmlNode | string)[] {
     } else if (match[1] === 'li') {
       result.push({ tag: 'li', children: parseInline(match[2]) })
     } else {
-      result.push({ tag: match[1], children: [match[2].replace(/<[^>]+>/g, '')] })
+      result.push({ tag: match[1], children: [decodeEntities(match[2].replace(/<[^>]+>/g, ''))] })
     }
 
     lastIndex = match.index + match[0].length
@@ -69,7 +83,7 @@ function parseInline(html: string): (HtmlNode | string)[] {
 
   // Remaining text
   if (lastIndex < html.length) {
-    const text = html.slice(lastIndex).replace(/<[^>]+>/g, '')
+    const text = decodeEntities(html.slice(lastIndex).replace(/<[^>]+>/g, ''))
     if (text) result.push(text)
   }
 
