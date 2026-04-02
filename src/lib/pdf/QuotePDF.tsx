@@ -88,8 +88,6 @@ const s = StyleSheet.create({
   tvaCol: { flex: 1, fontSize: 8, textAlign: 'right' },
   tvaColFirst: { flex: 1, fontSize: 8 },
 
-  draftWatermark: { position: 'absolute', top: 350, left: 100, transform: 'rotate(-35deg)', opacity: 0.06 },
-  draftWatermarkText: { fontSize: 90, fontWeight: 'bold', color: c.primary, letterSpacing: 12 },
 
   footer: { position: 'absolute', bottom: 20, left: 40, right: 40 },
   footerBg: { backgroundColor: c.accent, paddingVertical: 8, paddingHorizontal: 12 },
@@ -194,12 +192,6 @@ export function QuotePDF({ quote, contactName, client, lines, company, termsHtml
           </View>
         )}
 
-        {/* === DRAFT WATERMARK === */}
-        {quote.status === 'draft' && (
-          <View style={s.draftWatermark}>
-            <Text style={s.draftWatermarkText}>BROUILLON</Text>
-          </View>
-        )}
 
         {/* === TABLE === */}
         <View style={s.table}>

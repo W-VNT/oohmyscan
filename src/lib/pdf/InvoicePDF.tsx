@@ -99,8 +99,6 @@ const s = StyleSheet.create({
   // Stamps
   paidStamp: { position: 'absolute', top: 200, right: 50, borderWidth: 3, borderColor: c.green, borderRadius: 4, paddingHorizontal: 16, paddingVertical: 8, transform: 'rotate(-15deg)', opacity: 0.7 },
   paidText: { fontSize: 24, fontWeight: 'bold', color: c.green, textTransform: 'uppercase' },
-  draftWatermark: { position: 'absolute', top: 350, left: 100, transform: 'rotate(-35deg)', opacity: 0.06 },
-  draftWatermarkText: { fontSize: 90, fontWeight: 'bold', color: c.primary, letterSpacing: 12 },
 
   // Repeat header on each page (top-right)
   pageHeader: { position: 'absolute', top: 10, right: 40 },
@@ -243,11 +241,6 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, client, lines, c
         )}
 
         {/* === STAMPS === */}
-        {invoice.status === 'draft' && (
-          <View style={s.draftWatermark}>
-            <Text style={s.draftWatermarkText}>BROUILLON</Text>
-          </View>
-        )}
         {invoice.status === 'paid' && (
           <View style={s.paidStamp}>
             <Text style={s.paidText}>Payée</Text>
