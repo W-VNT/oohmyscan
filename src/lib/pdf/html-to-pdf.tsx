@@ -59,7 +59,8 @@ function parseHtml(html: string): HtmlNode[] {
 /** Parse inline elements: <strong>, <em>, <u>, plain text */
 function parseInline(html: string): (HtmlNode | string)[] {
   const result: (HtmlNode | string)[] = []
-  const inlineRegex = /<(strong|em|u|br|li)(?:\s[^>]*)?\/?>([\s\S]*?)(?:<\/\1>)?/g
+  // Match self-closing <br> OR content tags with required closing tag
+  const inlineRegex = /<br\s*\/?>|<(strong|em|u|li)(?:\s[^>]*)?>([\s\S]*?)<\/\1>/g
   let lastIndex = 0
   let match: RegExpExecArray | null
 
@@ -70,12 +71,12 @@ function parseInline(html: string): (HtmlNode | string)[] {
       if (text) result.push(text)
     }
 
-    if (match[1] === 'br') {
+    if (match[0].startsWith('<br')) {
       result.push('\n')
     } else if (match[1] === 'li') {
       result.push({ tag: 'li', children: parseInline(match[2]) })
     } else {
-      result.push({ tag: match[1], children: [decodeEntities(match[2].replace(/<[^>]+>/g, ''))] })
+      result.push({ tag: match[1], children: parseInline(match[2]) })
     }
 
     lastIndex = match.index + match[0].length
