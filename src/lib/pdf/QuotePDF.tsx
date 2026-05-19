@@ -105,6 +105,7 @@ export interface QuotePDFProps {
     client_reference?: string | null
   }
   contactName?: string | null
+  contactPhone?: string | null
   client: {
     company_name: string
     contact_name: string | null
@@ -135,7 +136,7 @@ export interface QuotePDFProps {
   termsHtml?: string | null
 }
 
-export function QuotePDF({ quote, contactName, client, lines, company, termsHtml }: QuotePDFProps) {
+export function QuotePDF({ quote, contactName, contactPhone, client, lines, company, termsHtml }: QuotePDFProps) {
   const { totalHT, totalTTC, groups } = computeTotals(lines)
 
   const dossierParts: string[] = []
@@ -188,7 +189,7 @@ export function QuotePDF({ quote, contactName, client, lines, company, termsHtml
         {contactName && (
           <View style={s.infoBox}>
             <Text style={s.infoLabel}>Informations</Text>
-            <Text style={s.infoText}>Votre contact : {contactName}</Text>
+            <Text style={s.infoText}>Votre contact : {contactName}{contactPhone ? ` — ${contactPhone}` : ''}</Text>
           </View>
         )}
 

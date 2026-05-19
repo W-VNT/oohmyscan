@@ -128,6 +128,7 @@ export interface InvoicePDFProps {
   }
   quoteNumber?: string | null
   contactName?: string | null
+  contactPhone?: string | null
   client: {
     company_name: string
     contact_name: string | null
@@ -158,7 +159,7 @@ export interface InvoicePDFProps {
   termsHtml?: string | null
 }
 
-export function InvoicePDF({ invoice, quoteNumber, contactName, client, lines, company, termsHtml }: InvoicePDFProps) {
+export function InvoicePDF({ invoice, quoteNumber, contactName, contactPhone, client, lines, company, termsHtml }: InvoicePDFProps) {
   const base = computeTotals(lines)
   const invoiceType = invoice.invoice_type ?? 'standard'
   const depositPct = invoice.deposit_percentage ?? 0
@@ -236,7 +237,7 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, client, lines, c
         {contactName && (
           <View style={s.infoBox}>
             <Text style={s.infoLabel}>Informations</Text>
-            <Text style={s.infoText}>Votre contact : {contactName}</Text>
+            <Text style={s.infoText}>Votre contact : {contactName}{contactPhone ? ` — ${contactPhone}` : ''}</Text>
           </View>
         )}
 

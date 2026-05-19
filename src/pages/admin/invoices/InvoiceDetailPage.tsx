@@ -5,6 +5,7 @@ import { useInvoice, useInvoiceLines, useCreateInvoice, useUpdateInvoice, useSav
 import { useInvoicePayments, useCreatePayment, useDeletePayment, PAYMENT_METHOD_LABELS, type Payment } from '@/hooks/admin/usePayments'
 import { useQuote, useQuoteLines, useUpdateQuote } from '@/hooks/admin/useQuotes'
 import { useClients, useClient } from '@/hooks/admin/useClients'
+import { useAdmins } from '@/hooks/admin/useUsers'
 import { useClientCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
@@ -67,6 +68,7 @@ export function InvoiceDetailPage() {
   const { data: sourceQuote } = useQuote(fromQuoteId ?? invoice?.quote_id ?? undefined)
   const { data: sourceQuoteLines } = useQuoteLines(fromQuoteId ?? undefined)
   const { data: clients } = useClients()
+  const { data: admins } = useAdmins()
   const { data: services } = useServiceCatalog()
   const { data: settings } = useCompanySettings()
 
@@ -79,6 +81,7 @@ export function InvoiceDetailPage() {
   const [clientId, setClientId] = useState('')
   const { data: clientCampaigns, isLoading: campaignsLoading } = useClientCampaigns(clientId || undefined)
   const [campaignId, setCampaignId] = useState('')
+  const [commercialId, setCommercialId] = useState('')
   const [quoteId, setQuoteId] = useState('')
   const [notes, setNotes] = useState('')
   const [selectedContactEmail, setSelectedContactEmail] = useState('')
@@ -126,8 +129,16 @@ export function InvoiceDetailPage() {
       setDepositPercentage(invoice.deposit_percentage ?? 30)
       setDepositInvoiceId(invoice.deposit_invoice_id ?? '')
       setPaymentTerms((invoice.payment_terms as PaymentTerms) ?? '30_days')
+      setCommercialId(invoice.commercial_id ?? '')
     }
   }, [invoice])
+
+  // Default commercial from client when creating new invoice
+  useEffect(() => {
+    if (isNew && clientData?.commercial_id && !commercialId) {
+      setCommercialId(clientData.commercial_id)
+    }
+  }, [isNew, clientData?.commercial_id, commercialId])
 
   useEffect(() => {
     if (existingLines && existingLines.length > 0) {
@@ -373,6 +384,7 @@ export function InvoiceDetailPage() {
         notes: `Avoir sur facture ${invoice.invoice_number}`,
         client_reference: clientReference || null,
         created_by: profile?.id ?? null,
+        commercial_id: commercialId || null,
       })
 
       // Copy lines with negative amounts
@@ -454,6 +466,7 @@ export function InvoiceDetailPage() {
           notes: notes || null,
           client_reference: clientReference || null,
           created_by: profile?.id ?? null,
+          commercial_id: commercialId || null,
         })
         invoiceId = result.id
 
@@ -473,6 +486,7 @@ export function InvoiceDetailPage() {
           notes: notes || null,
           client_reference: clientReference || null,
           due_at: dueAt || undefined,
+          commercial_id: commercialId || null,
         })
       }
 
@@ -524,6 +538,16 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
     return urlToDataUrl(publicUrl)
   }
 
+  // Resolve commercial contact info for PDF
+  const pdfContact = useMemo(() => {
+    const resolvedId = commercialId || invoice?.commercial_id || clientData?.commercial_id || null
+    const commercial = resolvedId ? admins?.find((a) => a.id === resolvedId) : null
+    return {
+      name: commercial?.full_name ?? profile?.full_name,
+      phone: commercial?.phone ?? null,
+    }
+  }, [commercialId, invoice?.commercial_id, clientData?.commercial_id, admins, profile])
+
   async function generatePdfBlob(): Promise<Blob | null> {
     if (!invoice || !clientData || !settings) {
       toast('Données manquantes pour le PDF', 'error')
@@ -542,7 +566,8 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
             deposit_invoice_number: depositInvNumber,
           }}
           quoteNumber={sourceQuote?.quote_number}
-          contactName={profile?.full_name}
+          contactName={pdfContact.name}
+          contactPhone={pdfContact.phone}
           client={{
             ...clientData,
             email: clientData.contact_email,
@@ -591,7 +616,8 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
         <InvoicePDF
           invoice={{ ...invoice, status: 'sent', invoice_type: (invoice.invoice_type as 'standard' | 'acompte' | 'solde' | 'avoir') ?? 'standard', deposit_invoice_number: depositInvNumber }}
           quoteNumber={sourceQuote?.quote_number}
-          contactName={profile?.full_name}
+          contactName={pdfContact.name}
+          contactPhone={pdfContact.phone}
           client={{ ...clientData, email: clientData.contact_email, phone: clientData.contact_phone }}
           lines={lines.filter((l) => l.description.trim()).map((l) => ({ description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tva_rate: l.tva_rate, total_ht: l.total_ht }))}
           company={{ ...settings, logo_url: logoDataUrl }}
@@ -649,6 +675,7 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
         notes: notes || null,
         client_reference: clientReference || null,
         created_by: profile?.id ?? null,
+        commercial_id: commercialId || null,
       })
 
       await saveLines.mutateAsync({
@@ -942,6 +969,22 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
               </select>
             </div>
           )}
+
+          {/* Commercial OOH MY AD ! (affiché sur le PDF) */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">Votre commercial (affiché sur le PDF)</label>
+            <select
+              value={commercialId}
+              onChange={(e) => setCommercialId(e.target.value)}
+              disabled={isStructureLocked}
+              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+            >
+              <option value="">— Utilisateur connecté ({profile?.full_name}) —</option>
+              {admins?.map((a) => (
+                <option key={a.id} value={a.id}>{a.full_name}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Row 2: Dates + terms + ref */}
           <div className="grid gap-4 sm:grid-cols-4">

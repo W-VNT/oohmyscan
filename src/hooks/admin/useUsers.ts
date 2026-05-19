@@ -33,6 +33,21 @@ export function useUsers() {
   })
 }
 
+export function useAdmins() {
+  return useQuery({
+    queryKey: ['users', 'admins'],
+    queryFn: async (): Promise<Profile[]> => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'admin')
+        .order('full_name')
+      if (error) throw error
+      return data as Profile[]
+    },
+  })
+}
+
 export function useOperatorStats() {
   return useQuery({
     queryKey: ['operator-stats'],
