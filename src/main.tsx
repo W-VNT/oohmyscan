@@ -1,3 +1,8 @@
+// Capture auth callback hash BEFORE Supabase consumes it (detectSessionInUrl)
+if (window.location.hash.includes('type=invite') || window.location.hash.includes('type=recovery')) {
+  sessionStorage.setItem('auth_callback_type', window.location.hash.includes('type=invite') ? 'invite' : 'recovery')
+}
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HelmetProvider } from 'react-helmet-async'
