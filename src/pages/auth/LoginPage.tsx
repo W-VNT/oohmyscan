@@ -25,12 +25,14 @@ export function LoginPage() {
 
   // Detect auth callback (invite or recovery) on mount
   useEffect(() => {
-    const hash = window.location.hash
-    if (hash.includes('type=invite') || hash.includes('type=recovery')) {
+    // Hash captured in main.tsx before Supabase consumed it
+    const callbackType = sessionStorage.getItem('auth_callback_type')
+    if (callbackType === 'invite' || callbackType === 'recovery') {
       setMode('set_password')
+      sessionStorage.removeItem('auth_callback_type')
     }
 
-    // Listen for PASSWORD_RECOVERY event
+    // Listen for PASSWORD_RECOVERY event (fallback for in-app recovery flows)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setMode('set_password')
