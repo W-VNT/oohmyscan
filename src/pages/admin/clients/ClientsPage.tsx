@@ -198,6 +198,7 @@ export function ClientsPage() {
           siret: findCol('siret', 'siren'),
           tva_number: findCol('tva', 'vat'),
           notes: findCol('notes', 'commentaire'),
+          commercial_id: null,
           is_active: true,
         })
         created++

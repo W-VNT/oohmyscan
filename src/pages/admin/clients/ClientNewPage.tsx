@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCreateClient, type Client } from '@/hooks/admin/useClients'
+import { useAdmins } from '@/hooks/admin/useUsers'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -22,12 +23,14 @@ const emptyForm: ClientForm = {
   siret: null,
   tva_number: null,
   notes: null,
+  commercial_id: null,
   is_active: true,
 }
 
 export function ClientNewPage() {
   const navigate = useNavigate()
   const createClient = useCreateClient()
+  const { data: admins } = useAdmins()
 
   const [form, setForm] = useState<ClientForm>(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -196,7 +199,24 @@ export function ClientNewPage() {
               {field('postal_code', 'Code postal', '75001')}
             </div>
 
-            {/* Row 4: Notes (full width) */}
+            {/* Row 4: Commercial dédié */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium">Commercial dédié</label>
+                <select
+                  value={form.commercial_id ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, commercial_id: e.target.value || null }))}
+                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">— Aucun —</option>
+                  {admins?.map((a) => (
+                    <option key={a.id} value={a.id}>{a.full_name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Row 5: Notes (full width) */}
             <div>
               <label className="mb-2 block text-sm font-medium">Notes</label>
               <textarea

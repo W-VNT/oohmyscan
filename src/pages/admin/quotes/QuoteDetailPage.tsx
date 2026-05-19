@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useQuote, useQuoteLines, useCreateQuote, useUpdateQuote, useSaveQuoteLines, type QuoteLine } from '@/hooks/admin/useQuotes'
 import { useClients, useClient } from '@/hooks/admin/useClients'
+import { useAdmins } from '@/hooks/admin/useUsers'
 import { useClientCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useQuoteTemplates, useCreateQuoteTemplate, type TemplateLine } from '@/hooks/admin/useQuoteTemplates'
@@ -62,6 +63,7 @@ export function QuoteDetailPage() {
   const { data: quote, isLoading: quoteLoading } = useQuote(isNew ? undefined : id)
   const { data: existingLines, isLoading: linesLoading } = useQuoteLines(isNew ? undefined : id)
   const { data: clients } = useClients()
+  const { data: admins } = useAdmins()
   const { data: services } = useServiceCatalog()
   const { data: settings } = useCompanySettings()
 
@@ -75,6 +77,7 @@ export function QuoteDetailPage() {
   const [clientId, setClientId] = useState('')
   const { data: clientCampaigns } = useClientCampaigns(clientId || undefined)
   const [campaignId, setCampaignId] = useState('')
+  const [commercialId, setCommercialId] = useState('')
   const [notes, setNotes] = useState('')
   const [clientReference, setClientReference] = useState('')
   const [selectedContactEmail, setSelectedContactEmail] = useState('')
@@ -100,12 +103,20 @@ export function QuoteDetailPage() {
     if (quote) {
       setClientId(quote.client_id)
       setCampaignId(quote.campaign_id ?? '')
+      setCommercialId(quote.commercial_id ?? '')
       setNotes(quote.notes ?? '')
       setClientReference(quote.client_reference ?? '')
       setIssuedAt(quote.issued_at?.split('T')[0] ?? new Date().toISOString().split('T')[0])
       setValidUntil(quote.valid_until?.split('T')[0] ?? '')
     }
   }, [quote])
+
+  // Default commercial from client when creating new quote or when client changes
+  useEffect(() => {
+    if (isNew && clientData?.commercial_id && !commercialId) {
+      setCommercialId(clientData.commercial_id)
+    }
+  }, [isNew, clientData?.commercial_id, commercialId])
 
   useEffect(() => {
     if (existingLines && existingLines.length > 0) {
@@ -248,6 +259,7 @@ export function QuoteDetailPage() {
           notes: notes || null,
           client_reference: clientReference || null,
           created_by: profile?.id ?? null,
+          commercial_id: commercialId || null,
         })
         quoteId = result.id
       } else {
@@ -258,6 +270,7 @@ export function QuoteDetailPage() {
           notes: notes || null,
           client_reference: clientReference || null,
           valid_until: validUntil || undefined,
+          commercial_id: commercialId || null,
         })
       }
 
@@ -307,6 +320,16 @@ export function QuoteDetailPage() {
     return urlToDataUrl(publicUrl)
   }
 
+  // Resolve commercial contact info for PDF (commercial on quote → on client → fallback to logged-in user)
+  const pdfContact = useMemo(() => {
+    const resolvedId = commercialId || quote?.commercial_id || clientData?.commercial_id || null
+    const commercial = resolvedId ? admins?.find((a) => a.id === resolvedId) : null
+    return {
+      name: commercial?.full_name ?? profile?.full_name,
+      phone: commercial?.phone ?? null,
+    }
+  }, [commercialId, quote?.commercial_id, clientData?.commercial_id, admins, profile])
+
   async function generatePdfBlob(): Promise<Blob | null> {
     if (!quote || !clientData || !settings) {
       toast('Données manquantes pour le PDF', 'error')
@@ -317,7 +340,8 @@ export function QuoteDetailPage() {
       return await pdf(
         <QuotePDF
           quote={quote}
-          contactName={profile?.full_name}
+          contactName={pdfContact.name}
+          contactPhone={pdfContact.phone}
           client={{
             ...clientData,
             email: clientData.contact_email,
@@ -362,7 +386,8 @@ export function QuoteDetailPage() {
       const blob = await pdf(
         <QuotePDF
           quote={{ ...quote, status: 'sent' }}
-          contactName={profile?.full_name}
+          contactName={pdfContact.name}
+          contactPhone={pdfContact.phone}
           client={{ ...clientData, email: clientData.contact_email, phone: clientData.contact_phone }}
           lines={lines.filter((l) => l.description.trim()).map((l) => ({ description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tva_rate: l.tva_rate, total_ht: l.total_ht }))}
           company={{ ...settings, logo_url: logoDataUrl }}
@@ -403,6 +428,7 @@ export function QuoteDetailPage() {
         notes: notes || null,
         client_reference: clientReference || null,
         created_by: profile?.id ?? null,
+        commercial_id: commercialId || null,
       })
 
       await saveLines.mutateAsync({
@@ -654,6 +680,22 @@ export function QuoteDetailPage() {
               </select>
             </div>
           )}
+
+          {/* Row 1c: Commercial OOH MY AD ! (affiché sur le PDF) */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">Votre commercial (affiché sur le PDF)</label>
+            <select
+              value={commercialId}
+              onChange={(e) => setCommercialId(e.target.value)}
+              disabled={isStructureLocked}
+              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+            >
+              <option value="">— Utilisateur connecté ({profile?.full_name}) —</option>
+              {admins?.map((a) => (
+                <option key={a.id} value={a.id}>{a.full_name}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Row 2: Date émission | Valide jusqu'au | Réf. dossier */}
           <div className="grid gap-4 sm:grid-cols-3">

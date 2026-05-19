@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useClient, useUpdateClient } from '@/hooks/admin/useClients'
+import { useAdmins } from '@/hooks/admin/useUsers'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useQuotes } from '@/hooks/admin/useQuotes'
 import { useInvoices } from '@/hooks/admin/useInvoices'
@@ -33,6 +34,7 @@ interface EditForm {
   siret: string
   tva_number: string
   notes: string
+  commercial_id: string
 }
 
 export function ClientDetailPage() {
@@ -40,6 +42,7 @@ export function ClientDetailPage() {
   const navigate = useNavigate()
   const { data: client, isLoading } = useClient(id)
   const updateClient = useUpdateClient()
+  const { data: admins } = useAdmins()
   const { data: allCampaigns } = useCampaigns()
   const { data: allQuotes } = useQuotes()
   const { data: allInvoices } = useInvoices()
@@ -50,6 +53,7 @@ export function ClientDetailPage() {
     company_name: '', contact_name: '', contact_email: '', contact_phone: '',
     billing_email: '', commercial_email: '',
     address: '', city: '', postal_code: '', siret: '', tva_number: '', notes: '',
+    commercial_id: '',
   })
 
   const campaigns = useMemo(
@@ -99,6 +103,7 @@ export function ClientDetailPage() {
       siret: client.siret || '',
       tva_number: client.tva_number || '',
       notes: client.notes || '',
+      commercial_id: client.commercial_id || '',
     })
     setEditing(true)
   }
@@ -125,6 +130,7 @@ export function ClientDetailPage() {
         siret: editForm.siret.trim() || null,
         tva_number: editForm.tva_number.trim() || null,
         notes: editForm.notes.trim() || null,
+        commercial_id: editForm.commercial_id || null,
       })
       toast('Client mis à jour')
       setEditing(false)
@@ -347,7 +353,24 @@ export function ClientDetailPage() {
                   </div>
                 </div>
 
-                {/* Row 4: Notes (full width) */}
+                {/* Row 4: Commercial dédié */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Commercial dédié</label>
+                    <select
+                      value={editForm.commercial_id}
+                      onChange={(e) => setEditForm((f) => ({ ...f, commercial_id: e.target.value }))}
+                      className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">— Aucun —</option>
+                      {admins?.map((a) => (
+                        <option key={a.id} value={a.id}>{a.full_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 5: Notes (full width) */}
                 <div>
                   <label className="mb-2 block text-sm font-medium">Notes</label>
                   <textarea

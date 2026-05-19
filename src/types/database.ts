@@ -270,6 +270,7 @@ export interface Database {
           siret: string | null
           tva_number: string | null
           notes: string | null
+          commercial_id: string | null
           is_active: boolean
           created_at: string
           updated_at: string
@@ -286,6 +287,7 @@ export interface Database {
           siret?: string | null
           tva_number?: string | null
           notes?: string | null
+          commercial_id?: string | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -302,6 +304,7 @@ export interface Database {
           siret?: string | null
           tva_number?: string | null
           notes?: string | null
+          commercial_id?: string | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -462,6 +465,7 @@ export interface Database {
           total_tva: number
           total_ttc: number
           created_by: string | null
+          commercial_id: string | null
           created_at: string
           updated_at: string
         }
@@ -483,6 +487,7 @@ export interface Database {
           total_tva?: number
           total_ttc?: number
           created_by?: string | null
+          commercial_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -504,6 +509,7 @@ export interface Database {
           total_tva?: number
           total_ttc?: number
           created_by?: string | null
+          commercial_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -600,6 +606,7 @@ export interface Database {
           total_tva: number
           total_ttc: number
           created_by: string | null
+          commercial_id: string | null
           invoice_type: 'standard' | 'acompte' | 'solde' | 'avoir'
           deposit_percentage: number | null
           deposit_invoice_id: string | null
@@ -639,6 +646,7 @@ export interface Database {
           total_tva?: number
           total_ttc?: number
           created_by?: string | null
+          commercial_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -667,6 +675,7 @@ export interface Database {
           total_tva?: number
           total_ttc?: number
           created_by?: string | null
+          commercial_id?: string | null
           created_at?: string
           updated_at?: string
         }
