@@ -20,7 +20,6 @@ import { toast } from '@/components/shared/Toast'
 import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText, Eye, X, MoreHorizontal, Archive } from 'lucide-react'
 import { LineDescriptionEditor } from '@/components/shared/LineDescriptionEditor'
 import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
-import { SendDocumentModal, replaceVars } from '@/components/shared/SendDocumentModal'
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { InvoicePDF } from '@/lib/pdf/InvoicePDF'
@@ -96,8 +95,6 @@ export function InvoiceDetailPage() {
   const [saving, setSaving] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [showActionsMenu, setShowActionsMenu] = useState(false)
-  const [showSendModal, setShowSendModal] = useState(false)
-  const [sendPdfBlob, setSendPdfBlob] = useState<Blob | null>(null)
 
   // Payments
   const { data: payments } = useInvoicePayments(!isNew ? id : undefined)
@@ -604,31 +601,11 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
     if (blob) setPreviewUrl(URL.createObjectURL(blob))
   }
 
-  async function handleOpenSendModal() {
-    // Generate PDF with 'sent' status to avoid BROUILLON watermark
-    if (!invoice || !clientData || !settings) return
-    try {
-      const depositInvNumber = invoice.deposit_invoice_id && depositInvoices
-        ? depositInvoices.find((d) => d.id === invoice.deposit_invoice_id)?.invoice_number ?? null
-        : null
-      const logoDataUrl = await getLogoDataUrl()
-      const blob = await pdf(
-        <InvoicePDF
-          invoice={{ ...invoice, status: 'sent', invoice_type: (invoice.invoice_type as 'standard' | 'acompte' | 'solde' | 'avoir') ?? 'standard', deposit_invoice_number: depositInvNumber }}
-          quoteNumber={sourceQuote?.quote_number}
-          contactName={pdfContact.name}
-          contactPhone={pdfContact.phone}
-          client={{ ...clientData, email: clientData.contact_email, phone: clientData.contact_phone }}
-          lines={lines.filter((l) => l.description.trim()).map((l) => ({ description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tva_rate: l.tva_rate, total_ht: l.total_ht }))}
-          company={{ ...settings, logo_url: logoDataUrl }}
-          termsHtml={settings.terms_and_conditions}
-        />,
-      ).toBlob()
-      setSendPdfBlob(blob)
-    } catch {
-      setSendPdfBlob(null)
-    }
-    setShowSendModal(true)
+  async function handleMarkAsSent() {
+    if (!invoice) return
+    const ok = window.confirm(`Marquer la facture ${invoice.invoice_number} comme envoyée ?`)
+    if (!ok) return
+    await handleStatusChange('sent')
   }
 
   function handleMailto() {
@@ -705,7 +682,7 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
     }
   }
 
-  useDetailPageHotkeys({ onSend: handleOpenSendModal, onDuplicate: handleDuplicate, onPreviewPdf: handlePreviewPDF })
+  useDetailPageHotkeys({ onSend: handleMarkAsSent, onDuplicate: handleDuplicate, onPreviewPdf: handlePreviewPDF })
 
   if (!isNew && (invoiceLoading || linesLoading)) {
     return (
@@ -747,8 +724,8 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
         {!isNew && invoice && (
           <div className="flex items-center gap-2">
             {invoice.status === 'draft' && (
-              <Button size="sm" onClick={handleOpenSendModal}>
-                <Send className="mr-1.5 size-3.5" /> Envoyer <Kbd>E</Kbd>
+              <Button size="sm" onClick={handleMarkAsSent}>
+                <Send className="mr-1.5 size-3.5" /> Marquer envoyée <Kbd>E</Kbd>
               </Button>
             )}
             {(invoice.status === 'sent' || invoice.status === 'overdue') && (
@@ -1298,32 +1275,6 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
         </div>
       )}
 
-      {/* Send email modal */}
-      {invoice && settings && (
-        <SendDocumentModal
-          open={showSendModal}
-          onClose={() => setShowSendModal(false)}
-          onSent={() => handleStatusChange('sent')}
-          documentType="invoice"
-          clientEmail={selectedContactEmail || clientData?.billing_email || clientData?.contact_email || null}
-          defaultSubject={replaceVars(settings.email_invoice_subject ?? 'Votre facture {numero}', {
-            numero: invoice.invoice_number,
-            client: clientData?.company_name ?? '',
-            montant_ttc: totals.totalTtc.toFixed(2),
-            date_echeance: invoice.due_at ? new Date(invoice.due_at).toLocaleDateString('fr-FR') : '',
-            entreprise: settings.company_name ?? '',
-          })}
-          defaultBody={replaceVars(settings.email_invoice_body ?? '', {
-            numero: invoice.invoice_number,
-            client: clientData?.company_name ?? '',
-            montant_ttc: totals.totalTtc.toFixed(2),
-            date_echeance: invoice.due_at ? new Date(invoice.due_at).toLocaleDateString('fr-FR') : '',
-            entreprise: settings.company_name ?? '',
-          })}
-          pdfBlob={sendPdfBlob}
-          pdfFilename={`${invoice.invoice_number}.pdf`}
-        />
-      )}
     </div>
   )
 }
