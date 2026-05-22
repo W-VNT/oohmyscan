@@ -19,7 +19,6 @@ import { toast } from '@/components/shared/Toast'
 import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download, Copy, Ban, Eye, Bookmark, BookmarkPlus, MoreHorizontal } from 'lucide-react'
 import { LineDescriptionEditor } from '@/components/shared/LineDescriptionEditor'
 import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
-import { SendDocumentModal, replaceVars } from '@/components/shared/SendDocumentModal'
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { QuotePDF } from '@/lib/pdf/QuotePDF'
@@ -87,8 +86,6 @@ export function QuoteDetailPage() {
   const [saving, setSaving] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [showActionsMenu, setShowActionsMenu] = useState(false)
-  const [showSendModal, setShowSendModal] = useState(false)
-  const [sendPdfBlob, setSendPdfBlob] = useState<Blob | null>(null)
 
   const { data: clientData } = useClient(clientId || undefined)
 
@@ -378,27 +375,11 @@ export function QuoteDetailPage() {
     if (blob) setPreviewUrl(URL.createObjectURL(blob))
   }
 
-  async function handleOpenSendModal() {
-    // Generate PDF with 'sent' status to avoid BROUILLON watermark
-    if (!quote || !clientData || !settings) return
-    try {
-      const logoDataUrl = await getLogoDataUrl()
-      const blob = await pdf(
-        <QuotePDF
-          quote={{ ...quote, status: 'sent' }}
-          contactName={pdfContact.name}
-          contactPhone={pdfContact.phone}
-          client={{ ...clientData, email: clientData.contact_email, phone: clientData.contact_phone }}
-          lines={lines.filter((l) => l.description.trim()).map((l) => ({ description: l.description, quantity: l.quantity, unit: l.unit, unit_price: l.unit_price, tva_rate: l.tva_rate, total_ht: l.total_ht }))}
-          company={{ ...settings, logo_url: logoDataUrl }}
-          termsHtml={settings.terms_and_conditions}
-        />,
-      ).toBlob()
-      setSendPdfBlob(blob)
-    } catch {
-      setSendPdfBlob(null)
-    }
-    setShowSendModal(true)
+  async function handleMarkAsSent() {
+    if (!quote) return
+    const ok = window.confirm(`Marquer le devis ${quote.quote_number} comme envoyé ?`)
+    if (!ok) return
+    await handleStatusChange('sent')
   }
 
   async function handleDuplicate() {
@@ -501,7 +482,7 @@ export function QuoteDetailPage() {
     toast(`Modèle "${tpl.name}" chargé`)
   }
 
-  useDetailPageHotkeys({ onSend: handleOpenSendModal, onDuplicate: handleDuplicate, onPreviewPdf: handlePreviewPDF })
+  useDetailPageHotkeys({ onSend: handleMarkAsSent, onDuplicate: handleDuplicate, onPreviewPdf: handlePreviewPDF })
 
   if (!isNew && (quoteLoading || linesLoading)) {
     return (
@@ -530,8 +511,8 @@ export function QuoteDetailPage() {
             {/* Status action buttons */}
             {quote.status === 'draft' && (
               <>
-                <Button size="sm" onClick={handleOpenSendModal}>
-                  <Send className="mr-1.5 size-3.5" /> Envoyer <Kbd>E</Kbd>
+                <Button size="sm" onClick={handleMarkAsSent}>
+                  <Send className="mr-1.5 size-3.5" /> Marquer envoyé <Kbd>E</Kbd>
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
                   <Ban className="mr-1.5 size-3.5" /> Annuler
@@ -885,32 +866,6 @@ export function QuoteDetailPage() {
         </div>
       )}
 
-      {/* Send email modal */}
-      {quote && settings && (
-        <SendDocumentModal
-          open={showSendModal}
-          onClose={() => setShowSendModal(false)}
-          onSent={() => handleStatusChange('sent')}
-          documentType="quote"
-          clientEmail={selectedContactEmail || clientData?.commercial_email || clientData?.contact_email || null}
-          defaultSubject={replaceVars(settings.email_quote_subject ?? 'Votre devis {numero}', {
-            numero: quote.quote_number,
-            client: clientData?.company_name ?? '',
-            montant_ttc: totals.totalTtc.toFixed(2),
-            date_validite: quote.valid_until ? new Date(quote.valid_until).toLocaleDateString('fr-FR') : '',
-            entreprise: settings.company_name ?? '',
-          })}
-          defaultBody={replaceVars(settings.email_quote_body ?? '', {
-            numero: quote.quote_number,
-            client: clientData?.company_name ?? '',
-            montant_ttc: totals.totalTtc.toFixed(2),
-            date_validite: quote.valid_until ? new Date(quote.valid_until).toLocaleDateString('fr-FR') : '',
-            entreprise: settings.company_name ?? '',
-          })}
-          pdfBlob={sendPdfBlob}
-          pdfFilename={`${quote.quote_number}.pdf`}
-        />
-      )}
     </div>
   )
 }
