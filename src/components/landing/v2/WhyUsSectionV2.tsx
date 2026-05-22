@@ -2,6 +2,8 @@ import CountUp from 'react-countup'
 import { useInView } from 'react-intersection-observer'
 import { motion } from 'framer-motion'
 import { Globe, Layers, BarChart3, Zap, Target } from 'lucide-react'
+import { DotPattern } from '@/components/ui/DotPattern'
+import { BrushStroke } from '@/components/ui/BrushStroke'
 
 const KPIS = [
   { end: 80, suffix: '+', label: 'agglomérations taxis / VTC' },
@@ -18,24 +20,12 @@ const FEATURES = [
   { title: 'Ciblage précis', desc: 'Géographie, moment, contexte.', icon: Target },
 ]
 
-export function WhyUsSection() {
+export function WhyUsSectionV2() {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.15 })
 
   return (
-    <section className="grain relative overflow-hidden bg-[#0A0A0A] py-20 md:py-28">
-      {/* Chromatic glows — KPI section (plan colors) */}
-      <div
-        className="pointer-events-none absolute top-0 right-0 h-96 w-96 rounded-full blur-[120px]"
-        style={{ background: 'radial-gradient(circle, #DC7828, transparent)', opacity: 0.2 }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 left-1/4 h-80 w-80 rounded-full blur-[100px]"
-        style={{ background: 'radial-gradient(circle, #6428B4, transparent)', opacity: 0.18 }}
-      />
-      <div
-        className="pointer-events-none absolute top-1/3 left-0 h-72 w-72 rounded-full blur-[90px]"
-        style={{ background: 'radial-gradient(circle, #DC3C78, transparent)', opacity: 0.15 }}
-      />
+    <section className="relative overflow-hidden bg-[#EAE3D0] py-20 md:py-28">
+      <DotPattern className="pointer-events-none absolute inset-0 w-full h-full opacity-15" />
 
       <div ref={ref} className="relative z-10 mx-auto max-w-6xl px-6">
         <motion.div
@@ -43,14 +33,18 @@ export function WhyUsSection() {
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
         >
-          <span className="font-body text-[11px] font-medium uppercase tracking-[0.3em] text-white/30">
+          <span className="font-v2-body text-[11px] font-medium uppercase tracking-[0.3em] text-[#111111]/30">
             Pourquoi nous
           </span>
-          <h2 className="font-display mt-4 text-[clamp(40px,5vw,72px)] font-bold leading-[0.95] uppercase text-white" style={{ letterSpacing: '-0.01em' }}>
+          <h2
+            className="font-v2-display mt-4 text-[clamp(40px,5vw,72px)] font-black leading-[0.95] uppercase text-[#111111]"
+            style={{ letterSpacing: '-0.01em' }}
+          >
             Des chiffres qui
             <br />
-            <span className="text-[#F3F441]">parlent.</span>
+            parlent.
           </h2>
+          <BrushStroke color="#111111" className="mt-2 w-48 h-4" />
         </motion.div>
 
         {/* KPIs — big headline numbers */}
@@ -67,14 +61,19 @@ export function WhyUsSection() {
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.1 + i * 0.08 }}
             >
-              <div className="font-display text-[clamp(40px,6vw,72px)] font-black leading-none tabular-nums text-white">
+              <div className="font-v2-display text-[clamp(40px,6vw,72px)] font-black leading-none tabular-nums text-[#111111]">
                 +{inView ? (
-                  <CountUp end={kpi.end} suffix={kpi.suffix} duration={2.5} separator={kpi.separator ? ' ' : ''} />
+                  <CountUp
+                    end={kpi.end}
+                    suffix={kpi.suffix}
+                    duration={2.5}
+                    separator={kpi.separator ? ' ' : ''}
+                  />
                 ) : (
                   '0'
                 )}
               </div>
-              <p className="font-body mt-3 text-[11px] font-medium uppercase tracking-[0.2em] text-[#F3F441]">
+              <p className="font-v2-body mt-3 text-[11px] font-medium uppercase tracking-[0.2em] text-[#111111]/60">
                 {kpi.label}
               </p>
             </motion.div>
@@ -91,11 +90,11 @@ export function WhyUsSection() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={inView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.5, delay: 0.3 + i * 0.08 }}
-                className="border border-white/[0.06] bg-[#111111] p-4 transition-colors hover:border-[#F3F441]/30"
+                className="rounded border border-[#111111]/[0.12] bg-white p-4 transition-colors hover:border-[#111111]/30"
               >
-                <Icon className="h-4 w-4 text-[#F3F441]" />
-                <h3 className="font-body mt-3 text-[13px] font-medium text-white">{feat.title}</h3>
-                <p className="font-body mt-1 text-[12px] leading-relaxed text-white/55">{feat.desc}</p>
+                <Icon className="h-4 w-4 text-[#F4C400]" />
+                <h3 className="font-v2-body mt-3 text-[13px] font-medium text-[#111111]">{feat.title}</h3>
+                <p className="font-v2-body mt-1 text-[12px] leading-relaxed text-[#111111]/55">{feat.desc}</p>
               </motion.div>
             )
           })}

@@ -8,7 +8,7 @@ const NAV_LINKS = [
   { label: 'Contact', href: '#contact' },
 ]
 
-export function Navbar() {
+export function NavbarV2() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -25,12 +25,15 @@ export function Navbar() {
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           scrolled
-            ? 'border-b border-white/[0.06] bg-[#0A0A0A]/70 backdrop-blur-2xl'
+            ? 'border-b border-white/[0.08] bg-[#111111]'
             : 'bg-transparent'
         }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <a href="#" className="font-display text-[15px] font-bold uppercase tracking-wide text-[#F3F441]">
+          <a
+            href="#"
+            className="font-v2-display text-[16px] font-black uppercase tracking-wide text-[#F4C400]"
+          >
             OOH MY AD !
           </a>
 
@@ -39,7 +42,7 @@ export function Navbar() {
               <a
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-3.5 py-2 text-[13px] font-medium text-white/55 transition-colors hover:text-[#F3F441]"
+                className="px-3.5 py-2 font-v2-body text-[13px] font-medium text-white/60 transition-colors hover:text-[#F4C400]"
               >
                 {link.label}
               </a>
@@ -49,7 +52,7 @@ export function Navbar() {
           <div className="hidden md:block">
             <a
               href="#contact"
-              className="font-display bg-[#F3F441] px-6 py-2.5 text-[12px] font-bold uppercase tracking-[0.06em] text-[#0A0A0A] transition-all hover:bg-[#EAEB2E] hover:shadow-[0_0_28px_rgba(243,244,65,0.25)]"
+              className="font-v2-body bg-[#F4C400] px-6 py-2.5 text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#111111] rounded border-2 border-[#F4C400] transition-all hover:bg-transparent hover:text-[#F4C400]"
             >
               Lancer une campagne
             </a>
@@ -65,11 +68,13 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile — plein écran dark, gros liens centrés */}
+      {/* Mobile — plein écran noir, gros liens centrés */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-[#0A0A0A]">
+        <div className="fixed inset-0 z-[60] flex flex-col bg-[#111111]">
           <div className="flex items-center justify-between px-6 py-4">
-            <span className="font-display text-[15px] font-bold uppercase tracking-wide text-[#F3F441]">OOH MY AD !</span>
+            <span className="font-v2-display text-[16px] font-black uppercase tracking-wide text-[#F4C400]">
+              OOH MY AD !
+            </span>
             <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="text-white">
               <X className="h-6 w-6" />
             </button>
@@ -80,7 +85,7 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className="text-2xl font-medium text-white/55 transition-colors hover:text-[#F3F441]"
+                className="font-v2-body text-2xl font-medium text-white/60 transition-colors hover:text-[#F4C400]"
               >
                 {link.label}
               </a>
@@ -88,7 +93,7 @@ export function Navbar() {
             <a
               href="#contact"
               onClick={() => setMobileOpen(false)}
-              className="font-display mt-4 bg-[#F3F441] px-8 py-3 text-[15px] font-bold uppercase tracking-[0.06em] text-[#0A0A0A]"
+              className="font-v2-body mt-4 bg-[#F4C400] px-8 py-3 text-[15px] font-extrabold uppercase tracking-[0.08em] text-[#111111] rounded border-2 border-[#F4C400] transition-all hover:bg-transparent hover:text-[#F4C400]"
             >
               Lancer une campagne
             </a>

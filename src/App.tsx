@@ -18,6 +18,7 @@ const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((m) => ({ def
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 const PublicDocumentPage = lazy(() => import('@/pages/public/PublicDocumentPage').then((m) => ({ default: m.PublicDocumentPage })))
 const LandingPage = lazy(() => import('@/pages/landing/LandingPage').then((m) => ({ default: m.LandingPage })))
+const LandingPageV2 = lazy(() => import('@/pages/landing/LandingPageV2').then((m) => ({ default: m.LandingPageV2 })))
 
 // Operator pages
 const ScanPage = lazy(() => import('@/pages/operator/ScanPage').then((m) => ({ default: m.ScanPage })))
@@ -101,6 +102,7 @@ export default function App() {
             <Routes>
               {/* Public */}
               <Route path="/" element={<LandingPage />} />
+              <Route path="/v2" element={<LandingPageV2 />} />
               <Route path="/landing" element={<Navigate to="/" replace />} />
               <Route path="/login" element={<LoginPage />} />
 

@@ -4,34 +4,36 @@ import { useInView } from 'react-intersection-observer'
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { DIGITAL } from '@/data/familles'
 
-/* ══════════════════════════════════════════════════════════
-   Shared sub-components
-   ══════════════════════════════════════════════════════════ */
-
 function SmsContent() {
   return (
     <>
-      <h3 className="font-display text-2xl tracking-tight text-white">
+      <h3 className="font-v2-display text-2xl text-[#111111]">
         {DIGITAL.sms.title}
       </h3>
-      <p className="mt-2 text-[13px] text-white/50">{DIGITAL.sms.tagline}</p>
+      <p className="mt-2 font-v2-body text-[13px] text-[#111111]/50">{DIGITAL.sms.tagline}</p>
       <div className="mt-6 space-y-2.5">
         {DIGITAL.sms.features.map((feat) => (
           <div key={feat} className="flex items-start gap-2.5">
-            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#F3F441]/60" />
-            <span className="text-[13px] text-white/60">{feat}</span>
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#F4C400]" />
+            <span className="font-v2-body text-[13px] text-[#111111]/60">{feat}</span>
           </div>
         ))}
       </div>
-      <div className="mt-6 border-t border-white/[0.06] pt-6 space-y-2">
+      <div className="mt-6 border-t border-[#111111]/[0.1] pt-6 space-y-2">
         {DIGITAL.sms.pricing.map((p) => (
-          <div key={p.volume} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-4 py-2.5">
-            <span className="text-[13px] text-white/50">{p.volume}</span>
-            <span className="text-[14px] font-medium tabular-nums text-[#F3F441]">{p.price}</span>
+          <div
+            key={p.volume}
+            className="flex items-center justify-between rounded bg-[#111111]/[0.04] px-4 py-2.5"
+          >
+            <span className="font-v2-body text-[13px] text-[#111111]/50">{p.volume}</span>
+            <span className="font-v2-body text-[14px] font-medium tabular-nums text-[#111111]">{p.price}</span>
           </div>
         ))}
       </div>
-      <a href="#contact" className="font-display mt-6 flex w-full items-center justify-center gap-2 bg-[#F3F441] py-3.5 text-[13px] font-bold uppercase tracking-[0.06em] text-[#0A0A0A] transition-all hover:bg-[#EAEB2E] hover:shadow-[0_0_32px_rgba(243,244,65,0.25)]">
+      <a
+        href="#contact"
+        className="font-v2-body mt-6 flex w-full items-center justify-center gap-2 bg-[#111111] text-[#F4C400] font-extrabold text-[13px] uppercase tracking-[0.08em] py-3.5 rounded border-2 border-[#111111] transition-all hover:bg-transparent hover:text-[#111111]"
+      >
         Demander un devis <ArrowRight className="h-4 w-4" />
       </a>
     </>
@@ -41,24 +43,29 @@ function SmsContent() {
 function DisplayContent() {
   return (
     <>
-      <h3 className="font-display text-2xl tracking-tight text-white">
+      <h3 className="font-v2-display text-2xl text-[#111111]">
         {DIGITAL.display.title}
       </h3>
-      <p className="mt-2 text-[13px] text-white/50">{DIGITAL.display.tagline}</p>
+      <p className="mt-2 font-v2-body text-[13px] text-[#111111]/50">{DIGITAL.display.tagline}</p>
       <div className="mt-6 space-y-2.5">
         {DIGITAL.display.features.map((feat) => (
           <div key={feat} className="flex items-start gap-2.5">
-            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#F3F441]/60" />
-            <span className="text-[13px] text-white/60">{feat}</span>
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#F4C400]" />
+            <span className="font-v2-body text-[13px] text-[#111111]/60">{feat}</span>
           </div>
         ))}
       </div>
-      <div className="mt-6 border-t border-white/[0.06] pt-6">
-        <div className="rounded-lg bg-white/[0.03] px-4 py-3">
-          <p className="text-[13px] text-white/40">Tarification sur-mesure selon vos objectifs et votre zone de ciblage.</p>
+      <div className="mt-6 border-t border-[#111111]/[0.1] pt-6">
+        <div className="rounded bg-[#111111]/[0.04] px-4 py-3">
+          <p className="font-v2-body text-[13px] text-[#111111]/40">
+            Tarification sur-mesure selon vos objectifs et votre zone de ciblage.
+          </p>
         </div>
       </div>
-      <a href="#contact" className="font-body mt-6 flex w-full items-center justify-center gap-2 border border-white/20 py-3.5 text-[14px] font-medium text-white transition-all hover:border-[#F3F441] hover:text-[#F3F441]">
+      <a
+        href="#contact"
+        className="font-v2-body mt-6 flex w-full items-center justify-center gap-2 border-2 border-[#111111] text-[#111111] font-extrabold text-[13px] uppercase tracking-[0.08em] py-3.5 rounded transition-all hover:bg-[#111111] hover:text-[#F4C400]"
+      >
         Demander un devis <ArrowRight className="h-4 w-4" />
       </a>
     </>
@@ -72,30 +79,31 @@ function SectionHeader({ inView }: { inView: boolean }) {
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.7 }}
     >
-      <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-white/40">
+      <span className="font-v2-body text-[11px] font-medium uppercase tracking-[0.25em] text-[#111111]/40">
         Solutions digitales
       </span>
-      <h2 className="mt-4 font-display font-bold uppercase text-[clamp(36px,5vw,72px)] leading-[0.95] text-white" style={{ letterSpacing: '-0.01em' }}>
+      <h2
+        className="mt-4 font-v2-display font-black uppercase text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111]"
+        style={{ letterSpacing: '-0.01em' }}
+      >
         Amplifiez avec
         <br />
-        <span className="text-[#F3F441]">le digital.</span>
+        le digital.
       </h2>
-      <p className="mt-4 max-w-lg text-[15px] text-white/50">
-        Touchez le meme prospect offline ET sur son mobile.
+      <p className="mt-4 max-w-lg font-v2-body text-[15px] text-[#111111]/50 text-justify">
+        Touchez le même prospect offline ET sur son mobile.
       </p>
     </motion.div>
   )
 }
 
-/* ══════════════════════════════════════════════════════════ */
-
-export function DigitalSection() {
+export function DigitalSectionV2() {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
   const [activeTab, setActiveTab] = useState<'sms' | 'display'>('sms')
 
   return (
-    <section id="digital" className="grain relative overflow-hidden bg-[#0A0A0A] py-20 md:py-28">
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#F3F441]/20 to-transparent" />
+    <section id="digital" className="bg-[#EAE3D0] py-20 md:py-28 relative">
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#111111]/20 to-transparent" />
 
       <div ref={ref} className="mx-auto max-w-3xl px-6">
         <SectionHeader inView={inView} />
@@ -105,22 +113,22 @@ export function DigitalSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-10 flex rounded-xl border border-white/[0.06] bg-white/[0.02] p-1"
+          className="mt-10 flex rounded border border-[#111111]/[0.12] bg-[#111111]/[0.04] p-1"
         >
           {(['sms', 'display'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`relative flex-1 rounded-lg py-2.5 text-[13px] font-medium transition-all duration-300 ${
+              className={`relative flex-1 rounded py-2.5 font-v2-body text-[13px] font-medium transition-all duration-300 ${
                 activeTab === tab
-                  ? 'text-[#0A0A0A]'
-                  : 'text-white/40 hover:text-white/60'
+                  ? 'text-[#111111]'
+                  : 'text-[#111111]/40 hover:text-[#111111]/60'
               }`}
             >
               {activeTab === tab && (
                 <motion.div
-                  layoutId="digital-tab-bg"
-                  className="absolute inset-0 rounded-lg bg-[#F3F441]"
+                  layoutId="digital-tab-bg-v2"
+                  className="absolute inset-0 rounded bg-[#F4C400]"
                   transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
                 />
               )}
@@ -136,7 +144,7 @@ export function DigitalSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="mt-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 md:p-8 min-h-[400px]"
+          className="mt-6 rounded border border-[#111111]/[0.12] bg-white/60 p-6 md:p-8 min-h-[400px]"
         >
           <AnimatePresence mode="wait">
             {activeTab === 'sms' ? (

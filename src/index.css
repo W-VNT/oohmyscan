@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=DM+Sans:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Barlow:wght@400;500;800;900&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -136,10 +138,70 @@
 
   /* Keyboard-navigation focus ring (visible only on Tab, not on click) */
   :focus-visible {
-    outline: 2px solid #F5C400;
+    outline: 2px solid #F3F441;
     outline-offset: 2px;
   }
 }
+
+/* === OOH MY AD ! landing page — new identity === */
+:root {
+  /* Backgrounds */
+  --ooh-bg-primary: #0A0A0A;
+  --ooh-bg-secondary: #111111;
+
+  /* Accent — jaune citron signature */
+  --ooh-accent: #F3F441;
+  --ooh-accent-hover: #EAEB2E;
+
+  /* Text */
+  --ooh-text-primary: #FFFFFF;
+  --ooh-text-secondary: rgba(255, 255, 255, 0.55);
+  --ooh-text-muted: rgba(255, 255, 255, 0.30);
+
+  /* Grain & glows */
+  --ooh-grain-opacity: 0.04;
+  --ooh-glow-pink: rgba(220, 60, 120, 0.25);
+  --ooh-glow-violet: rgba(100, 40, 180, 0.20);
+  --ooh-glow-orange: rgba(220, 120, 40, 0.18);
+}
+
+::selection {
+  background: var(--ooh-accent);
+  color: var(--ooh-bg-primary);
+}
+
+.font-display {
+  font-family: 'Unbounded', sans-serif;
+}
+
+.font-body {
+  font-family: 'DM Sans', sans-serif;
+}
+
+.font-v2-display {
+  font-family: 'Big Shoulders Display', sans-serif;
+}
+
+.font-v2-body {
+  font-family: 'Barlow', sans-serif;
+}
+
+/* Grain overlay — apply to sections with class="grain" */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  opacity: var(--ooh-grain-opacity);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Dark scrollbar — only when landing is visible (body starts dark) */
+.dark ::-webkit-scrollbar { width: 6px; }
+.dark ::-webkit-scrollbar-track { background: var(--ooh-bg-primary); }
+.dark ::-webkit-scrollbar-thumb { background: rgba(243, 244, 65, 0.3); border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: var(--ooh-accent); }
 
 /* QR scanner — video fills container */
 #qr-reader {
@@ -164,4 +226,15 @@
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-25%); }
+}
+
+/* V2 identity — torn-edge photo treatment */
+.torn-edge {
+  clip-path: polygon(
+    0% 0%, 100% 0%, 100% 78%,
+    95% 83%, 88% 76%, 80% 86%,
+    70% 78%, 60% 88%, 50% 80%,
+    40% 90%, 28% 81%, 18% 88%,
+    8% 78%, 0% 85%
+  );
 }

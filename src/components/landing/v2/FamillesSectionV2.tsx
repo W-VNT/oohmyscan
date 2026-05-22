@@ -3,41 +3,28 @@ import { motion } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
 import { ArrowRight } from 'lucide-react'
 import { FAMILLES } from '@/data/familles'
-import { FamilleSlideOver } from './FamilleSlideOver'
+import { FamilleSlideOverV2 } from './FamilleSlideOverV2'
 import type { Famille } from '@/data/familles'
 
-export function FamillesSection() {
+export function FamillesSectionV2() {
   const [selected, setSelected] = useState<Famille | null>(null)
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
 
   return (
-    <section id="solutions" className="grain relative overflow-hidden bg-[#0A0A0A] py-20 md:py-28">
-      {/* Decorative yellow ribbon */}
-      <svg
-        viewBox="0 0 300 300"
-        className="pointer-events-none absolute top-10 right-4 h-40 w-40 opacity-70"
-        aria-hidden="true"
-        style={{ transform: 'scaleX(-1)' }}
-      >
-        <path
-          d="M 20 280 C 20 150, 180 200, 160 100 C 140 20, 40 40, 80 120 C 110 180, 220 160, 200 80"
-          stroke="#F3F441"
-          strokeWidth="2.5"
-          fill="none"
-          strokeLinecap="round"
-        />
-      </svg>
-
+    <section id="solutions" className="relative overflow-hidden bg-[#111111] py-20 md:py-28">
       <div ref={ref} className="relative z-10 mx-auto max-w-6xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-white/40">
+          <span className="font-v2-body text-[11px] font-medium uppercase tracking-[0.25em] text-white/40">
             Nos solutions
           </span>
-          <h2 className="mt-4 font-display font-bold uppercase text-[clamp(36px,5vw,64px)] leading-[0.95] text-white" style={{ letterSpacing: '-0.01em' }}>
+          <h2
+            className="mt-4 font-v2-display font-black uppercase text-[clamp(36px,5vw,64px)] leading-[0.95] text-white"
+            style={{ letterSpacing: '-0.01em' }}
+          >
             Choisissez le moment
             <br />
             <span className="text-white/40">où votre cible ne peut pas zapper.</span>
@@ -53,7 +40,7 @@ export function FamillesSection() {
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.1 + i * 0.1 }}
               onClick={() => setSelected(famille)}
-              className="group cursor-pointer overflow-hidden rounded-2xl border border-white/[0.06] bg-[#111111] transition-all hover:border-[#F3F441]/30 hover:shadow-[0_0_32px_rgba(243,244,65,0.12)]"
+              className="group cursor-pointer overflow-hidden rounded border border-white/[0.08] bg-[#1A1A1A] transition-all hover:border-[#F4C400]/40 hover:shadow-[0_0_32px_rgba(244,196,0,0.1)]"
             >
               {/* Image */}
               <div className="relative aspect-[16/9] overflow-hidden">
@@ -64,25 +51,25 @@ export function FamillesSection() {
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                <span className="absolute bottom-3 left-4 font-display text-[13px] tracking-wider text-white/40">
+                <span className="absolute bottom-3 left-4 font-v2-display text-[13px] tracking-wider text-white/40">
                   {famille.numero}
                 </span>
               </div>
 
               {/* Content */}
               <div className="p-5">
-                <h3 className="font-display text-[20px] font-bold uppercase tracking-[0.03em] text-[#F3F441]">
+                <h3 className="font-v2-display text-[20px] font-extrabold uppercase tracking-[0.05em] text-[#F4C400]">
                   {famille.name}
                 </h3>
                 <div className="mt-3 h-px w-full bg-white/[0.06]" />
                 <ul className="mt-3 space-y-1">
                   {famille.produits.map((p) => (
-                    <li key={p.name} className="font-body text-[13px] text-white/55">
+                    <li key={p.name} className="font-v2-body text-[13px] text-white/55">
                       {p.name}
                     </li>
                   ))}
                 </ul>
-                <div className="mt-4 flex items-center gap-1.5 text-[12px] font-medium text-[#F3F441] opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="mt-4 flex items-center gap-1.5 font-v2-body text-[12px] font-medium text-[#F4C400] opacity-0 transition-opacity group-hover:opacity-100">
                   En savoir plus
                   <ArrowRight className="h-3.5 w-3.5" />
                 </div>
@@ -101,7 +88,7 @@ export function FamillesSection() {
           <div className="h-px flex-1 bg-white/[0.06]" />
           <a
             href="#digital"
-            className="flex items-center gap-2 text-[13px] text-white/50 transition-colors hover:text-[#F3F441]"
+            className="flex items-center gap-2 font-v2-body text-[13px] text-white/50 transition-colors hover:text-[#F4C400]"
           >
             Et pour amplifier votre campagne
             <ArrowRight className="h-3.5 w-3.5" />
@@ -110,7 +97,7 @@ export function FamillesSection() {
         </motion.div>
       </div>
 
-      <FamilleSlideOver famille={selected} onClose={() => setSelected(null)} />
+      <FamilleSlideOverV2 famille={selected} onClose={() => setSelected(null)} />
     </section>
   )
 }

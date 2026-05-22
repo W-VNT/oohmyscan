@@ -4,17 +4,17 @@ const LEGAL_LINKS = [
   { label: 'CGV', href: '/cgv' },
 ]
 
-export function Footer() {
+export function FooterV2() {
   return (
-    <footer className="border-t border-white/[0.06] bg-[#0A0A0A] py-8">
+    <footer className="bg-[#111111] border-t border-white/[0.06] py-8">
       <div className="mx-auto max-w-6xl px-6">
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex items-center gap-3">
-            <span className="font-display text-[15px] font-bold uppercase tracking-wide text-[#F3F441]">
+            <span className="font-v2-display text-[16px] font-black uppercase tracking-wide text-[#F4C400]">
               OOH MY AD !
             </span>
             <span className="hidden text-white/10 md:inline">·</span>
-            <span className="font-body hidden text-[13px] text-white/50 md:inline">
+            <span className="font-v2-body hidden text-[13px] text-white/50 md:inline">
               Communication urbaine de proximité
             </span>
           </div>
@@ -24,7 +24,7 @@ export function Footer() {
               <a
                 key={link.href}
                 href={link.href}
-                className="font-body text-[12px] text-white/40 transition-colors hover:text-[#F3F441]"
+                className="font-v2-body text-[12px] text-white/40 transition-colors hover:text-[#F4C400]"
               >
                 {link.label}
               </a>
@@ -32,7 +32,7 @@ export function Footer() {
           </div>
         </div>
 
-        <p className="font-body mt-6 text-center text-[11px] text-white/30 md:text-left">
+        <p className="font-v2-body mt-6 text-center text-[11px] text-white/30 md:text-left">
           © {new Date().getFullYear()} OOH MY AD ! — Tous droits réservés
         </p>
       </div>

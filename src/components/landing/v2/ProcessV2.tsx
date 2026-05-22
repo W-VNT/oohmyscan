@@ -8,7 +8,7 @@ import {
   ImageIcon, TrendingUp, Lightbulb,
   type LucideIcon,
 } from 'lucide-react'
-import { ProcessModal } from '../ProcessModal'
+import { ProcessModalV2 } from './ProcessModalV2'
 
 export interface ProcessTool {
   icon: LucideIcon
@@ -62,7 +62,7 @@ const STEPS: ProcessStep[] = [
     tools: [
       { icon: Smartphone, name: 'OOHMYSCAN (PWA)', desc: 'Application mobile terrain pour scanner, photographier et valider chaque pose.' },
       { icon: QrCode, name: 'QR code + photo', desc: 'Chaque support scanné génère une preuve de passage géolocalisée et horodatée.' },
-      { icon: CheckCircle2, name: 'Suivi temps réel', desc: 'Dashboard de suivi pour monitorer l\'avancement du déploiement.' },
+      { icon: CheckCircle2, name: 'Suivi temps réel', desc: "Dashboard de suivi pour monitorer l'avancement du déploiement." },
     ],
     deliverable: 'Supports déployés avec photos de validation en temps réel.',
   },
@@ -75,13 +75,13 @@ const STEPS: ProcessStep[] = [
     tools: [
       { icon: ImageIcon, name: 'Preuves géolocalisées', desc: 'Photos de chaque support avec coordonnées GPS et timestamp.' },
       { icon: TrendingUp, name: 'Statistiques campagne', desc: 'Métriques de couverture, taux de pose, zones couvertes.' },
-      { icon: Lightbulb, name: 'Recommandations', desc: 'Analyse post-campagne avec suggestions d\'optimisation pour la suite.' },
+      { icon: Lightbulb, name: 'Recommandations', desc: "Analyse post-campagne avec suggestions d'optimisation pour la suite." },
     ],
     deliverable: 'Rapport PDF complet avec preuves, stats et recommandations.',
   },
 ]
 
-export function ProcessC() {
+export function ProcessV2() {
   const sectionRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -105,7 +105,7 @@ export function ProcessC() {
     <section
       ref={sectionRef}
       id="process"
-      className="grain relative overflow-hidden bg-[#0A0A0A] py-20 md:py-28"
+      className="relative overflow-hidden bg-[#111111] py-20 md:py-28"
     >
       <div className="relative mx-auto max-w-6xl px-6">
         <motion.div
@@ -115,10 +115,13 @@ export function ProcessC() {
           transition={{ duration: 0.7 }}
           className="md:text-center"
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-white/40">
+          <span className="font-v2-body text-[11px] font-medium uppercase tracking-[0.25em] text-white/40">
             Comment ça marche
           </span>
-          <h2 className="mt-4 font-display font-bold uppercase text-[clamp(36px,5vw,72px)] leading-[0.95] text-white" style={{ letterSpacing: '-0.01em' }}>
+          <h2
+            className="mt-4 font-v2-display font-black uppercase text-[clamp(36px,5vw,72px)] leading-[0.95] text-white"
+            style={{ letterSpacing: '-0.01em' }}
+          >
             De l'idée au terrain
             <br />
             <span className="text-white/40">en 4 étapes.</span>
@@ -131,7 +134,7 @@ export function ProcessC() {
           <div className="relative h-px mx-12 mb-12">
             <div className="absolute inset-0 bg-white/[0.06]" />
             <motion.div
-              className="absolute inset-y-0 left-0 origin-left bg-gradient-to-r from-[#F3F441] to-[#F3F441]/40"
+              className="absolute inset-y-0 left-0 origin-left bg-gradient-to-r from-[#F4C400] to-[#F4C400]/40"
               style={{ scaleX: lineProgress }}
             />
           </div>
@@ -146,7 +149,9 @@ export function ProcessC() {
                   <div className="absolute -top-[54px] left-1/2 -translate-x-1/2">
                     <div
                       className={`h-3 w-3 rounded-full transition-all duration-500 ${
-                        isActive ? 'bg-[#F3F441] shadow-[0_0_12px_rgba(243,244,65,0.4)]' : 'bg-white/10'
+                        isActive
+                          ? 'bg-[#F4C400] shadow-[0_0_12px_rgba(244,196,0,0.4)]'
+                          : 'bg-white/10'
                       }`}
                     />
                   </div>
@@ -155,43 +160,48 @@ export function ProcessC() {
                   <div
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStep(step) } }}
+                    onKeyDown={(e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedStep(step)
+                      }
+                    }}
                     onClick={() => setSelectedStep(step)}
-                    className={`w-full cursor-pointer rounded-2xl border p-6 transition-all duration-700 hover:border-[#F3F441]/20 ${
+                    className={`w-full cursor-pointer rounded border p-6 transition-all duration-700 hover:border-[#F4C400]/20 ${
                       isActive
-                        ? 'border-[#F3F441]/15 bg-[#F3F441]/[0.04]'
+                        ? 'border-[#F4C400]/15 bg-[#F4C400]/[0.04]'
                         : 'border-white/[0.04] bg-white/[0.02]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-500 ${
-                          isActive ? 'bg-[#F3F441]/15' : 'bg-white/[0.04]'
+                        className={`flex h-10 w-10 items-center justify-center rounded transition-all duration-500 ${
+                          isActive ? 'bg-[#F4C400]/15' : 'bg-white/[0.04]'
                         }`}
                       >
                         <Icon
                           className={`h-5 w-5 transition-colors duration-500 ${
-                            isActive ? 'text-[#F3F441]' : 'text-white/20'
+                            isActive ? 'text-[#F4C400]' : 'text-white/20'
                           }`}
                         />
                       </div>
                       <span
-                        className={`text-[11px] tabular-nums transition-colors duration-500 ${
-                          isActive ? 'text-[#F3F441]/40' : 'text-white/10'
+                        className={`font-v2-display text-[11px] tabular-nums transition-colors duration-500 ${
+                          isActive ? 'text-[#F4C400]/40' : 'text-white/10'
                         }`}
                       >
                         {step.num}
                       </span>
                     </div>
                     <h3
-                      className={`mt-4 text-[17px] font-medium transition-colors duration-500 ${
+                      className={`mt-4 font-v2-display text-[17px] font-extrabold transition-colors duration-500 ${
                         isActive ? 'text-white' : 'text-white/40'
                       }`}
                     >
                       {step.title}
                     </h3>
                     <p
-                      className={`mt-2 text-[13px] leading-relaxed transition-colors duration-500 ${
+                      className={`mt-2 font-v2-body text-[13px] leading-relaxed transition-colors duration-500 ${
                         isActive ? 'text-white/50' : 'text-white/15'
                       }`}
                     >
@@ -210,7 +220,7 @@ export function ProcessC() {
           <div className="absolute left-[11px] top-0 bottom-0 w-px bg-white/[0.06]" />
           {/* Animated progress */}
           <motion.div
-            className="absolute left-[11px] top-0 w-px origin-top bg-gradient-to-b from-[#F3F441] to-[#F3F441]/20"
+            className="absolute left-[11px] top-0 w-px origin-top bg-gradient-to-b from-[#F4C400] to-[#F4C400]/20"
             style={{ scaleY: lineProgress }}
           />
 
@@ -224,7 +234,9 @@ export function ProcessC() {
                   <div className="absolute left-[5px] top-5">
                     <div
                       className={`h-3 w-3 rounded-full transition-all duration-500 ${
-                        isActive ? 'bg-[#F3F441] shadow-[0_0_10px_rgba(243,244,65,0.4)]' : 'bg-white/10'
+                        isActive
+                          ? 'bg-[#F4C400] shadow-[0_0_10px_rgba(244,196,0,0.4)]'
+                          : 'bg-white/10'
                       }`}
                     />
                   </div>
@@ -233,45 +245,50 @@ export function ProcessC() {
                   <div
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStep(step) } }}
+                    onKeyDown={(e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedStep(step)
+                      }
+                    }}
                     onClick={() => setSelectedStep(step)}
-                    className={`cursor-pointer rounded-xl border p-5 transition-all duration-700 hover:border-[#F3F441]/20 ${
+                    className={`cursor-pointer rounded border p-5 transition-all duration-700 hover:border-[#F4C400]/20 ${
                       isActive
-                        ? 'border-[#F3F441]/15 bg-[#F3F441]/[0.04]'
+                        ? 'border-[#F4C400]/15 bg-[#F4C400]/[0.04]'
                         : 'border-white/[0.04] bg-white/[0.02]'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg transition-all duration-500 ${
-                          isActive ? 'bg-[#F3F441]/15' : 'bg-white/[0.04]'
+                        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded transition-all duration-500 ${
+                          isActive ? 'bg-[#F4C400]/15' : 'bg-white/[0.04]'
                         }`}
                       >
                         <Icon
                           className={`h-4 w-4 transition-colors duration-500 ${
-                            isActive ? 'text-[#F3F441]' : 'text-white/20'
+                            isActive ? 'text-[#F4C400]' : 'text-white/20'
                           }`}
                         />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <h3
-                            className={`text-[15px] font-medium transition-colors duration-500 ${
+                            className={`font-v2-display text-[15px] font-extrabold transition-colors duration-500 ${
                               isActive ? 'text-white' : 'text-white/40'
                             }`}
                           >
                             {step.title}
                           </h3>
                           <span
-                            className={`text-[11px] tabular-nums transition-colors duration-500 ${
-                              isActive ? 'text-[#F3F441]/40' : 'text-white/10'
+                            className={`font-v2-display text-[11px] tabular-nums transition-colors duration-500 ${
+                              isActive ? 'text-[#F4C400]/40' : 'text-white/10'
                             }`}
                           >
                             {step.num}
                           </span>
                         </div>
                         <p
-                          className={`mt-1.5 text-[13px] leading-relaxed transition-colors duration-500 ${
+                          className={`mt-1.5 font-v2-body text-[13px] leading-relaxed transition-colors duration-500 ${
                             isActive ? 'text-white/50' : 'text-white/15'
                           }`}
                         >
@@ -287,7 +304,7 @@ export function ProcessC() {
         </div>
       </div>
 
-      <ProcessModal step={selectedStep} onClose={() => setSelectedStep(null)} />
+      <ProcessModalV2 step={selectedStep} onClose={() => setSelectedStep(null)} />
     </section>
   )
 }
