@@ -521,7 +521,7 @@ export function QuoteDetailPage() {
             )}
             {quote.status === 'sent' && (
               <>
-                <Button size="sm" onClick={() => handleStatusChange('accepted')} disabled={!!(quote.valid_until && new Date(quote.valid_until) < new Date())}>
+                <Button size="sm" onClick={() => handleStatusChange('accepted')}>
                   <Check className="mr-1.5 size-3.5" /> Accepter
                 </Button>
                 <Button size="sm" variant="destructive" onClick={() => handleStatusChange('rejected')}>
