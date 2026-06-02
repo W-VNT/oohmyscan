@@ -10,7 +10,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-6">
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex items-center gap-3">
-            <span className="text-[15px] font-bold uppercase tracking-wide text-[#111111] dark:text-white">
+            <span className="font-['Poppins'] font-black text-[16px] uppercase tracking-[0.02em] leading-none text-[#111111] dark:text-white">
               OOH MY AD !
             </span>
             <span className="hidden text-[#F3F4F6] dark:text-white/10 md:inline">·</span>

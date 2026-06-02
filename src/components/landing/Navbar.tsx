@@ -30,7 +30,14 @@ export function Navbar() {
         }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <a href="#" className="text-[15px] font-bold uppercase tracking-wide text-white md:text-[#111111] md:dark:text-white">
+          <a
+            href="#"
+            className={`font-['Poppins'] font-black text-[16px] uppercase tracking-[0.02em] leading-none transition-opacity duration-300 ${
+              scrolled
+                ? 'opacity-100 text-[#111111] dark:text-white'
+                : 'opacity-0 pointer-events-none'
+            }`}
+          >
             OOH MY AD !
           </a>
 
@@ -39,7 +46,11 @@ export function Navbar() {
               <a
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-3.5 py-2 text-[13px] text-[#6B7280] dark:text-white/50 transition-colors hover:text-[#111111] dark:hover:text-white"
+                className={`rounded-lg px-3.5 py-2 text-[13px] transition-colors ${
+                  scrolled
+                    ? 'text-[#6B7280] dark:text-white/50 hover:text-[#111111] dark:hover:text-white'
+                    : 'text-[#0A0A0A]/70 hover:text-[#0A0A0A]'
+                }`}
               >
                 {link.label}
               </a>
@@ -49,14 +60,20 @@ export function Navbar() {
           <div className="hidden md:block">
             <a
               href="#contact"
-              className="rounded-full bg-[#F5C400] px-5 py-2 text-[13px] font-medium text-[#0A0A0A] transition-all hover:shadow-[0_0_20px_rgba(245,196,0,0.25)]"
+              className={`rounded-full px-5 py-2 text-[13px] font-medium transition-all ${
+                scrolled
+                  ? 'bg-[#F5C400] text-[#0A0A0A] hover:shadow-[0_0_20px_rgba(245,196,0,0.25)]'
+                  : 'bg-[#0A0A0A] text-white hover:shadow-[0_0_20px_rgba(0,0,0,0.25)]'
+              }`}
             >
               Lancer une campagne
             </a>
           </div>
 
           <button
-            className="text-white/70 md:hidden"
+            className={`md:hidden transition-colors ${
+              scrolled ? 'text-[#111111] dark:text-white/70' : 'text-[#0A0A0A]'
+            }`}
             onClick={() => setMobileOpen(true)}
             aria-label="Ouvrir le menu"
           >
@@ -69,7 +86,9 @@ export function Navbar() {
       {mobileOpen && (
         <div className="fixed inset-0 z-[60] flex flex-col bg-[#FAFAFA] dark:bg-[#0A0A0A]">
           <div className="flex items-center justify-between px-6 py-4">
-            <span className="text-[15px] font-bold uppercase tracking-wide text-[#111111] dark:text-white">OOH MY AD !</span>
+            <span className="font-['Poppins'] font-black text-[16px] uppercase tracking-[0.02em] leading-none text-[#111111] dark:text-white">
+              OOH MY AD !
+            </span>
             <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="text-[#111111] dark:text-white">
               <X className="h-6 w-6" />
             </button>
