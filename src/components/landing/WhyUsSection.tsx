@@ -4,15 +4,15 @@ import { motion } from 'framer-motion'
 import { Globe, Layers, BarChart3, Zap, Target } from 'lucide-react'
 
 const KPIS = [
-  { end: 80, suffix: '+', label: 'agglomerations taxis/VTC' },
-  { end: 710, suffix: '', label: 'campings reseau estival' },
-  { end: 20000, suffix: '', label: 'faces reseau VILLE', separator: true },
+  { end: 80, suffix: '+', label: 'agglomérations taxis/VTC' },
+  { end: 710, suffix: '', label: 'campings réseau estival' },
+  { end: 20000, suffix: '', label: 'faces réseau VILLE', separator: true },
   { end: 100, suffix: 'M', label: 'ODV/14 jours' },
 ]
 
 const FEATURES = [
   {
-    title: 'Presence nationale',
+    title: 'Présence nationale',
     desc: 'Du centre-ville aux plages.',
     icon: Globe,
   },
@@ -27,13 +27,13 @@ const FEATURES = [
     icon: BarChart3,
   },
   {
-    title: 'Deploiement rapide',
+    title: 'Déploiement rapide',
     desc: 'Brief → terrain en 5 jours.',
     icon: Zap,
   },
   {
-    title: 'Ciblage precis',
-    desc: 'Geographie, moment, contexte.',
+    title: 'Ciblage précis',
+    desc: 'Géographie, moment, contexte.',
     icon: Target,
   },
 ]
@@ -55,7 +55,7 @@ export function WhyUsSection() {
           <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111] dark:text-white">
             Des chiffres qui
             <br />
-            <span className="text-[#9CA3AF] dark:text-white/40">parlent.</span>
+            <span className="text-[#F5C400]">parlent.</span>
           </h2>
         </motion.div>
 

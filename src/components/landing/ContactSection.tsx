@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
 import { FAMILLE_OPTIONS } from '@/data/familles'
 import { useContactForm } from '@/hooks/landing/useContactForm'
-import { ArrowRight, Mail, Clock, UserCheck } from 'lucide-react'
+import { ArrowRight, Mail, Clock, UserCheck, ChevronDown } from 'lucide-react'
 
 export function ContactSection() {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
@@ -84,10 +84,10 @@ export function ContactSection() {
             <div className="border-t border-[#E5E5E5] dark:border-white/[0.06] pt-6">
               <p className="text-[12px] text-[#6B7280] dark:text-white/50">Ou directement</p>
               <a
-                href="mailto:contact@oohmyad.com"
+                href="mailto:devis@oohmyad.com"
                 className="mt-1 text-[14px] font-medium text-[#111111] dark:text-white transition-colors hover:text-[#F5C400]"
               >
-                contact@oohmyad.com
+                devis@oohmyad.com
               </a>
             </div>
           </motion.div>
@@ -131,14 +131,20 @@ export function ContactSection() {
                     <label htmlFor="contact-city" className="sr-only">Ville cible</label>
                     <input id="contact-city" type="text" placeholder="Ville cible" maxLength={200} className={inputCls} value={form.city} onChange={set('city')} />
                   </div>
-                  <div>
+                  <div className="relative">
                     <label htmlFor="contact-support" className="sr-only">Famille de supports</label>
-                    <select id="contact-support" className={inputCls} value={form.support_interest} onChange={set('support_interest')}>
+                    <select
+                      id="contact-support"
+                      className={`${inputCls} cursor-pointer appearance-none pr-10 ${form.support_interest ? '' : 'text-[#9CA3AF] dark:text-white/40'}`}
+                      value={form.support_interest}
+                      onChange={set('support_interest')}
+                    >
                       <option value="">Famille de supports</option>
                       {FAMILLE_OPTIONS.map((f) => (
-                        <option key={f.value} value={f.value}>{f.label}</option>
+                        <option key={f.value} value={f.value} className="text-[#111111]">{f.label}</option>
                       ))}
                     </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF] dark:text-white/40" />
                   </div>
                 </div>
 
@@ -166,6 +172,19 @@ export function ContactSection() {
                   {loading ? 'Envoi...' : 'Envoyer la demande'}
                   {!loading && <ArrowRight className="h-4 w-4" />}
                 </button>
+
+                <p className="text-center text-[11px] leading-relaxed text-[#9CA3AF] dark:text-white/40">
+                  En envoyant ce formulaire, vous acceptez notre{' '}
+                  <a
+                    href="/confidentialite"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-[#F5C400]/60 underline-offset-2 hover:text-[#F5C400]"
+                  >
+                    politique de confidentialité
+                  </a>
+                  . Aucun envoi de prospection sans votre consentement.
+                </p>
               </form>
             )}
           </motion.div>

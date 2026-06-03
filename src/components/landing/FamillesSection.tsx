@@ -24,7 +24,7 @@ export function FamillesSection() {
           <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111] dark:text-white">
             Choisissez le moment
             <br />
-            <span className="text-[#9CA3AF] dark:text-white/40">ou votre cible ne peut pas zapper.</span>
+            <span className="text-[#F5C400]">où votre cible ne peut pas zapper.</span>
           </h2>
         </motion.div>
 
@@ -37,7 +37,7 @@ export function FamillesSection() {
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.1 + i * 0.1 }}
               onClick={() => setSelected(famille)}
-              className="group cursor-pointer overflow-hidden rounded-2xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] transition-all hover:border-[#F5C400]/20 hover:shadow-lg"
+              className="group cursor-pointer overflow-hidden rounded-2xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] transition-all hover:border-[#F5C400]/30 hover:shadow-lg dark:hover:border-[#F5C400]/40 dark:hover:bg-white/[0.04] dark:hover:shadow-[0_0_28px_rgba(245,196,0,0.12)]"
             >
               {/* Image */}
               <div className="relative aspect-[16/9] overflow-hidden">
@@ -48,9 +48,6 @@ export function FamillesSection() {
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                <span className="absolute bottom-3 left-4 font-['Bebas_Neue'] text-[13px] tracking-wider text-white/40">
-                  {famille.numero}
-                </span>
               </div>
 
               {/* Content */}
@@ -80,9 +77,8 @@ export function FamillesSection() {
           initial={{ opacity: 0 }}
           animate={inView ? { opacity: 1 } : {}}
           transition={{ duration: 0.6, delay: 0.6 }}
-          className="mt-10 flex items-center justify-center gap-3"
+          className="mt-10 flex items-center justify-center"
         >
-          <div className="h-px flex-1 bg-[#E5E5E5] dark:bg-white/[0.06]" />
           <a
             href="#digital"
             className="flex items-center gap-2 text-[13px] text-[#6B7280] dark:text-white/50 transition-colors hover:text-[#F5C400]"
@@ -90,7 +86,6 @@ export function FamillesSection() {
             Et pour amplifier votre campagne
             <ArrowRight className="h-3.5 w-3.5" />
           </a>
-          <div className="h-px flex-1 bg-[#E5E5E5] dark:bg-white/[0.06]" />
         </motion.div>
       </div>
 

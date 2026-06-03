@@ -4,7 +4,7 @@ import { useScrollLock } from '@/hooks/useScrollLock'
 
 const NAV_LINKS = [
   { label: 'Nos solutions', href: '#solutions' },
-  { label: 'Comment ca marche', href: '#process' },
+  { label: 'Comment ça marche', href: '#process' },
   { label: 'Contact', href: '#contact' },
 ]
 
@@ -66,7 +66,7 @@ export function Navbar() {
                   : 'bg-[#0A0A0A] text-white hover:shadow-[0_0_20px_rgba(0,0,0,0.25)]'
               }`}
             >
-              Lancer une campagne
+              Obtenir un devis sous 24h
             </a>
           </div>
 
@@ -109,7 +109,7 @@ export function Navbar() {
               onClick={() => setMobileOpen(false)}
               className="mt-4 rounded-full bg-[#F5C400] px-8 py-3 text-[15px] font-medium text-[#0A0A0A]"
             >
-              Lancer une campagne
+              Obtenir un devis sous 24h
             </a>
           </div>
         </div>

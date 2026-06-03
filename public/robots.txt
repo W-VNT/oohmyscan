@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /mentions-legales
+Allow: /confidentialite
+
+# Zones authentifiées — pas d'intérêt SEO
+Disallow: /login
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /app
+Disallow: /app/*
+Disallow: /landing
+
+Sitemap: https://oohmyad.com/sitemap.xml

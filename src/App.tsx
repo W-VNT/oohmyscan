@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // Layouts (always loaded)
@@ -10,6 +10,9 @@ import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { ToastContainer } from '@/components/shared/Toast'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
+import { DynamicFavicon } from '@/components/shared/DynamicFavicon'
+import { DynamicTheme } from '@/components/shared/DynamicTheme'
+import { LandingGate } from '@/components/landing/LandingGate'
 import { PWAUpdatePrompt } from '@/components/shared/PWAUpdatePrompt'
 import { InstallBanner } from '@/components/shared/InstallBanner'
 
@@ -18,6 +21,8 @@ const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((m) => ({ def
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 const PublicDocumentPage = lazy(() => import('@/pages/public/PublicDocumentPage').then((m) => ({ default: m.PublicDocumentPage })))
 const LandingPage = lazy(() => import('@/pages/landing/LandingPage').then((m) => ({ default: m.LandingPage })))
+const MentionsLegalesPage = lazy(() => import('@/pages/legal/MentionsLegalesPage').then((m) => ({ default: m.MentionsLegalesPage })))
+const ConfidentialitePage = lazy(() => import('@/pages/legal/ConfidentialitePage').then((m) => ({ default: m.ConfidentialitePage })))
 
 // Operator pages
 const ScanPage = lazy(() => import('@/pages/operator/ScanPage').then((m) => ({ default: m.ScanPage })))
@@ -77,6 +82,18 @@ function HostnameRedirect() {
   return null
 }
 
+/**
+ * Layout qui protège les routes landing par un mot de passe (phase beta).
+ * Désactivable en ne mettant pas VITE_LANDING_PASSWORD dans .env.
+ */
+function GatedLandingLayout() {
+  return (
+    <LandingGate>
+      <Outlet />
+    </LandingGate>
+  )
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -96,12 +113,21 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <ScrollToTop />
+          <DynamicFavicon />
+          <DynamicTheme />
           <HostnameRedirect />
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
-              {/* Public */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/landing" element={<Navigate to="/" replace />} />
+              {/* Public — landing protégée par mot de passe pendant la phase beta */}
+              <Route element={<GatedLandingLayout />}>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/landing" element={<Navigate to="/" replace />} />
+                <Route path="/mentions-legales" element={<MentionsLegalesPage />} />
+                <Route path="/confidentialite" element={<ConfidentialitePage />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Route>
+
+              {/* App login — accessible directement, pas de gate */}
               <Route path="/login" element={<LoginPage />} />
 
               {/* Operator routes (mobile-first) — admin can also access */}
@@ -155,11 +181,8 @@ export default function App() {
                 </Route>
               </Route>
 
-              {/* Public portal */}
+              {/* Public portal — accessible directement, pas de gate */}
               <Route path="/view/:token" element={<PublicDocumentPage />} />
-
-              {/* 404 */}
-              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
           <ToastContainer />

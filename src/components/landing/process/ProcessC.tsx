@@ -31,53 +31,53 @@ const STEPS: ProcessStep[] = [
     num: '01',
     title: 'Brief',
     desc: 'Cible, zone, budget — on cadre tout ensemble.',
-    detail: 'On échange par téléphone ou visio pour comprendre votre besoin : objectifs de campagne, zone géographique, durée souhaitée, supports préférés et budget.',
+    detail: 'Cible, zone, durée, budget. On cadre tout en un appel de 15 min.',
     icon: MessageSquare,
     tools: [
-      { icon: Phone, name: 'Appel découverte', desc: 'Échange de 15 min pour cadrer vos objectifs et contraintes.' },
-      { icon: ClipboardList, name: 'Formulaire brief', desc: 'Document structuré pour formaliser cible, zone, timing et budget.' },
-      { icon: Globe, name: 'Analyse géographique', desc: 'Étude de couverture sur votre zone pour identifier le potentiel.' },
+      { icon: Phone, name: 'Appel découverte', desc: '15 min pour cadrer vos objectifs.' },
+      { icon: ClipboardList, name: 'Formulaire brief', desc: 'Vos infos clés, formalisées en un doc.' },
+      { icon: Globe, name: 'Analyse géographique', desc: 'Le potentiel de couverture sur votre zone.' },
     ],
-    deliverable: 'Brief validé avec zone, cible, budget et planning prévisionnel.',
+    deliverable: 'Brief validé. Zone, cible, budget, planning posés.',
   },
   {
     num: '02',
     title: 'Plan',
-    desc: 'Sélection des supports et zones optimales, devis sur-mesure.',
-    detail: 'On analyse le potentiel de couverture, on sélectionne les partenaires locaux les plus pertinents et on vous livre un devis détaillé sous 24h.',
+    desc: 'Plan média + devis chiffré sous 24h.',
+    detail: 'Votre zone scannée. Vos supports sélectionnés. Votre devis chiffré. Sous 24h.',
     icon: Map,
     tools: [
-      { icon: MapPin, name: 'Mapping réseau', desc: 'Cartographie de nos partenaires actifs dans votre zone cible.' },
-      { icon: Target, name: 'Recommandation supports', desc: 'Sélection des supports les plus adaptés à votre cible et message.' },
-      { icon: FileText, name: 'Devis sur-mesure', desc: 'Proposition chiffrée détaillée avec options, envoyée sous 24h.' },
+      { icon: MapPin, name: 'Mapping réseau', desc: 'Tous nos partenaires actifs sur votre zone.' },
+      { icon: Target, name: 'Recommandation supports', desc: 'Les supports qui matchent votre cible et votre message.' },
+      { icon: FileText, name: 'Devis sur-mesure', desc: 'Chiffré, détaillé. Livré sous 24h.' },
     ],
-    deliverable: 'Devis détaillé + plan média avec supports recommandés et couverture estimée.',
+    deliverable: 'Plan média complet + devis chiffré, prêt à signer.',
   },
   {
     num: '03',
     title: 'Déploiement',
-    desc: 'Nos équipes posent, suivent et valident chaque support.',
-    detail: 'Nos opérateurs terrain installent chaque support, suivent la qualité en temps réel et envoient des photos de validation via QR code.',
+    desc: 'On pose, on suit, on valide. Vous voyez tout en temps réel.',
+    detail: 'Nos opérateurs installent. Chaque pose est scannée, photographiée, géolocalisée. Suivi temps réel.',
     icon: Truck,
     tools: [
-      { icon: Smartphone, name: 'OOHMYSCAN (PWA)', desc: 'Application mobile terrain pour scanner, photographier et valider chaque pose.' },
-      { icon: QrCode, name: 'QR code + photo', desc: 'Chaque support scanné génère une preuve de passage géolocalisée et horodatée.' },
-      { icon: CheckCircle2, name: 'Suivi temps réel', desc: 'Dashboard de suivi pour monitorer l\'avancement du déploiement.' },
+      { icon: Smartphone, name: 'OOH MY SCAN', desc: "L'app terrain qui prouve chaque pose." },
+      { icon: QrCode, name: 'QR code + photo', desc: 'Preuve de passage géolocalisée et horodatée.' },
+      { icon: CheckCircle2, name: 'Suivi temps réel', desc: "L'avancement en direct, accessible 24/7." },
     ],
-    deliverable: 'Supports déployés avec photos de validation en temps réel.',
+    deliverable: 'Tous vos supports posés, prouvés, validés.',
   },
   {
     num: '04',
     title: 'Rapport',
     desc: 'Photos de preuve, stats terrain, recommandations.',
-    detail: 'Rapport complet avec preuves de passage géolocalisées, statistiques de couverture, et recommandations pour vos prochaines campagnes.',
+    detail: 'Preuves de chaque pose, stats de couverture, recommandations pour la prochaine.',
     icon: BarChart3,
     tools: [
-      { icon: ImageIcon, name: 'Preuves géolocalisées', desc: 'Photos de chaque support avec coordonnées GPS et timestamp.' },
-      { icon: TrendingUp, name: 'Statistiques campagne', desc: 'Métriques de couverture, taux de pose, zones couvertes.' },
-      { icon: Lightbulb, name: 'Recommandations', desc: 'Analyse post-campagne avec suggestions d\'optimisation pour la suite.' },
+      { icon: ImageIcon, name: 'Preuves géolocalisées', desc: 'Photo + GPS + horodatage sur chaque pose.' },
+      { icon: TrendingUp, name: 'Statistiques campagne', desc: 'Couverture, taux de pose, zones touchées.' },
+      { icon: Lightbulb, name: 'Recommandations', desc: "Ce qui a marché, ce qu'on optimise pour la suite." },
     ],
-    deliverable: 'Rapport PDF complet avec preuves, stats et recommandations.',
+    deliverable: 'Rapport PDF complet. Toutes les preuves, toutes les stats.',
   },
 ]
 
@@ -121,7 +121,7 @@ export function ProcessC() {
           <h2 className="mt-4 font-['Bebas_Neue'] text-[clamp(36px,5vw,72px)] leading-[0.95] text-[#111111] dark:text-white">
             De l'idée au terrain
             <br />
-            <span className="text-[#9CA3AF] dark:text-white/40">en 4 étapes.</span>
+            <span className="text-[#F5C400]">en 4 étapes.</span>
           </h2>
         </motion.div>
 
@@ -157,7 +157,7 @@ export function ProcessC() {
                     tabIndex={0}
                     onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStep(step) } }}
                     onClick={() => setSelectedStep(step)}
-                    className={`w-full cursor-pointer rounded-2xl border p-6 transition-all duration-700 hover:border-[#F5C400]/20 ${
+                    className={`w-full cursor-pointer rounded-2xl border p-6 transition-all duration-700 hover:border-[#F5C400]/30 hover:shadow-lg dark:hover:border-[#F5C400]/40 dark:hover:shadow-[0_0_28px_rgba(245,196,0,0.12)] ${
                       isActive
                         ? 'border-[#F5C400]/15 bg-[#F5C400]/[0.04]'
                         : 'border-[#E5E5E5] dark:border-white/[0.04] bg-white dark:bg-white/[0.02]'
@@ -235,7 +235,7 @@ export function ProcessC() {
                     tabIndex={0}
                     onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStep(step) } }}
                     onClick={() => setSelectedStep(step)}
-                    className={`cursor-pointer rounded-xl border p-5 transition-all duration-700 hover:border-[#F5C400]/20 ${
+                    className={`cursor-pointer rounded-xl border p-5 transition-all duration-700 hover:border-[#F5C400]/30 hover:shadow-lg dark:hover:border-[#F5C400]/40 dark:hover:shadow-[0_0_28px_rgba(245,196,0,0.12)] ${
                       isActive
                         ? 'border-[#F5C400]/15 bg-[#F5C400]/[0.04]'
                         : 'border-[#E5E5E5] dark:border-white/[0.04] bg-white dark:bg-white/[0.02]'

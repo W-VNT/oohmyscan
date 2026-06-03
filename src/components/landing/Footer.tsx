@@ -1,7 +1,6 @@
 const LEGAL_LINKS = [
   { label: 'Mentions légales', href: '/mentions-legales' },
   { label: 'Politique de confidentialité', href: '/confidentialite' },
-  { label: 'CGV', href: '/cgv' },
 ]
 
 export function Footer() {

@@ -64,9 +64,6 @@ export function FamilleSlideOver({ famille, onClose }: FamilleSlideOverProps) {
 
             <div className="px-8 pb-8">
               {/* Titre */}
-              <span className="text-[11px] tabular-nums text-[#F5C400]/40">
-                {famille.numero}
-              </span>
               <h2 className="font-['Bebas_Neue'] text-4xl tracking-tight text-[#111111] dark:text-white">
                 {famille.name}
               </h2>
@@ -145,10 +142,16 @@ export function FamilleSlideOver({ famille, onClose }: FamilleSlideOverProps) {
               {/* CTA */}
               <a
                 href="#contact"
-                onClick={onClose}
+                onClick={(e) => {
+                  e.preventDefault()
+                  onClose()
+                  setTimeout(() => {
+                    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
+                  }, 350)
+                }}
                 className="mt-10 flex w-full items-center justify-center gap-2 rounded-xl bg-[#F5C400] py-3.5 text-[14px] font-medium text-[#0A0A0A] transition-all hover:shadow-[0_0_24px_rgba(245,196,0,0.2)]"
               >
-                Lancer une campagne
+                Obtenir un devis sous 24h
                 <ArrowRight className="h-4 w-4" />
               </a>
             </div>

@@ -15,17 +15,17 @@ export function LandingPage() {
   return (
     <>
       <Helmet>
-        <title>OOHMYAD — Publicite captive partout en France</title>
+        <title>OOH MY AD ! — Média de proximité captif</title>
         <meta
           name="description"
-          content="5 familles de supports publicitaires captifs : affichage de proximite, medias tactiques, reseaux ville & estival, animation terrain, digital. Partout en France."
+          content="5 familles de supports publicitaires captifs : affichage de proximité, médias tactiques, réseaux ville & estival, animation terrain, digital. Partout en France."
         />
-        <meta property="og:title" content="OOHMYAD — Votre pub la ou les gens s'arretent" />
+        <meta property="og:title" content="OOH MY AD ! — Média de proximité captif" />
         <meta property="og:type" content="website" />
         <meta property="og:image" content="https://oohmyad.com/og-image.jpg" />
         <meta
           property="og:description"
-          content="5 familles de supports captifs deployes partout en France. Du terrain au digital."
+          content="5 familles de supports captifs déployés partout en France. Du terrain au digital."
         />
         <meta property="og:url" content="https://oohmyad.com" />
         <link rel="canonical" href="https://oohmyad.com" />
