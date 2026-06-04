@@ -5,14 +5,40 @@ const FIELDS = 'places.id,places.displayName,places.formattedAddress,places.loca
 /** Max radius per sub-query (meters). Google returns max 20 results per call. */
 const SUB_RADIUS_M = 2000
 
-/** Support types with their associated Google Places types */
+/**
+ * Typologies de commerce — filtre PRIMAIRE de la recherche Google Places.
+ * Choisi par l'utilisateur sur la page potentiel.
+ */
+export const BUSINESS_TYPES = [
+  { value: 'all', label: 'Tous types de commerce', placeTypes: ['bakery', 'pharmacy', 'bar', 'cafe', 'restaurant', 'store', 'convenience_store', 'laundry', 'hair_care', 'beauty_salon', 'campground', 'lodging', 'gym', 'gas_station'] },
+  { value: 'bakery', label: 'Boulangerie', placeTypes: ['bakery'] },
+  { value: 'pharmacy', label: 'Pharmacie', placeTypes: ['pharmacy'] },
+  { value: 'bar_cafe', label: 'Bar / Café', placeTypes: ['bar', 'cafe'] },
+  { value: 'restaurant', label: 'Restaurant', placeTypes: ['restaurant'] },
+  { value: 'store', label: 'Boutique', placeTypes: ['store'] },
+  { value: 'convenience_store', label: 'Supérette', placeTypes: ['convenience_store'] },
+  { value: 'laundry', label: 'Pressing / Laverie', placeTypes: ['laundry'] },
+  { value: 'hair_care', label: 'Coiffeur', placeTypes: ['hair_care'] },
+  { value: 'beauty_salon', label: 'Institut de beauté', placeTypes: ['beauty_salon'] },
+  { value: 'campground', label: 'Camping', placeTypes: ['campground'] },
+  { value: 'lodging', label: 'Hôtel', placeTypes: ['lodging'] },
+  { value: 'gym', label: 'Salle de sport', placeTypes: ['gym'] },
+  { value: 'gas_station', label: 'Station essence', placeTypes: ['gas_station'] },
+] as const
+
+export type BusinessType = (typeof BUSINESS_TYPES)[number]['value']
+
+/**
+ * Types de support OOH MY AD — info secondaire, ce qui sera proposé au prospect.
+ * N'affecte plus la recherche Google Places depuis la migration business_type.
+ */
 export const SUPPORT_TYPES = [
-  { value: 'all', label: 'Tous les supports', placeTypes: ['bakery', 'pharmacy', 'bar', 'cafe', 'restaurant', 'store', 'convenience_store', 'laundry', 'hair_care', 'beauty_salon'] },
-  { value: 'sac_pain', label: 'Sac à pain', placeTypes: ['bakery'] },
-  { value: 'sac_pharmacie', label: 'Sac à pharmacie', placeTypes: ['pharmacy'] },
-  { value: 'sous_bock', label: 'Sous-bock', placeTypes: ['bar', 'cafe'] },
-  { value: 'set_table', label: 'Set de table', placeTypes: ['restaurant', 'cafe'] },
-  { value: 'affiche_a3', label: 'Affiche A3', placeTypes: ['store', 'convenience_store', 'laundry', 'hair_care', 'beauty_salon'] },
+  { value: 'all', label: 'Tous les supports' },
+  { value: 'sac_pain', label: 'Sac à pain' },
+  { value: 'sac_pharmacie', label: 'Sac à pharmacie' },
+  { value: 'sous_bock', label: 'Sous-bock' },
+  { value: 'set_table', label: 'Set de table' },
+  { value: 'affiche_a3', label: 'Affiche A3' },
 ] as const
 
 export type SupportType = (typeof SUPPORT_TYPES)[number]['value']
@@ -24,10 +50,14 @@ const PLACE_TYPE_LABELS: Record<string, string> = {
   cafe: 'Café / Brasserie',
   restaurant: 'Restaurant',
   store: 'Commerce',
-  convenience_store: 'Épicerie',
+  convenience_store: 'Supérette',
   laundry: 'Pressing',
   hair_care: 'Coiffeur',
-  beauty_salon: 'Salon de beauté',
+  beauty_salon: 'Institut de beauté',
+  campground: 'Camping',
+  lodging: 'Hôtel',
+  gym: 'Salle de sport',
+  gas_station: 'Station essence',
 }
 
 export interface PotentialSpot {
@@ -173,18 +203,18 @@ async function searchNearbyChunk(
   return data.places ?? []
 }
 
-/** Search potential OOH spots using Google Places Nearby Search, filtered by support type.
+/** Search potential OOH spots using Google Places Nearby Search, filtered by business type.
  *  Subdivides large areas into a grid of smaller queries for better coverage. */
 export async function searchPotentialSpots(
   lat: number,
   lng: number,
   radiusKm: number,
-  supportType: SupportType = 'all',
+  businessType: BusinessType = 'all',
   onProgress?: (done: number, total: number) => void,
 ): Promise<PotentialSpot[]> {
   if (!API_KEY) return []
 
-  const config = SUPPORT_TYPES.find((s) => s.value === supportType) ?? SUPPORT_TYPES[0]
+  const config = BUSINESS_TYPES.find((b) => b.value === businessType) ?? BUSINESS_TYPES[0]
   const radiusMeters = radiusKm * 1000
 
   // For small radii (≤ SUB_RADIUS_M), single request is enough

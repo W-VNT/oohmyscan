@@ -18,8 +18,10 @@ import {
   getDistanceMeters,
   autocompleteCities,
   SUPPORT_TYPES,
+  BUSINESS_TYPES,
   type PotentialSpot,
   type SupportType,
+  type BusinessType,
   type CitySuggestion,
 } from '@/lib/potential-search'
 import { PotentialPDF } from '@/lib/pdf/PotentialPDF'
@@ -78,6 +80,7 @@ export function PotentialNewPage() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const cityDebounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const [radiusKm, setRadiusKm] = useState(10)
+  const [businessType, setBusinessType] = useState<BusinessType>('all')
   const [supportType, setSupportType] = useState<SupportType>('all')
 
   // CSV import modal
@@ -105,6 +108,8 @@ export function PotentialNewPage() {
     }
     setRadiusKm(existingRequest.radius_km)
     if (existingRequest.support_type) setSupportType(existingRequest.support_type as SupportType)
+    const er = existingRequest as typeof existingRequest & { business_type?: string | null }
+    if (er.business_type) setBusinessType(er.business_type as BusinessType)
     if (existingRequest.lat && existingRequest.lng) {
       setCenter({ lat: existingRequest.lat, lng: existingRequest.lng })
     }
@@ -243,7 +248,7 @@ export function PotentialNewPage() {
 
         // Search potential spots
         setAnalysisProgress(`Scan ${cityName} (${i + 1}/${totalCities})...`)
-        const rawSpots = await searchPotentialSpots(geo.lat, geo.lng, radius, supportType, (done, total) => {
+        const rawSpots = await searchPotentialSpots(geo.lat, geo.lng, radius, businessType, (done, total) => {
           setAnalysisProgress(`Scan ${cityName} — zone ${done}/${total}`)
         })
         const filtered = filterCoveredSpots(
@@ -281,6 +286,7 @@ export function PotentialNewPage() {
             cities,
             radius_km: radius,
             support_type: supportType,
+            business_type: businessType,
             lat: firstCenter.lat,
             lng: firstCenter.lng,
             existing_panels_count: allVacant.length,
@@ -316,7 +322,7 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
       setAnalyzing(false)
       setAnalysisProgress('')
     }
-  }, [canAnalyze, allPanels, cities, radiusKm, supportType, prospectName, existingRequest, createRequest, updateRequest, navigate])
+  }, [canAnalyze, allPanels, cities, radiusKm, supportType, businessType, prospectName, existingRequest, createRequest, updateRequest, navigate])
 
 
   // --- Status change ---
@@ -473,7 +479,19 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
               />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium">Type de support</label>
+              <label className="mb-2 block text-sm font-medium">Typologie de commerce</label>
+              <select
+                value={businessType}
+                onChange={(e) => setBusinessType(e.target.value as BusinessType)}
+                className="flex h-9 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              >
+                {BUSINESS_TYPES.map((b) => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Support OOH MY AD !</label>
               <select
                 value={supportType}
                 onChange={(e) => setSupportType(e.target.value as SupportType)}
