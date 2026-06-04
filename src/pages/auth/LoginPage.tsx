@@ -129,7 +129,7 @@ export function LoginPage() {
             <div className="flex size-10 items-center justify-center rounded-xl bg-background/10">
               <ScanLine className="size-5 text-background" strokeWidth={1.5} />
             </div>
-            <span className="text-lg font-bold tracking-tight">OOH MY AD !</span>
+            <span className="font-['Poppins'] font-black text-lg uppercase tracking-[0.02em] leading-none">OOH MY AD !</span>
           </div>
         </div>
 
@@ -153,7 +153,10 @@ export function LoginPage() {
           </div>
         </div>
 
-        <p className="text-sm text-background/40">OOH MY AD ! — Plateforme de gestion OOH</p>
+        <p className="text-sm text-background/40">
+          <span className="font-['Poppins'] font-black uppercase tracking-[0.02em]">OOH MY AD !</span>
+          {' '}— Plateforme de gestion OOH
+        </p>
       </div>
 
       {/* Right panel — form */}
@@ -165,7 +168,7 @@ export function LoginPage() {
             <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-foreground lg:bg-primary">
               <ScanLine className="size-7 text-background lg:text-primary-foreground" strokeWidth={1.5} />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">OOH MY AD !</h1>
+            <h1 className="font-['Poppins'] font-black text-2xl uppercase tracking-[0.02em] leading-none">OOH MY AD !</h1>
             <p className="mt-1 text-[13px] text-muted-foreground">
               {mode === 'set_password' ? 'Créez votre mot de passe' : 'Connexion'}
             </p>

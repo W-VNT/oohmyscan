@@ -33,7 +33,10 @@ export function InstallBanner() {
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 pb-8">
         <div className="w-full max-w-sm space-y-4 rounded-2xl bg-card p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-[15px] font-semibold">Installer OOHMYSCAN</h3>
+            <h3 className="text-[15px] font-semibold">
+              Installer{' '}
+              <span className="font-['Poppins'] font-black uppercase tracking-[0.02em]">OOH MY SCAN</span>
+            </h3>
             <button onClick={() => setShowingIOSGuide(false)} className="text-muted-foreground">
               <X className="size-5" />
             </button>
@@ -76,7 +79,10 @@ export function InstallBanner() {
           <Download className="size-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium">Installer OOHMYSCAN</p>
+          <p className="text-[13px] font-medium">
+            Installer{' '}
+            <span className="font-['Poppins'] font-black uppercase tracking-[0.02em]">OOH MY SCAN</span>
+          </p>
           <p className="text-[11px] text-muted-foreground">Accès rapide depuis l'accueil</p>
         </div>
         {canInstall ? (

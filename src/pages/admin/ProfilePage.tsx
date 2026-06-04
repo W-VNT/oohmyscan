@@ -10,10 +10,10 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from '@/components/shared/Toast'
-import { Loader2, Pencil, Check, X, User, Lock, Sun, Moon, Monitor, Camera } from 'lucide-react'
+import { Loader2, Pencil, Check, X, User, Lock, Sun, Moon, Monitor, Camera, LogOut } from 'lucide-react'
 
 export function ProfilePage() {
-  const { session, profile } = useAuth()
+  const { session, profile, signOut } = useAuth()
   const setProfile = useAppStore((s) => s.setProfile)
   const queryClient = useQueryClient()
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -291,6 +291,22 @@ export function ProfilePage() {
               Changer le mot de passe
             </Button>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Compte */}
+      <Card>
+        <CardContent className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold">Déconnexion</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Se déconnecter de la session admin
+            </p>
+          </div>
+          <Button variant="outline" onClick={signOut}>
+            <LogOut className="mr-1.5 size-3.5" />
+            Se déconnecter
+          </Button>
         </CardContent>
       </Card>
     </div>

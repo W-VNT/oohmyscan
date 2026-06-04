@@ -10,7 +10,6 @@ import {
   QrCode,
   BarChart3,
   Settings,
-  LogOut,
   Menu,
   X,
   Building2,
@@ -88,7 +87,7 @@ const navSections = [
 ]
 
 export function AdminLayout() {
-  const { signOut, profile } = useAuth()
+  const { profile } = useAuth()
   const { sidebarOpen, toggleSidebar } = useAppStore()
   const { pathname } = useLocation()
 
@@ -134,7 +133,7 @@ export function AdminLayout() {
       >
         {/* Logo */}
         <div className="flex h-14 items-center justify-between border-b border-border px-5">
-          <span className="text-[15px] font-bold tracking-tight">OOH MY AD !</span>
+          <span className="font-['Poppins'] font-black text-[15px] uppercase tracking-[0.02em] leading-none">OOH MY AD !</span>
           <button onClick={toggleSidebar} className="lg:hidden" aria-label="Fermer">
             <X className="size-5" />
           </button>
@@ -193,13 +192,6 @@ export function AdminLayout() {
             <Smartphone className="size-4" />
             Mode terrain
           </NavLink>
-          <button
-            onClick={signOut}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <LogOut className="size-4" />
-            Déconnexion
-          </button>
         </div>
       </aside>
 
