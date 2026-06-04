@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Landmark, Search, Loader2, Filter, ArrowUpDown, PanelTop, FileCheck, Download } from 'lucide-react'
+import { Landmark, Search, Loader2, Filter, ArrowUpDown, PanelTop, FileCheck, Download, X, Smartphone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type SortOption = 'name' | 'city' | 'newest'
@@ -65,6 +65,14 @@ export function LocationsPage() {
       withoutContract: locations.filter((l) => !l.has_contract).length,
     }
   }, [locations])
+
+  const hasActiveFilters = !!debouncedSearch.trim() || contractFilter !== 'all'
+
+  function resetFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setContractFilter('all')
+  }
 
   const filtered = useMemo(() => {
     if (!locations) return []
@@ -131,11 +139,13 @@ export function LocationsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Lieux</h1>
           <span className="text-sm text-muted-foreground">
-            {locations?.length ?? 0} lieu{(locations?.length ?? 0) !== 1 ? 'x' : ''}
+            {filtered.length}
+            {hasActiveFilters && ` / ${locations?.length ?? 0}`} lieu
+            {(hasActiveFilters ? (locations?.length ?? 0) : filtered.length) !== 1 ? 'x' : ''}
           </span>
         </div>
         <div className="flex gap-2">
@@ -146,8 +156,8 @@ export function LocationsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -180,6 +190,15 @@ export function LocationsPage() {
             ))}
           </select>
         </div>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-4" />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -199,9 +218,33 @@ export function LocationsPage() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
-                      <Landmark className="mx-auto mb-2 size-8" />
-                      {debouncedSearch || contractFilter !== 'all' ? 'Aucun lieu trouvé' : 'Aucun lieu pour le moment'}
+                    <td colSpan={5} className="px-4 py-12">
+                      {hasActiveFilters ? (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <Landmark className="size-8" />
+                          <p>Aucun lieu trouvé</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-3 text-center">
+                          <div className="flex size-12 items-center justify-center rounded-full bg-muted/60">
+                            <Landmark className="size-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium">Aucun lieu pour le moment</h3>
+                            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                              Les lieux sont créés sur le terrain par les opérateurs lors de la
+                              pose de panneaux, via l'app mobile <span className="font-['Poppins'] font-black uppercase tracking-[0.02em]">OOH MY SCAN</span>.
+                            </p>
+                          </div>
+                          <Link
+                            to="/app/dashboard"
+                            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-sm transition-colors hover:bg-muted"
+                          >
+                            <Smartphone className="size-4" />
+                            Mode terrain
+                          </Link>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -255,10 +298,6 @@ export function LocationsPage() {
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground">
-        {filtered.length} lieu{filtered.length !== 1 ? 'x' : ''}
-        {(debouncedSearch || contractFilter !== 'all') && ` sur ${locations?.length ?? 0}`}
-      </p>
     </div>
   )
 }

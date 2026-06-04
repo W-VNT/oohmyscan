@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive, ArrowRight } from 'lucide-react'
+import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive, ArrowRight, ChevronLeft, ChevronRight, X, Building2, Megaphone } from 'lucide-react'
 import { QUOTE_STATUSES, QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
+import { useClients } from '@/hooks/admin/useClients'
+import { useCampaigns } from '@/hooks/useCampaigns'
 
 type SortOption = 'newest' | 'oldest' | 'amount_desc' | 'amount_asc' | 'number'
 
@@ -31,9 +33,21 @@ export function QuotesPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'all'>('all')
+  const [clientFilter, setClientFilter] = useState<string>('all')
+  const [campaignFilter, setCampaignFilter] = useState<string>('all')
   const [sort, setSort] = useState<SortOption>('newest')
-  const [showArchived, setShowArchived] = useState(false)
-  const { data: paginatedData, isLoading } = usePaginatedQuotes(page, debouncedSearch, statusFilter, sort, showArchived)
+  const [archiveMode, setArchiveMode] = useState<'active' | 'archived' | 'all'>('active')
+  const { data: clientsList } = useClients()
+  const { data: campaignsList } = useCampaigns()
+  const { data: paginatedData, isLoading } = usePaginatedQuotes(
+    page,
+    debouncedSearch,
+    statusFilter,
+    sort,
+    archiveMode,
+    clientFilter,
+    campaignFilter,
+  )
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   useListPageHotkeys('/admin/quotes/new')
 
@@ -63,7 +77,23 @@ export function QuotesPage() {
   const totalPages = Math.ceil(total / 25)
 
   // Reset page when filters change
-  useEffect(() => { setPage(0) }, [debouncedSearch, statusFilter, sort, showArchived])
+  useEffect(() => { setPage(0) }, [debouncedSearch, statusFilter, sort, archiveMode, clientFilter, campaignFilter])
+
+  const hasActiveFilters =
+    !!debouncedSearch.trim() ||
+    statusFilter !== 'all' ||
+    clientFilter !== 'all' ||
+    campaignFilter !== 'all' ||
+    archiveMode !== 'active'
+
+  function resetFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setStatusFilter('all')
+    setClientFilter('all')
+    setCampaignFilter('all')
+    setArchiveMode('active')
+  }
 
   const filteredTotal = useMemo(() => {
     return filtered.reduce((sum, q) => sum + q.total_ttc, 0)
@@ -107,14 +137,14 @@ export function QuotesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Devis</h1>
           <span className="text-sm text-muted-foreground">
-            {filtered.length}{(statusFilter !== 'all' || debouncedSearch) ? ` / ${quotes?.length ?? 0}` : ''} devis
+            {filtered.length}{hasActiveFilters ? ` / ${quotes?.length ?? 0}` : ''} devis
           </span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
             <Download className="mr-1.5 size-3.5" /> CSV
           </Button>
@@ -126,14 +156,13 @@ export function QuotesPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          {/* Search by quote_number only — client name search would require a server-side view */}
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Rechercher par numéro..."
+            placeholder="Rechercher par numéro ou client..."
             className="h-9 pl-9 text-sm"
           />
         </div>
@@ -144,12 +173,50 @@ export function QuotesPage() {
             onChange={(e) => setStatusFilter(e.target.value as QuoteStatus | 'all')}
             className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
-            <option value="all">Tous les statuts ({quotes?.length ?? 0})</option>
+            <option value="all">Tous statuts ({quotes?.length ?? 0})</option>
             {QUOTE_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {QUOTE_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
               </option>
             ))}
+          </select>
+        </div>
+        <div className="relative">
+          <Building2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="all">Tous clients</option>
+            {clientsList?.map((c) => (
+              <option key={c.id} value={c.id}>{c.company_name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="relative">
+          <Megaphone className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={campaignFilter}
+            onChange={(e) => setCampaignFilter(e.target.value)}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="all">Toutes campagnes</option>
+            {campaignsList?.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="relative">
+          <Archive className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={archiveMode}
+            onChange={(e) => setArchiveMode(e.target.value as 'active' | 'archived' | 'all')}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="active">Actifs</option>
+            <option value="archived">Archivés</option>
+            <option value="all">Tous</option>
           </select>
         </div>
         <div className="relative">
@@ -164,13 +231,15 @@ export function QuotesPage() {
             ))}
           </select>
         </div>
-        <button
-          onClick={() => setShowArchived((v) => !v)}
-          className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors ${showArchived ? 'border-primary bg-primary/10 text-primary' : 'border-input text-muted-foreground hover:text-foreground'}`}
-        >
-          <Archive className="size-3.5" />
-          Archives
-        </button>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-4" />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       <Card>
@@ -194,8 +263,8 @@ export function QuotesPage() {
                     <td colSpan={7}>
                       <EmptyState
                         icon={FileText}
-                        title={debouncedSearch || statusFilter !== 'all' ? 'Aucun devis trouvé' : 'Aucun devis pour le moment'}
-                        action={!debouncedSearch && statusFilter === 'all' ? { label: 'Nouveau devis', onClick: () => navigate('/admin/quotes/new') } : undefined}
+                        title={hasActiveFilters ? 'Aucun devis trouvé' : 'Aucun devis pour le moment'}
+                        action={!hasActiveFilters ? { label: 'Nouveau devis', onClick: () => navigate('/admin/quotes/new') } : undefined}
                       />
                     </td>
                   </tr>
@@ -257,27 +326,29 @@ export function QuotesPage() {
       </Card>
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
           <span>
-            {total} devis · Total page : {formatCurrency(filteredTotal)}
+            {total} devis · Total page : <span className="font-medium tabular-nums text-foreground">{formatCurrency(filteredTotal)}</span>
           </span>
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="rounded border border-input px-2 py-1 text-xs disabled:opacity-50"
-              >
-                ←
-              </button>
-              <span>{page + 1} / {totalPages}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-                className="rounded border border-input px-2 py-1 text-xs disabled:opacity-50"
-              >
-                →
-              </button>
+              <span>Page {page + 1} / {totalPages}</span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="inline-flex items-center rounded-lg border border-input px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-muted"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="inline-flex items-center rounded-lg border border-input px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-muted"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
             </div>
           )}
         </div>

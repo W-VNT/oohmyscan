@@ -8,7 +8,7 @@ import { usePanels } from '@/hooks/usePanels'
 import { supabase } from '@/lib/supabase'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Filter, Loader2, Locate, MapPinOff, Search } from 'lucide-react'
+import { Filter, Loader2, Locate, MapPinOff, Search, X, List, ChevronRight } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import type { Panel, PanelWithLocation } from '@/types'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -53,14 +53,16 @@ export function MapPage() {
   const [viewState, setViewState] = useState(DEFAULT_VIEW)
   const initialCenteredRef = useRef(false)
 
-  // Search with debounce
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  // Search (controlled local, debounced -> URL pour partage)
+  const urlSearch = searchParams.get('q') ?? ''
+  const [search, setSearch] = useState(urlSearch)
+  const [debouncedSearch, setDebouncedSearch] = useState(urlSearch)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const statusFilter = searchParams.get('status') as PanelStatus | null
   const cityFilter = searchParams.get('city')
   const campaignFilter = searchParams.get('campaign') as 'with' | 'without' | null
+  const hasActiveFilters = !!(statusFilter || cityFilter || campaignFilter || debouncedSearch.trim())
 
   // Campaign indicator
   const { data: panelCampaigns = new Set<string>() } = useQuery({
@@ -80,8 +82,20 @@ export function MapPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setDebouncedSearch(value)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (value.trim()) next.set('q', value.trim())
+        else next.delete('q')
+        return next
+      })
     }, 300)
-  }, [])
+  }, [setSearchParams])
+
+  function resetFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setSearchParams(new URLSearchParams())
+  }
 
   useEffect(() => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
@@ -245,23 +259,34 @@ export function MapPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Carte</h1>
-        <span className="text-sm text-muted-foreground">
-          {filteredPanels.length} panneau{filteredPanels.length !== 1 ? 'x' : ''}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold">Carte</h1>
+          <span className="text-sm text-muted-foreground">
+            {filteredPanels.length}
+            {hasActiveFilters && ` / ${panels?.length ?? 0}`} panneau
+            {filteredPanels.length !== 1 ? 'x' : ''}
+          </span>
+        </div>
+        <Link
+          to="/admin/panels"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-sm transition-colors hover:bg-muted"
+        >
+          <List className="size-4" />
+          Voir en liste
+        </Link>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[200px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par référence, nom, adresse..."
-            className="flex h-9 w-56 rounded-lg border border-input bg-background pl-9 pr-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="relative">
@@ -321,6 +346,15 @@ export function MapPage() {
           <Locate className="size-4" />
           Recentrer
         </button>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-4" />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       {/* Map */}
@@ -425,9 +459,10 @@ export function MapPage() {
                   </div>
                   <Link
                     to={`/admin/panels/${selectedPanel.id}`}
-                    className="flex items-center justify-center rounded-md bg-foreground py-1.5 text-[11px] font-medium text-background transition-colors hover:bg-foreground/90"
+                    className="flex items-center justify-center gap-1.5 rounded-md bg-foreground py-2 text-[12px] font-medium text-background transition-colors hover:bg-foreground/90"
                   >
                     Voir la fiche
+                    <ChevronRight className="size-3.5" />
                   </Link>
                 </div>
               </Popup>

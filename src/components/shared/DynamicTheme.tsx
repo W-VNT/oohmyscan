@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 
-function isLandingRoute(pathname: string): boolean {
+export function isLandingRoute(pathname: string): boolean {
   if (pathname.startsWith('/login')) return false
   if (pathname.startsWith('/admin')) return false
   if (pathname.startsWith('/app')) return false
@@ -9,7 +9,7 @@ function isLandingRoute(pathname: string): boolean {
   return true
 }
 
-function computeIsDark(landing: boolean): boolean {
+export function computeIsDark(landing: boolean): boolean {
   if (landing) {
     // Landing publique : suit toujours la préférence OS
     return window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -22,7 +22,7 @@ function computeIsDark(landing: boolean): boolean {
   return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
-function applyTheme(isDark: boolean) {
+export function applyTheme(isDark: boolean) {
   document.documentElement.classList.toggle('dark', isDark)
   document
     .querySelector('meta[name="theme-color"]')

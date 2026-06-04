@@ -5,9 +5,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Search, Plus, Loader2, Filter, ArrowUpDown, SearchCheck } from 'lucide-react'
+import { Search, Plus, Loader2, Filter, ArrowUpDown, SearchCheck, X, Store } from 'lucide-react'
 import { POTENTIAL_STATUSES, POTENTIAL_STATUS_CONFIG, type PotentialStatus } from '@/lib/constants'
-import { SUPPORT_TYPES, BUSINESS_TYPES } from '@/lib/potential-search'
+import { SUPPORT_TYPES, BUSINESS_TYPES, type BusinessType } from '@/lib/potential-search'
 
 type SortOption = 'newest' | 'oldest' | 'prospect' | 'city'
 
@@ -24,6 +24,7 @@ export function PotentialPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<PotentialStatus | 'all'>('all')
+  const [businessFilter, setBusinessFilter] = useState<BusinessType | 'all'>('all')
   const [sort, setSort] = useState<SortOption>('newest')
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -45,12 +46,28 @@ export function PotentialPage() {
     return counts
   }, [requests])
 
+  const hasActiveFilters = !!debouncedSearch.trim() || statusFilter !== 'all' || businessFilter !== 'all'
+
+  function resetFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setStatusFilter('all')
+    setBusinessFilter('all')
+  }
+
   const filtered = useMemo(() => {
     if (!requests) return []
     let result = requests
 
     if (statusFilter !== 'all') {
       result = result.filter((r) => r.status === statusFilter)
+    }
+
+    if (businessFilter !== 'all') {
+      result = result.filter((r) => {
+        const rr = r as typeof r & { business_type?: string | null }
+        return rr.business_type === businessFilter
+      })
     }
 
     if (debouncedSearch.trim()) {
@@ -74,7 +91,7 @@ export function PotentialPage() {
     })
 
     return result
-  }, [requests, debouncedSearch, statusFilter, sort])
+  }, [requests, debouncedSearch, statusFilter, businessFilter, sort])
 
   if (isLoading) {
     return (
@@ -86,11 +103,11 @@ export function PotentialPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Potentiel</h1>
           <span className="text-sm text-muted-foreground">
-            {filtered.length}{(statusFilter !== 'all' || debouncedSearch) ? ` / ${requests?.length ?? 0}` : ''} demande{(requests?.length ?? 0) !== 1 ? 's' : ''}
+            {filtered.length}{hasActiveFilters ? ` / ${requests?.length ?? 0}` : ''} demande{(requests?.length ?? 0) !== 1 ? 's' : ''}
           </span>
         </div>
         <Button size="sm" onClick={() => navigate('/admin/potential/new')}>
@@ -100,8 +117,8 @@ export function PotentialPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -117,11 +134,24 @@ export function PotentialPage() {
             onChange={(e) => setStatusFilter(e.target.value as PotentialStatus | 'all')}
             className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
-            <option value="all">Tous les statuts ({requests?.length ?? 0})</option>
+            <option value="all">Tous statuts ({requests?.length ?? 0})</option>
             {POTENTIAL_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {POTENTIAL_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
               </option>
+            ))}
+          </select>
+        </div>
+        <div className="relative">
+          <Store className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={businessFilter}
+            onChange={(e) => setBusinessFilter(e.target.value as BusinessType | 'all')}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="all">Toutes typologies</option>
+            {BUSINESS_TYPES.filter((b) => b.value !== 'all').map((b) => (
+              <option key={b.value} value={b.value}>{b.label}</option>
             ))}
           </select>
         </div>
@@ -137,6 +167,15 @@ export function PotentialPage() {
             ))}
           </select>
         </div>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-4" />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       <Card>
@@ -159,9 +198,30 @@ export function PotentialPage() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
-                      <SearchCheck className="mx-auto mb-2 size-8" />
-                      {debouncedSearch || statusFilter !== 'all' ? 'Aucune demande trouvée' : 'Aucune demande pour le moment'}
+                    <td colSpan={9} className="px-4 py-12">
+                      {hasActiveFilters ? (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <SearchCheck className="size-8" />
+                          <p>Aucune demande trouvée</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-3 text-center">
+                          <div className="flex size-12 items-center justify-center rounded-full bg-muted/60">
+                            <SearchCheck className="size-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium">Aucune demande de potentiel</h3>
+                            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                              Génère une analyse de potentiel sur une zone géographique pour
+                              identifier les emplacements stratégiques d'un prospect.
+                            </p>
+                          </div>
+                          <Button size="sm" onClick={() => navigate('/admin/potential/new')}>
+                            <Plus className="mr-1.5 size-4" />
+                            Nouvelle demande
+                          </Button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : (

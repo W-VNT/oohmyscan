@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/shared/Toast'
-import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2 } from 'lucide-react'
+import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown } from 'lucide-react'
 
 type RoleFilter = 'all' | 'admin' | 'operator'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -107,6 +107,15 @@ export function UsersPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
+  const hasActiveFilters = !!debouncedSearch.trim() || roleFilter !== 'all' || statusFilter !== 'all'
+
+  function resetFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setRoleFilter('all')
+    setStatusFilter('all')
+  }
+
   function startEdit(user: Profile) {
     setEditingId(user.id)
     setEditForm({ full_name: user.full_name, role: user.role, phone: user.phone ?? '' })
@@ -190,10 +199,14 @@ export function UsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Utilisateurs</h1>
-          <span className="text-sm text-muted-foreground">{users?.length ?? 0}</span>
+          <span className="text-sm text-muted-foreground">
+            {filtered.length}
+            {hasActiveFilters && ` / ${users?.length ?? 0}`} utilisateur
+            {(hasActiveFilters ? (users?.length ?? 0) : filtered.length) !== 1 ? 's' : ''}
+          </span>
         </div>
         <Button onClick={() => setShowInvite((v) => !v)}>
           <UserPlus className="mr-1.5 size-4" /> Inviter
@@ -237,28 +250,63 @@ export function UsersPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Rechercher..." className="h-9 pl-9 text-sm" />
+          <Input
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Rechercher par nom ou téléphone..."
+            className="h-9 pl-9 text-sm"
+          />
         </div>
-        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)} className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm">
-          <option value="all">Tous les rôles ({users?.length ?? 0})</option>
-          <option value="admin">Admins ({roleCounts.admin})</option>
-          <option value="operator">Opérateurs ({roleCounts.operator})</option>
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm">
-          <option value="all">Tous les statuts</option>
-          <option value="active">Actifs ({roleCounts.active})</option>
-          <option value="inactive">Inactifs ({roleCounts.inactive})</option>
-        </select>
-        <select value={sort} onChange={(e) => setSort(e.target.value as SortOption)} className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm">
-          <option value="name">Nom A-Z</option>
-          <option value="role">Rôle</option>
-          <option value="activity">Activité</option>
-          <option value="panels">Installations</option>
-          <option value="newest">Plus récents</option>
-        </select>
+        <div className="relative">
+          <Shield className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="all">Tous rôles ({users?.length ?? 0})</option>
+            <option value="admin">Admins ({roleCounts.admin})</option>
+            <option value="operator">Opérateurs ({roleCounts.operator})</option>
+          </select>
+        </div>
+        <div className="relative">
+          <CheckCircle2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="all">Tous statuts</option>
+            <option value="active">Actifs ({roleCounts.active})</option>
+            <option value="inactive">Inactifs ({roleCounts.inactive})</option>
+          </select>
+        </div>
+        <div className="relative">
+          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOption)}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="name">Nom A-Z</option>
+            <option value="role">Rôle</option>
+            <option value="activity">Activité</option>
+            <option value="panels">Installations</option>
+            <option value="newest">Plus récents</option>
+          </select>
+        </div>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-4" />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -281,9 +329,30 @@ export function UsersPage() {
             <tbody className="divide-y divide-border/50">
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                    <Users className="mx-auto mb-2 size-8" />
-                    Aucun utilisateur trouvé
+                  <td colSpan={8} className="px-4 py-12">
+                    {hasActiveFilters ? (
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <Users className="size-8" />
+                        <p>Aucun utilisateur trouvé</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3 text-center">
+                        <div className="flex size-12 items-center justify-center rounded-full bg-muted/60">
+                          <Users className="size-6 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">Aucun utilisateur</h3>
+                          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                            Invite tes opérateurs ou collègues admin pour qu'ils puissent
+                            accéder à la plateforme.
+                          </p>
+                        </div>
+                        <Button size="sm" onClick={() => setShowInvite(true)}>
+                          <UserPlus className="mr-1.5 size-4" />
+                          Inviter un utilisateur
+                        </Button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (

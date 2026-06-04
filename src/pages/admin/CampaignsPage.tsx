@@ -7,7 +7,9 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Loader2, Plus, Megaphone, Search, Filter, ArrowUpDown } from 'lucide-react'
+import { Loader2, Plus, Megaphone, Search, Filter, ArrowUpDown, Download, X, AlertTriangle, Building2 } from 'lucide-react'
+import { saveAs } from 'file-saver'
+import { toast } from '@/components/shared/Toast'
 import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_CONFIG, type CampaignStatus } from '@/lib/constants'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 
@@ -28,6 +30,7 @@ export function CampaignsPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'all'>('all')
+  const [clientFilter, setClientFilter] = useState<string>('all')
   const [sort, setSort] = useState<SortOption>('newest')
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   useListPageHotkeys('/admin/campaigns/new')
@@ -69,12 +72,38 @@ export function CampaignsPage() {
     return counts
   }, [campaigns])
 
+  const uniqueClients = useMemo(() => {
+    if (!campaigns) return []
+    const map = new Map<string, string>()
+    for (const c of campaigns) {
+      if (c.client_id && c.clients?.company_name) {
+        map.set(c.client_id, c.clients.company_name)
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+  }, [campaigns])
+
+  const hasActiveFilters = !!debouncedSearch.trim() || statusFilter !== 'all' || clientFilter !== 'all'
+
+  function resetFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setStatusFilter('all')
+    setClientFilter('all')
+  }
+
   const filtered = useMemo(() => {
     if (!campaigns) return []
     let result = campaigns
 
     if (statusFilter !== 'all') {
       result = result.filter((c) => c.status === statusFilter)
+    }
+
+    if (clientFilter !== 'all') {
+      result = result.filter((c) => c.client_id === clientFilter)
     }
 
     if (debouncedSearch.trim()) {
@@ -100,26 +129,59 @@ export function CampaignsPage() {
     })
 
     return result
-  }, [campaigns, statusFilter, debouncedSearch, sort])
+  }, [campaigns, statusFilter, clientFilter, debouncedSearch, sort])
+
+  function isOverdue(c: { end_date: string; status: string }): boolean {
+    if (c.status === 'completed' || c.status === 'archived' || c.status === 'cancelled') return false
+    return new Date(c.end_date).getTime() < Date.now()
+  }
+
+  function handleExportCSV() {
+    if (!filtered.length) return
+    const headers = ['Nom', 'Client', 'Statut', 'Début', 'Fin', 'Panneaux posés', 'Cible', 'Budget']
+    const rows = filtered.map((c) => [
+      c.name,
+      c.clients?.company_name ?? '',
+      CAMPAIGN_STATUS_CONFIG[c.status as CampaignStatus]?.label ?? c.status,
+      new Date(c.start_date).toLocaleDateString('fr-FR'),
+      new Date(c.end_date).toLocaleDateString('fr-FR'),
+      String(panelCounts.get(c.id) ?? 0),
+      c.target_panel_count != null ? String(c.target_panel_count) : '',
+      c.budget != null ? String(c.budget) : '',
+    ])
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';'))
+      .join('\n')
+    saveAs(
+      new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }),
+      `campagnes-${new Date().toISOString().slice(0, 10)}.csv`,
+    )
+    toast('CSV exporté')
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Campagnes</h1>
           <span className="text-sm text-muted-foreground">
-            {filtered.length}{statusFilter !== 'all' || debouncedSearch ? ` / ${campaigns?.length ?? 0}` : ''} campagne{(campaigns?.length ?? 0) !== 1 ? 's' : ''}
+            {filtered.length}{hasActiveFilters ? ` / ${campaigns?.length ?? 0}` : ''} campagne{(campaigns?.length ?? 0) !== 1 ? 's' : ''}
           </span>
         </div>
-        <Button size="sm" onClick={() => navigate('/admin/campaigns/new')}>
-          <Plus className="mr-1.5 size-4" />
-          Nouvelle campagne
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
+            <Download className="mr-1.5 size-3.5" /> CSV
+          </Button>
+          <Button size="sm" onClick={() => navigate('/admin/campaigns/new')}>
+            <Plus className="mr-1.5 size-4" />
+            Nouvelle campagne
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -135,11 +197,24 @@ export function CampaignsPage() {
             onChange={(e) => setStatusFilter(e.target.value as CampaignStatus | 'all')}
             className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
-            <option value="all">Tous les statuts ({campaigns?.length ?? 0})</option>
+            <option value="all">Tous statuts ({campaigns?.length ?? 0})</option>
             {CAMPAIGN_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {CAMPAIGN_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
               </option>
+            ))}
+          </select>
+        </div>
+        <div className="relative">
+          <Building2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="all">Tous clients</option>
+            {uniqueClients.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
@@ -155,6 +230,15 @@ export function CampaignsPage() {
             ))}
           </select>
         </div>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-4" />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       {/* List */}
@@ -180,7 +264,7 @@ export function CampaignsPage() {
                     <th className="hidden px-4 py-3 font-medium md:table-cell">Période</th>
                     <th className="px-4 py-3 font-medium">Statut</th>
                     <th className="hidden px-4 py-3 font-medium sm:table-cell">Panneaux</th>
-                    <th className="hidden px-4 py-3 font-medium lg:table-cell">Budget</th>
+                    <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Budget</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -189,6 +273,8 @@ export function CampaignsPage() {
                     const clientName = campaign.clients?.company_name ?? ''
                     const panelCount = panelCounts.get(campaign.id) ?? 0
                     const target = campaign.target_panel_count
+                    const overdue = isOverdue(campaign)
+                    const progress = target && target > 0 ? Math.min(100, Math.round((panelCount / target) * 100)) : null
                     return (
                       <tr
                         key={campaign.id}
@@ -196,36 +282,58 @@ export function CampaignsPage() {
                         className="cursor-pointer transition-colors hover:bg-muted/50"
                       >
                         <td className="px-4 py-3">
-                          <Link
-                            to={`/admin/campaigns/${campaign.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="font-medium text-primary hover:underline"
-                          >
-                            {campaign.name}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              to={`/admin/campaigns/${campaign.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {campaign.name}
+                            </Link>
+                            {overdue && (
+                              <span title="Date de fin dépassée">
+                                <AlertTriangle className="size-3.5 shrink-0 text-red-500" />
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground sm:hidden">{clientName}</p>
                         </td>
                         <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                           {clientName || '—'}
                         </td>
-                        <td className="hidden px-4 py-3 text-xs text-muted-foreground md:table-cell">
-                          {new Date(campaign.start_date).toLocaleDateString('fr-FR')} → {new Date(campaign.end_date).toLocaleDateString('fr-FR')}
+                        <td className="hidden px-4 py-3 text-xs md:table-cell">
+                          <span className={overdue ? 'font-medium text-red-500' : 'text-muted-foreground'}>
+                            {new Date(campaign.start_date).toLocaleDateString('fr-FR')} → {new Date(campaign.end_date).toLocaleDateString('fr-FR')}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}>
                             {status.label}
                           </span>
                         </td>
-                        <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                          {panelCount > 0
-                            ? target
-                              ? `${panelCount}/${target}`
-                              : `${panelCount}`
-                            : target
-                              ? `0/${target}`
-                              : '—'}
+                        <td className="hidden px-4 py-3 sm:table-cell">
+                          {target ? (
+                            <div className="flex w-32 flex-col gap-1">
+                              <div className="flex justify-between text-xs tabular-nums">
+                                <span className="font-medium">{panelCount}</span>
+                                <span className="text-muted-foreground">/ {target}</span>
+                              </div>
+                              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    (progress ?? 0) >= 100 ? 'bg-green-500' : 'bg-primary'
+                                  }`}
+                                  style={{ width: `${progress ?? 0}%` }}
+                                />
+                              </div>
+                            </div>
+                          ) : panelCount > 0 ? (
+                            <span className="text-muted-foreground">{panelCount}</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
-                        <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                        <td className="hidden px-4 py-3 text-right tabular-nums text-muted-foreground md:table-cell">
                           {campaign.budget
                             ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.budget)
                             : '—'}

@@ -60,6 +60,9 @@ export function QuoteDetailPage() {
   const queryClient = useQueryClient()
   const isNew = id === 'new'
 
+  // Prefill client si ?client=<uuid> dans l'URL (raccourci depuis ClientsPage par ex)
+  const prefillClientId = new URLSearchParams(window.location.search).get('client')
+
   const { data: quote, isLoading: quoteLoading } = useQuote(isNew ? undefined : id)
   const { data: existingLines, isLoading: linesLoading } = useQuoteLines(isNew ? undefined : id)
   const { data: clients } = useClients()
@@ -74,7 +77,7 @@ export function QuoteDetailPage() {
   const saveLines = useSaveQuoteLines()
   const profile = useAppStore((s) => s.profile)
 
-  const [clientId, setClientId] = useState('')
+  const [clientId, setClientId] = useState(isNew && prefillClientId ? prefillClientId : '')
   const { data: clientCampaigns } = useClientCampaigns(clientId || undefined)
   const [campaignId, setCampaignId] = useState('')
   const [commercialId, setCommercialId] = useState('')

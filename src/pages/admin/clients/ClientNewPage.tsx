@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useCreateClient, type Client } from '@/hooks/admin/useClients'
 import { useAdmins } from '@/hooks/admin/useUsers'
+import { useUpdateLead } from '@/hooks/admin/useLeads'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -29,13 +30,26 @@ const emptyForm: ClientForm = {
 
 export function ClientNewPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const createClient = useCreateClient()
+  const updateLead = useUpdateLead()
   const { data: admins } = useAdmins()
 
-  const [form, setForm] = useState<ClientForm>(emptyForm)
+  // Prefill depuis un lead converti (location.state injecte par LeadDetailPage)
+  const prefill = (location.state as { prefill?: Partial<ClientForm>; leadId?: string } | null)?.prefill
+  const fromLeadId = (location.state as { prefill?: Partial<ClientForm>; leadId?: string } | null)?.leadId
+
+  const [form, setForm] = useState<ClientForm>({ ...emptyForm, ...prefill })
   const [saving, setSaving] = useState(false)
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ClientForm, string>>>({})
   const [siretLoading, setSiretLoading] = useState(false)
+
+  // Marque le lead comme converti une fois le client cree
+  useEffect(() => {
+    if (!createClient.isSuccess || !fromLeadId) return
+    updateLead.mutate({ id: fromLeadId, status: 'converti' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createClient.isSuccess])
 
   async function lookupSiret() {
     const raw = form.siret?.replace(/\s/g, '')

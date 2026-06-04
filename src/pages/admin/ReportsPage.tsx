@@ -22,6 +22,8 @@ import {
   AlertTriangle,
   UserCheck,
   ExternalLink,
+  FileText,
+  Calendar,
 } from 'lucide-react'
 
 const TABS = [
@@ -153,33 +155,50 @@ export function ReportsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Rapports</h1>
-        <div className="relative">
-          <Button variant="outline" size="sm" onClick={() => setShowExportMenu((v) => !v)}>
-            <Download className="mr-1.5 size-3.5" /> Exporter
-          </Button>
-          {showExportMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
-              <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-md border border-border bg-popover py-1 shadow-lg">
-                <button onClick={() => { exportPanelsCSV(); setShowExportMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                  <Download className="size-3.5" /> CSV Panneaux
-                </button>
-                <button onClick={() => { exportFinancialCSV(); setShowExportMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                  <Download className="size-3.5" /> CSV Factures
-                </button>
-                <button onClick={() => { exportClientsCSV(); setShowExportMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                  <Download className="size-3.5" /> CSV Clients
-                </button>
-                <div className="my-1 border-t border-border" />
-                <div className="flex items-center gap-2 px-3 py-2">
-                  <button onClick={() => { handleExportFEC(); setShowExportMenu(false) }} className="text-sm hover:text-primary">FEC {fecYear}</button>
-                  <Input type="number" min={2020} max={2030} value={fecYear} onChange={(e) => setFecYear(e.target.value)} className="h-7 w-16 text-xs" />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Export CSV — dropdown */}
+          <div className="relative">
+            <Button variant="outline" size="sm" onClick={() => setShowExportMenu((v) => !v)}>
+              <Download className="mr-1.5 size-3.5" /> Export CSV
+            </Button>
+            {showExportMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-md border border-border bg-popover py-1 shadow-lg">
+                  <button onClick={() => { exportPanelsCSV(); setShowExportMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                    <PanelTop className="size-3.5" /> Panneaux
+                  </button>
+                  <button onClick={() => { exportFinancialCSV(); setShowExportMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                    <FileText className="size-3.5" /> Factures
+                  </button>
+                  <button onClick={() => { exportClientsCSV(); setShowExportMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                    <UserCheck className="size-3.5" /> Clients
+                  </button>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
+
+          {/* FEC export — séparé car compta-specific */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-input bg-background pl-3 pr-1.5 text-sm">
+            <Calendar className="size-3.5 text-muted-foreground" />
+            <Input
+              type="number"
+              min={2020}
+              max={2030}
+              value={fecYear}
+              onChange={(e) => setFecYear(e.target.value)}
+              className="h-7 w-16 border-0 px-1 text-xs focus-visible:ring-0"
+            />
+            <button
+              onClick={handleExportFEC}
+              className="rounded-md bg-foreground px-2.5 py-1 text-xs font-medium text-background hover:bg-foreground/90"
+            >
+              FEC
+            </button>
+          </div>
         </div>
       </div>
 
@@ -203,26 +222,39 @@ export function ReportsPage() {
       {activeTab === 'financier' && (
         <>
           {/* Period filter */}
-          <div className="flex flex-wrap items-end gap-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium">Début</label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40 text-sm" />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium">Fin</label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40 text-sm" />
-            </div>
-            <div className="flex gap-2">
-              {[
-                { label: 'Ce mois', fn: () => { setStartDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`); setEndDate(todayStr) } },
-                { label: 'Ce trimestre', fn: () => { setStartDate(getQuarterStart(now)); setEndDate(todayStr) } },
-                { label: 'Cette année', fn: () => { setStartDate(`${now.getFullYear()}-01-01`); setEndDate(todayStr) } },
-                { label: 'Tout', fn: () => { setStartDate('2020-01-01'); setEndDate(todayStr) } },
-              ].map((p) => (
-                <Button key={p.label} variant="outline" size="sm" onClick={p.fn}>{p.label}</Button>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-end gap-4">
+                <div>
+                  <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Début</label>
+                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Fin</label>
+                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40 text-sm" />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Ce mois', fn: () => { setStartDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`); setEndDate(todayStr) } },
+                    { label: 'Ce trimestre', fn: () => { setStartDate(getQuarterStart(now)); setEndDate(todayStr) } },
+                    { label: 'Cette année', fn: () => { setStartDate(`${now.getFullYear()}-01-01`); setEndDate(todayStr) } },
+                    { label: 'Tout', fn: () => { setStartDate('2020-01-01'); setEndDate(todayStr) } },
+                  ].map((p) => (
+                    <Button key={p.label} variant="outline" size="sm" onClick={p.fn}>{p.label}</Button>
+                  ))}
+                </div>
+              </div>
+              {/* Période active visible */}
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Calendar className="size-3" />
+                Du <span className="font-medium text-foreground">{new Date(startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                {' '}au{' '}
+                <span className="font-medium text-foreground">{new Date(endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                {' '}·{' '}
+                <span>{Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86_400_000)} jours</span>
+              </p>
+            </CardContent>
+          </Card>
 
           {/* KPIs */}
           <div className="grid gap-4 sm:grid-cols-3">
@@ -289,7 +321,11 @@ export function ReportsPage() {
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {Object.entries(financialStats.byClient).sort(([, a], [, b]) => b.total - a.total).map(([clientId, row]) => (
-                      <tr key={clientId}>
+                      <tr
+                        key={clientId}
+                        onClick={() => navigate(`/admin/clients/${clientId}`)}
+                        className="cursor-pointer transition-colors hover:bg-muted/50"
+                      >
                         <td className="py-2 font-medium">{row.name}</td>
                         <td className="py-2 text-right tabular-nums text-muted-foreground">{row.count}</td>
                         <td className="py-2 text-right font-medium tabular-nums">{formatCurrency(row.total)}</td>
@@ -419,7 +455,11 @@ export function ReportsPage() {
                   </thead>
                   <tbody className="divide-y divide-border/50">
                     {Object.entries(panelStats.byCity).sort(([, a], [, b]) => b.total - a.total).map(([city, data]) => (
-                      <tr key={city}>
+                      <tr
+                        key={city}
+                        onClick={() => navigate(`/admin/panels?city=${encodeURIComponent(city)}`)}
+                        className="cursor-pointer transition-colors hover:bg-muted/50"
+                      >
                         <td className="py-2 font-medium">{city}</td>
                         <td className="py-2 text-right tabular-nums">{data.total}</td>
                         <td className="py-2 text-right tabular-nums">{data.active}</td>
@@ -483,37 +523,73 @@ export function ReportsPage() {
 
           {/* Operator stats */}
           {operatorStats && operatorStats.length > 0 && (
-            <Card>
-              <CardContent>
-                <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
-                  <UserCheck className="size-4" />
-                  Stats par opérateur
-                </div>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 font-medium text-muted-foreground">Opérateur</th>
-                      <th className="pb-2 text-right font-medium text-muted-foreground">Installations</th>
-                      <th className="pb-2 text-right font-medium text-muted-foreground">Photos</th>
-                      <th className="pb-2 text-right font-medium text-muted-foreground">Dernière activité</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {operatorStats.sort((a, b) => b.panel_count - a.panel_count).map((stat) => {
-                      const user = allUsers?.find((u) => u.id === stat.user_id)
+            <>
+              {/* Stats globales équipe */}
+              <Card>
+                <CardContent>
+                  <h3 className="mb-4 text-sm font-semibold">Total équipe</h3>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {(() => {
+                      const totalInstall = operatorStats.reduce((s, o) => s + o.panel_count, 0)
+                      const totalPhotos = operatorStats.reduce((s, o) => s + o.photo_count, 0)
+                      const activeOps = operatorStats.filter((o) => o.last_activity).length
                       return (
-                        <tr key={stat.user_id}>
-                          <td className="py-2 font-medium">{user?.full_name ?? 'Inconnu'}</td>
-                          <td className="py-2 text-right tabular-nums">{stat.panel_count}</td>
-                          <td className="py-2 text-right tabular-nums">{stat.photo_count}</td>
-                          <td className="py-2 text-right text-xs text-muted-foreground">{stat.last_activity ? new Date(stat.last_activity).toLocaleDateString('fr-FR') : '—'}</td>
-                        </tr>
+                        <>
+                          <div className="text-center">
+                            <p className="text-2xl font-bold tabular-nums">{totalInstall}</p>
+                            <p className="text-xs text-muted-foreground">Installations</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-2xl font-bold tabular-nums">{totalPhotos}</p>
+                            <p className="text-xs text-muted-foreground">Photos</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-2xl font-bold tabular-nums">{activeOps}</p>
+                            <p className="text-xs text-muted-foreground">Opérateurs actifs</p>
+                          </div>
+                        </>
                       )
-                    })}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
+                    <UserCheck className="size-4" />
+                    Stats par opérateur
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left">
+                        <th className="pb-2 font-medium text-muted-foreground">Opérateur</th>
+                        <th className="pb-2 text-right font-medium text-muted-foreground">Installations</th>
+                        <th className="pb-2 text-right font-medium text-muted-foreground">Photos</th>
+                        <th className="pb-2 text-right font-medium text-muted-foreground">Dernière activité</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {operatorStats.sort((a, b) => b.panel_count - a.panel_count).map((stat) => {
+                        const user = allUsers?.find((u) => u.id === stat.user_id)
+                        return (
+                          <tr
+                            key={stat.user_id}
+                            onClick={() => navigate('/admin/users')}
+                            className="cursor-pointer transition-colors hover:bg-muted/50"
+                          >
+                            <td className="py-2 font-medium">{user?.full_name ?? 'Inconnu'}</td>
+                            <td className="py-2 text-right tabular-nums">{stat.panel_count}</td>
+                            <td className="py-2 text-right tabular-nums">{stat.photo_count}</td>
+                            <td className="py-2 text-right text-xs text-muted-foreground">{stat.last_activity ? new Date(stat.last_activity).toLocaleDateString('fr-FR') : '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            </>
           )}
         </>
       )}

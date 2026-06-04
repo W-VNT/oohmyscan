@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   useLead,
+  useLeads,
   useUpdateLead,
   useDeleteLead,
   LEAD_STATUS_LABELS,
@@ -11,7 +12,9 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
-import { ArrowLeft, Loader2, Mail, Trash2, Save } from 'lucide-react'
+import {
+  ArrowLeft, Loader2, Mail, Trash2, Save, ChevronLeft, ChevronRight, UserPlus,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const STATUS_OPTIONS: LeadStatus[] = ['nouveau', 'contacte', 'converti', 'perdu', 'spam']
@@ -39,12 +42,26 @@ export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: lead, isLoading } = useLead(id)
+  const { data: allLeads } = useLeads()
   const updateLead = useUpdateLead()
   const deleteLead = useDeleteLead()
 
   const [status, setStatus] = useState<LeadStatus>('nouveau')
   const [notes, setNotes] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Prev / Next dans l'ordre par defaut (date desc)
+  const { prevId, nextId, currentIndex, total } = useMemo(() => {
+    if (!allLeads || !id) return { prevId: null, nextId: null, currentIndex: -1, total: 0 }
+    const idx = allLeads.findIndex((l) => l.id === id)
+    if (idx === -1) return { prevId: null, nextId: null, currentIndex: -1, total: allLeads.length }
+    return {
+      prevId: idx > 0 ? allLeads[idx - 1].id : null,
+      nextId: idx < allLeads.length - 1 ? allLeads[idx + 1].id : null,
+      currentIndex: idx,
+      total: allLeads.length,
+    }
+  }, [allLeads, id])
 
   useEffect(() => {
     if (lead) {
@@ -96,20 +113,62 @@ export function LeadDetailPage() {
     navigate('/admin/leads')
   }
 
+  function handleConvertToClient() {
+    if (!lead) return
+    navigate('/admin/clients/new', {
+      state: {
+        prefill: {
+          company_name: lead.company ?? lead.name,
+          contact_name: lead.company ? lead.name : null,
+          contact_email: lead.email,
+          city: lead.city ?? null,
+          notes: lead.message ? `Demande initiale : ${lead.message}` : null,
+        },
+        leadId: lead.id,
+      },
+    })
+  }
+
   const mailto = `mailto:${lead.email}?subject=${encodeURIComponent(
     `Re: votre demande sur OOH MY AD !`,
   )}&body=${encodeURIComponent(`Bonjour ${lead.name},\n\n`)}`
 
   return (
     <div className="space-y-6">
-      {/* Back link */}
-      <Link
-        to="/admin/leads"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-3.5" />
-        Tous les leads
-      </Link>
+      {/* Top nav : back + prev/next */}
+      <div className="flex items-center justify-between">
+        <Link
+          to="/admin/leads"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="size-3.5" />
+          Tous les leads
+        </Link>
+
+        {total > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {currentIndex + 1} / {total}
+            </span>
+            <button
+              onClick={() => prevId && navigate(`/admin/leads/${prevId}`)}
+              disabled={!prevId}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Lead précédent"
+            >
+              <ChevronLeft className="size-3.5" />
+            </button>
+            <button
+              onClick={() => nextId && navigate(`/admin/leads/${nextId}`)}
+              disabled={!nextId}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Lead suivant"
+            >
+              <ChevronRight className="size-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -126,13 +185,18 @@ export function LeadDetailPage() {
             </span>
           </div>
           {lead.company && <p className="mt-1 text-sm text-muted-foreground">{lead.company}</p>}
-          <p className="mt-2 text-xs text-muted-foreground">Reçu le {formatFullDate(lead.created_at)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Reçu le {formatFullDate(lead.created_at)}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <a href={mailto} className={cn(buttonVariants({ size: 'sm' }))}>
             <Mail className="mr-1.5 size-3.5" /> Répondre par email
           </a>
+          <Button size="sm" variant="outline" onClick={handleConvertToClient}>
+            <UserPlus className="mr-1.5 size-3.5" /> Convertir en client
+          </Button>
         </div>
       </div>
 

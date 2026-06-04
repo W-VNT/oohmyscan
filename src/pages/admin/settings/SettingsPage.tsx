@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useCompanySettings, useUpdateCompanySettings, type CompanySettings } from '@/hooks/admin/useCompanySettings'
 import { usePanelTypes, useCreatePanelType, useDeletePanelType } from '@/hooks/admin/usePanelTypes'
-import { useServiceCatalog, useCreateServiceItem, useUpdateServiceItem } from '@/hooks/admin/useServiceCatalog'
+import { useServiceCatalog, useCreateServiceItem, useUpdateServiceItem, useDeleteServiceItem } from '@/hooks/admin/useServiceCatalog'
 import { sanitizeHtml } from '@/lib/sanitize'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
-import { Loader2, Plus, Upload, Pencil, Check, X, Star, Mail } from 'lucide-react'
+import { Loader2, Plus, Upload, Pencil, Check, X, Star, Mail, Trash2, Save } from 'lucide-react'
 import { MiniRichEditor } from '@/components/shared/MiniRichEditor'
 import { CgvPdfUploader } from '@/components/admin/CgvPdfUploader'
 import { cn } from '@/lib/utils'
@@ -34,6 +34,14 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>((searchParams.get('tab') as TabKey) || 'entreprise')
 
   function switchTab(tab: TabKey) {
+    if (isDirty) {
+      const ok = window.confirm(
+        'Tu as des modifications non enregistrées. Changer d\'onglet va les perdre. Continuer ?',
+      )
+      if (!ok) return
+      // Reset le form aux valeurs settings actuelles
+      if (settings) setForm(settings)
+    }
     setActiveTab(tab)
     setSearchParams({ tab })
   }
@@ -46,6 +54,9 @@ export function SettingsPage() {
   const { data: services } = useServiceCatalog()
   const createService = useCreateServiceItem()
   const updateService = useUpdateServiceItem()
+  const deleteService = useDeleteServiceItem()
+  const [serviceSearch, setServiceSearch] = useState('')
+  const [confirmDeleteService, setConfirmDeleteService] = useState<string | null>(null)
 
   // Company form
   const [form, setForm] = useState<Partial<CompanySettings>>({})
@@ -339,10 +350,32 @@ export function SettingsPage() {
       {activeTab === 'catalogue' && (
         <Card>
           <CardContent className="space-y-4">
-            <p className="text-sm font-semibold">Catalogue de prestations</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold">Catalogue de prestations</p>
+              <span className="text-xs text-muted-foreground">
+                {services?.length ?? 0} prestation{(services?.length ?? 0) !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {services && services.length > 5 && (
+              <div className="relative">
+                <Input
+                  value={serviceSearch}
+                  onChange={(e) => setServiceSearch(e.target.value)}
+                  placeholder="Rechercher une prestation..."
+                  className="h-9 text-sm"
+                />
+              </div>
+            )}
 
             <div className="space-y-1">
-              {services?.map((s) => (
+              {services
+                ?.filter((s) => {
+                  if (!serviceSearch.trim()) return true
+                  const q = serviceSearch.toLowerCase()
+                  return s.name.replace(/<[^>]+>/g, '').toLowerCase().includes(q)
+                })
+                .map((s) => (
                 <div key={s.id} className="rounded-md px-3 py-2 hover:bg-muted/50">
                   {editingServiceId === s.id ? (
                     <div className="space-y-2">
@@ -365,7 +398,40 @@ export function SettingsPage() {
                       <span className={`flex-1 text-sm [&_p]:my-0 ${!s.is_active ? 'text-muted-foreground line-through' : ''}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(s.name) }} />
                       <span className="text-xs text-muted-foreground">{s.unit}</span>
                       <span className="text-xs text-muted-foreground">{s.default_tva_rate}%</span>
-                      <button onClick={() => startEditService(s)} className="text-muted-foreground hover:text-foreground"><Pencil className="size-3.5" /></button>
+                      <button onClick={() => startEditService(s)} className="text-muted-foreground hover:text-foreground" title="Modifier"><Pencil className="size-3.5" /></button>
+                      {confirmDeleteService === s.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await deleteService.mutateAsync(s.id)
+                                toast('Prestation supprimée')
+                              } catch {
+                                toast('Erreur lors de la suppression', 'error')
+                              } finally {
+                                setConfirmDeleteService(null)
+                              }
+                            }}
+                            className="rounded px-2 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-500/10"
+                          >
+                            Confirmer
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteService(null)}
+                            className="rounded px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
+                          >
+                            Non
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteService(s.id)}
+                          className="text-muted-foreground hover:text-red-600"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -588,6 +654,26 @@ export function SettingsPage() {
               {saveButton()}
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Sticky save bar quand modifs en cours (sauf pour catalogue/types qui ont leur propre logique) */}
+      {isDirty && activeTab !== 'catalogue' && activeTab !== 'types' && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-md">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="size-2 animate-pulse rounded-full bg-orange-500" />
+              <span className="text-sm font-medium">Modifications non enregistrées</span>
+            </div>
+            <Button onClick={saveCompany} disabled={savingCompany}>
+              {savingCompany ? (
+                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+              ) : (
+                <Save className="mr-1.5 size-3.5" />
+              )}
+              Enregistrer
+            </Button>
+          </div>
         </div>
       )}
     </div>

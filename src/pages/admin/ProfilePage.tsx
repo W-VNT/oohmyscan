@@ -10,7 +10,27 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from '@/components/shared/Toast'
-import { Loader2, Pencil, Check, X, User, Lock, Sun, Moon, Monitor, Camera, LogOut } from 'lucide-react'
+import { Loader2, Pencil, Check, X, User, Lock, Sun, Moon, Monitor, Camera, LogOut, Shield } from 'lucide-react'
+import { applyTheme, computeIsDark } from '@/components/shared/DynamicTheme'
+
+/** Couleur déterministe pour l'avatar fallback à partir du nom. */
+function colorFromName(name: string): string {
+  const palette = [
+    'bg-blue-500',
+    'bg-purple-500',
+    'bg-pink-500',
+    'bg-amber-500',
+    'bg-cyan-500',
+    'bg-indigo-500',
+    'bg-rose-500',
+    'bg-emerald-500',
+    'bg-teal-500',
+    'bg-orange-500',
+  ]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0
+  return palette[Math.abs(hash) % palette.length]
+}
 
 export function ProfilePage() {
   const { session, profile, signOut } = useAuth()
@@ -98,7 +118,7 @@ export function ProfilePage() {
     }
   }
 
-  // Theme
+  // Theme — partage la logique avec DynamicTheme (helpers exportes)
   const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system'
   })
@@ -106,9 +126,8 @@ export function ProfilePage() {
   function setTheme(t: 'light' | 'dark' | 'system') {
     setThemeState(t)
     localStorage.setItem('theme', t)
-    const isDark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    document.documentElement.classList.toggle('dark', isDark)
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#0A0A0A' : '#FFFFFF')
+    // Sur les routes app (admin/profile), computeIsDark(false) lit le localStorage
+    applyTheme(computeIsDark(false))
   }
 
   // Password
@@ -159,7 +178,11 @@ export function ProfilePage() {
             >
               <Avatar className="size-16">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt="Avatar" />}
-                <AvatarFallback className="text-lg font-semibold">{initials}</AvatarFallback>
+                <AvatarFallback
+                  className={`text-lg font-semibold text-white ${colorFromName(profile?.full_name ?? '?')}`}
+                >
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="absolute -bottom-0.5 -right-0.5 flex size-6 items-center justify-center rounded-full border-2 border-background bg-foreground">
                 {uploadingAvatar ? (
@@ -206,7 +229,18 @@ export function ProfilePage() {
                 </div>
               )}
               <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
-              <p className="text-xs text-muted-foreground capitalize">{profile?.role ?? '—'}</p>
+              {profile?.role && (
+                <span
+                  className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
+                    profile.role === 'admin'
+                      ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300'
+                      : 'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-500/20 dark:bg-gray-500/10 dark:text-gray-300'
+                  }`}
+                >
+                  <Shield className="size-3" />
+                  {profile.role === 'admin' ? 'Administrateur' : 'Opérateur'}
+                </span>
+              )}
             </div>
           </div>
         </CardContent>

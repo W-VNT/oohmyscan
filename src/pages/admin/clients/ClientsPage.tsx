@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone, Download, Upload, X } from 'lucide-react'
+import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone, Download, Upload, X, FileText } from 'lucide-react'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 import { saveAs } from 'file-saver'
 import { useCreateClient } from '@/hooks/admin/useClients'
@@ -40,6 +40,8 @@ export function ClientsPage() {
   const [importing, setImporting] = useState(false)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [campaignFilter, setCampaignFilter] = useState<'all' | 'with' | 'without'>('all')
+  const [soldeFilter, setSoldeFilter] = useState<'all' | 'with_solde'>('all')
   const [sort, setSort] = useState<SortOption>('name')
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -104,6 +106,20 @@ export function ClientsPage() {
     }
   }, [clients])
 
+  const hasActiveFilters =
+    !!debouncedSearch.trim() ||
+    statusFilter !== 'all' ||
+    campaignFilter !== 'all' ||
+    soldeFilter !== 'all'
+
+  function resetFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setStatusFilter('all')
+    setCampaignFilter('all')
+    setSoldeFilter('all')
+  }
+
   // Filter + search + sort
   const filtered = useMemo(() => {
     if (!clients) return []
@@ -111,6 +127,11 @@ export function ClientsPage() {
 
     if (statusFilter === 'active') result = result.filter((c) => c.is_active)
     if (statusFilter === 'inactive') result = result.filter((c) => !c.is_active)
+
+    if (campaignFilter === 'with') result = result.filter((c) => (campaignCounts.get(c.id) ?? 0) > 0)
+    if (campaignFilter === 'without') result = result.filter((c) => (campaignCounts.get(c.id) ?? 0) === 0)
+
+    if (soldeFilter === 'with_solde') result = result.filter((c) => (clientFinance?.get(c.id)?.pending ?? 0) > 0)
 
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase()
@@ -134,7 +155,7 @@ export function ClientsPage() {
     })
 
     return result
-  }, [clients, statusFilter, debouncedSearch, sort])
+  }, [clients, statusFilter, campaignFilter, soldeFilter, campaignCounts, clientFinance, debouncedSearch, sort])
 
   function handleToggleActive(client: Client) {
     if (client.is_active) {
@@ -225,14 +246,16 @@ export function ClientsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Clients</h1>
           <span className="text-sm text-muted-foreground">
-            {clients?.length ?? 0} client{(clients?.length ?? 0) !== 1 ? 's' : ''}
+            {filtered.length}
+            {hasActiveFilters && ` / ${clients?.length ?? 0}`} client
+            {(hasActiveFilters ? (clients?.length ?? 0) : filtered.length) !== 1 ? 's' : ''}
           </span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={handleExportCSV}>
             <Download className="mr-1.5 size-3.5" /> CSV
           </Button>
@@ -276,8 +299,8 @@ export function ClientsPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -298,6 +321,23 @@ export function ClientsPage() {
             <option value="inactive">Inactifs ({statusCounts.inactive})</option>
           </select>
         </div>
+        <select
+          value={campaignFilter}
+          onChange={(e) => setCampaignFilter(e.target.value as 'all' | 'with' | 'without')}
+          className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">Campagne : tous</option>
+          <option value="with">Avec campagne</option>
+          <option value="without">Sans campagne</option>
+        </select>
+        <select
+          value={soldeFilter}
+          onChange={(e) => setSoldeFilter(e.target.value as 'all' | 'with_solde')}
+          className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">Solde : tous</option>
+          <option value="with_solde">Avec solde dû</option>
+        </select>
         <div className="relative">
           <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <select
@@ -310,6 +350,15 @@ export function ClientsPage() {
             ))}
           </select>
         </div>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-4" />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       {/* Table -- Columns: Societe | Contact | Ville | CA | Solde | Statut */}
@@ -320,21 +369,22 @@ export function ClientsPage() {
               <thead>
                 <tr className="border-b border-border text-left">
                   <th className="px-4 py-3 font-medium text-muted-foreground">Société</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Contact</th>
+                  <th className="hidden px-4 py-3 font-medium text-muted-foreground lg:table-cell">Contact</th>
                   <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Ville</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground text-right lg:table-cell">CA</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground text-right lg:table-cell">Solde</th>
+                  <th className="hidden px-4 py-3 font-medium text-muted-foreground text-right md:table-cell">CA</th>
+                  <th className="hidden px-4 py-3 font-medium text-muted-foreground text-right md:table-cell">Solde</th>
                   <th className="px-4 py-3 text-center font-medium text-muted-foreground">Statut</th>
+                  <th className="w-12 px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <EmptyState
                         icon={Building2}
-                        title={debouncedSearch || statusFilter !== 'all' ? 'Aucun client trouvé' : 'Aucun client pour le moment'}
-                        action={!debouncedSearch && statusFilter === 'all' ? { label: 'Nouveau client', onClick: () => navigate('/admin/clients/new') } : undefined}
+                        title={hasActiveFilters ? 'Aucun client trouvé' : 'Aucun client pour le moment'}
+                        action={!hasActiveFilters ? { label: 'Nouveau client', onClick: () => navigate('/admin/clients/new') } : undefined}
                       />
                     </td>
                   </tr>
@@ -364,20 +414,20 @@ export function ClientsPage() {
                             <span className="text-xs text-muted-foreground">Inactif</span>
                           )}
                         </td>
-                        <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                        <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
                           {client.contact_name || '—'}
                         </td>
                         <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                           {client.city || '—'}
                         </td>
-                        <td className="hidden px-4 py-3 text-right tabular-nums lg:table-cell">
+                        <td className="hidden px-4 py-3 text-right tabular-nums md:table-cell">
                           {ca > 0 ? (
                             <span className="font-medium text-foreground">{formatCurrency(ca)}</span>
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="hidden px-4 py-3 text-right tabular-nums lg:table-cell">
+                        <td className="hidden px-4 py-3 text-right tabular-nums md:table-cell">
                           {solde > 0 ? (
                             <span className="font-medium text-red-600">{formatCurrency(solde)}</span>
                           ) : (
@@ -416,6 +466,19 @@ export function ClientsPage() {
                             </button>
                           )}
                         </td>
+                        <td className="px-2 py-3 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/admin/quotes/new?client=${client.id}`)
+                            }}
+                            title="Créer un devis"
+                            className="inline-flex h-7 items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                          >
+                            <FileText className="size-3" />
+                            Devis
+                          </button>
+                        </td>
                       </tr>
                     )
                   })
@@ -426,10 +489,6 @@ export function ClientsPage() {
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground">
-        {filtered.length} client{filtered.length !== 1 ? 's' : ''}
-        {(debouncedSearch || statusFilter !== 'all') && ` sur ${clients?.length ?? 0}`}
-      </p>
     </div>
   )
 }

@@ -5,9 +5,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Receipt, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Clock, Download, Archive } from 'lucide-react'
+import { Receipt, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Clock, Download, Archive, X, Building2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { INVOICE_STATUSES, INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, type InvoiceStatus, type InvoiceType } from '@/lib/constants'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
+import { useClients } from '@/hooks/admin/useClients'
 
 type SortOption = 'newest' | 'oldest' | 'due_date' | 'amount_desc' | 'amount_asc' | 'number'
 
@@ -44,9 +45,18 @@ export function InvoicesPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>('all')
+  const [clientFilter, setClientFilter] = useState<string>('all')
   const [sort, setSort] = useState<SortOption>('newest')
-  const [showArchived, setShowArchived] = useState(false)
-  const { data: paginatedData, isLoading } = usePaginatedInvoices(page, debouncedSearch, statusFilter, sort, showArchived)
+  const [archiveMode, setArchiveMode] = useState<'active' | 'archived' | 'all'>('active')
+  const { data: clientsList } = useClients()
+  const { data: paginatedData, isLoading } = usePaginatedInvoices(
+    page,
+    debouncedSearch,
+    statusFilter,
+    sort,
+    archiveMode,
+    clientFilter,
+  )
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   useListPageHotkeys('/admin/invoices/new')
 
@@ -76,7 +86,21 @@ export function InvoicesPage() {
   const totalPages = Math.ceil(total / 25)
 
   // Reset page when filters change
-  useEffect(() => { setPage(0) }, [debouncedSearch, statusFilter, sort, showArchived])
+  useEffect(() => { setPage(0) }, [debouncedSearch, statusFilter, sort, archiveMode, clientFilter])
+
+  const hasActiveFilters =
+    !!debouncedSearch.trim() ||
+    statusFilter !== 'all' ||
+    clientFilter !== 'all' ||
+    archiveMode !== 'active'
+
+  function resetFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setStatusFilter('all')
+    setClientFilter('all')
+    setArchiveMode('active')
+  }
 
   const filteredTotal = useMemo(() => {
     return filtered.reduce((sum, inv) => sum + inv.total_ttc, 0)
@@ -115,14 +139,14 @@ export function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">Factures</h1>
           <span className="text-sm text-muted-foreground">
-            {filtered.length}{(statusFilter !== 'all' || debouncedSearch) ? ` / ${invoices?.length ?? 0}` : ''} facture{(invoices?.length ?? 0) !== 1 ? 's' : ''}
+            {filtered.length}{hasActiveFilters ? ` / ${invoices?.length ?? 0}` : ''} facture{(invoices?.length ?? 0) !== 1 ? 's' : ''}
           </span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
             <Download className="mr-1.5 size-3.5" /> CSV
           </Button>
@@ -134,8 +158,8 @@ export function InvoicesPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -151,12 +175,37 @@ export function InvoicesPage() {
             onChange={(e) => setStatusFilter(e.target.value as InvoiceStatus | 'all')}
             className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
           >
-            <option value="all">Tous les statuts ({invoices?.length ?? 0})</option>
+            <option value="all">Tous statuts ({invoices?.length ?? 0})</option>
             {INVOICE_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {INVOICE_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
               </option>
             ))}
+          </select>
+        </div>
+        <div className="relative">
+          <Building2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="all">Tous clients</option>
+            {clientsList?.map((c) => (
+              <option key={c.id} value={c.id}>{c.company_name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="relative">
+          <Archive className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={archiveMode}
+            onChange={(e) => setArchiveMode(e.target.value as 'active' | 'archived' | 'all')}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="active">Actifs</option>
+            <option value="archived">Archivés</option>
+            <option value="all">Tous</option>
           </select>
         </div>
         <div className="relative">
@@ -171,13 +220,15 @@ export function InvoicesPage() {
             ))}
           </select>
         </div>
-        <button
-          onClick={() => setShowArchived((v) => !v)}
-          className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors ${showArchived ? 'border-primary bg-primary/10 text-primary' : 'border-input text-muted-foreground hover:text-foreground'}`}
-        >
-          <Archive className="size-3.5" />
-          Archives
-        </button>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-4" />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       <Card>
@@ -199,7 +250,7 @@ export function InvoicesPage() {
                   <tr>
                     <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                       <Receipt className="mx-auto mb-2 size-8" />
-                      {debouncedSearch || statusFilter !== 'all' ? 'Aucune facture trouvée' : 'Aucune facture pour le moment'}
+                      {hasActiveFilters ? 'Aucune facture trouvée' : 'Aucune facture pour le moment'}
                     </td>
                   </tr>
                 ) : (
@@ -258,27 +309,29 @@ export function InvoicesPage() {
       </Card>
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
           <span>
-            {total} facture{total !== 1 ? 's' : ''} · Total page : {formatCurrency(filteredTotal)}
+            {total} facture{total !== 1 ? 's' : ''} · Total page : <span className="font-medium tabular-nums text-foreground">{formatCurrency(filteredTotal)}</span>
           </span>
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="rounded border border-input px-2 py-1 text-xs disabled:opacity-50"
-              >
-                ←
-              </button>
-              <span>{page + 1} / {totalPages}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-                className="rounded border border-input px-2 py-1 text-xs disabled:opacity-50"
-              >
-                →
-              </button>
+              <span>Page {page + 1} / {totalPages}</span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="inline-flex items-center rounded-lg border border-input px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-muted"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="inline-flex items-center rounded-lg border border-input px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-muted"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
             </div>
           )}
         </div>

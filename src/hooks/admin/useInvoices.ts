@@ -32,10 +32,11 @@ export function usePaginatedInvoices(
   search: string,
   status: string,
   sort: string,
-  showArchived: boolean,
+  archiveMode: 'active' | 'archived' | 'all',
+  clientId: string,
 ) {
   return useQuery({
-    queryKey: ['invoices', 'paginated', page, search, status, sort, showArchived],
+    queryKey: ['invoices', 'paginated', page, search, status, sort, archiveMode, clientId],
     queryFn: async () => {
       // Auto-mark overdue
       await supabase
@@ -48,11 +49,24 @@ export function usePaginatedInvoices(
         .from('invoices')
         .select('*, clients!invoices_client_id_fkey(company_name)', { count: 'exact' })
 
-      if (!showArchived) query = query.eq('is_archived', false)
+      if (archiveMode === 'active') query = query.eq('is_archived', false)
+      else if (archiveMode === 'archived') query = query.eq('is_archived', true)
       if (status && status !== 'all') query = query.eq('status', status as 'draft')
+      if (clientId && clientId !== 'all') query = query.eq('client_id', clientId)
       if (search.trim()) {
-        const q = `%${search.trim()}%`
-        query = query.or(`invoice_number.ilike.${q}`)
+        const escaped = search.trim().replace(/[%_\\]/g, (c) => `\\${c}`).replace(/[,()]/g, '')
+        const q = `%${escaped}%`
+        // Recherche par invoice_number OU nom de client
+        const { data: matchingClients } = await supabase
+          .from('clients')
+          .select('id')
+          .ilike('company_name', q)
+        const clientIds = (matchingClients ?? []).map((c) => c.id)
+        if (clientIds.length > 0) {
+          query = query.or(`invoice_number.ilike.${q},client_id.in.(${clientIds.join(',')})`)
+        } else {
+          query = query.ilike('invoice_number', q)
+        }
       }
 
       switch (sort) {

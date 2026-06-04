@@ -4,6 +4,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/hooks/useAuth'
 import { usePotentialRequests } from '@/hooks/admin/usePotentialRequests'
+import { useLeads } from '@/hooks/admin/useLeads'
 import {
   PanelTop,
   Megaphone,
@@ -61,6 +62,7 @@ export function DashboardPage() {
   const { data: conversionRate } = useQuoteConversionRate()
   const { data: recentInvoices } = useRecentInvoices()
   const { data: potentialRequests } = usePotentialRequests()
+  const { data: leads } = useLeads()
 
   const [caMode, setCaMode] = useState<'month' | 'total'>('month')
 
@@ -89,24 +91,27 @@ export function DashboardPage() {
 
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
   const draftPotentials = potentialRequests?.filter((r) => r.status === 'draft').length ?? 0
+  const newLeadsCount = leads?.filter((l) => l.status === 'nouveau' && !l.is_read).length ?? 0
+  const totalLeadsCount = leads?.length ?? 0
+  const isFirstTime = ps.total === 0 && cs.total === 0 && inv.totalPaidCount === 0 && totalLeadsCount === 0
 
   return (
     <div className="space-y-6">
       {/* Header with greeting + quick actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold">
             {firstName ? `Bonjour, ${firstName}` : 'Tableau de bord'}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link to="/admin/quotes/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
             <Plus className="size-4" /> Devis
           </Link>
-          <Link to="/admin/invoices/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
+          <Link to="/admin/invoices/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted">
             <Plus className="size-4" /> Facture
           </Link>
           <Link to="/admin/campaigns/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted">
@@ -115,8 +120,53 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* Empty state pour les nouvelles installations */}
+      {isFirstTime && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
+              <Megaphone className="size-6 text-primary" />
+            </div>
+            <h2 className="text-base font-semibold">Bienvenue sur OOH MY AD !</h2>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Aucune donnée pour le moment. Commencez par créer votre premier client, importer
+              vos panneaux ou lancer une campagne.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link to="/admin/clients/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+                <Plus className="size-4" /> Nouveau client
+              </Link>
+              <Link to="/admin/panels" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted">
+                <PanelTop className="size-4" /> Voir les panneaux
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+        <Link to="/admin/leads" className="group rounded-xl transition-all hover:ring-2 hover:ring-blue-500/20">
+          <Card className={`h-full overflow-hidden ${newLeadsCount > 0 ? 'border-blue-200 dark:border-blue-500/30' : ''}`}>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Leads</p>
+                  <p className={`mt-2 text-3xl font-bold tabular-nums ${newLeadsCount > 0 ? 'text-blue-600' : ''}`}>
+                    {newLeadsCount}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {newLeadsCount > 0 ? 'nouveau(x) à traiter' : `${totalLeadsCount} au total`}
+                  </p>
+                </div>
+                <div className={`flex size-10 items-center justify-center rounded-lg ${newLeadsCount > 0 ? 'bg-blue-500/10' : 'bg-muted/80'}`}>
+                  <Inbox className={`size-5 ${newLeadsCount > 0 ? 'text-blue-600' : 'text-foreground/60'}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
         <Link to="/admin/panels" className="group rounded-xl transition-all hover:ring-2 hover:ring-primary/20">
           <Card className="h-full overflow-hidden">
             <CardContent className="p-5">
@@ -207,8 +257,8 @@ export function DashboardPage() {
         </Link>
       </div>
 
-      {/* Alerts */}
-      {(ps.missing > 0 || inv.totalOverdueCount > 0 || cs.endingSoon.length > 0 || draftPotentials > 0) && (
+      {/* Alerts — actions critiques uniquement (les campagnes a echeance ont leur propre card en dessous) */}
+      {(ps.missing > 0 || inv.totalOverdueCount > 0 || draftPotentials > 0) && (
         <div className="space-y-2">
           {ps.missing > 0 && (
             <Link
@@ -231,20 +281,6 @@ export function DashboardPage() {
                 <strong>{inv.totalOverdueCount}</strong> facture{inv.totalOverdueCount !== 1 ? 's' : ''} en retard —{' '}
                 {formatCurrency(inv.totalOverdueTTC)}
               </span>
-            </Link>
-          )}
-          {cs.endingSoon.length > 0 && (
-            <Link
-              to="/admin/campaigns"
-              className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm transition-colors hover:bg-blue-100 dark:border-blue-900/50 dark:bg-blue-950/30 dark:hover:bg-blue-950/50"
-            >
-              <CalendarClock className="size-4 shrink-0 text-blue-600" />
-              <div className="min-w-0 text-blue-800 dark:text-blue-300">
-                <strong>{cs.endingSoon.length}</strong> campagne{cs.endingSoon.length !== 1 ? 's' : ''} se termine{cs.endingSoon.length !== 1 ? 'nt' : ''} dans moins de 7 jours
-                <p className="mt-0.5 truncate text-[12px] text-blue-600/80 dark:text-blue-400/80">
-                  {cs.endingSoon.map((c) => c.name).join(', ')}
-                </p>
-              </div>
             </Link>
           )}
           {draftPotentials > 0 && (
@@ -304,12 +340,7 @@ export function DashboardPage() {
         {/* Recent activity */}
         <Card>
           <CardContent className="pt-5 pb-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Activité récente</h3>
-              <Link to="/admin/panels" className="text-[11px] font-medium text-primary hover:underline">
-                Voir tout
-              </Link>
-            </div>
+            <h3 className="text-sm font-semibold">Activité récente</h3>
             {activityLoading ? (
               <div className="flex justify-center py-4">
                 <Loader2 className="size-4 animate-spin text-muted-foreground" />

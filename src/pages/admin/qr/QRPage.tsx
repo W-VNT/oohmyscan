@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/shared/Toast'
-import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive, X, Trash2, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive, X, Trash2, Download, ChevronLeft, ChevronRight, Filter, ArrowUpDown, CheckSquare } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 import { pdf } from '@react-pdf/renderer'
 import { DymoQRPDF } from '@/lib/pdf/DymoQRPDF'
@@ -85,6 +85,18 @@ export function QRPage() {
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  const hasActiveFilters = !!debouncedSearch.trim() || filter !== 'all'
+
+  function resetFilters() {
+    setSearch('')
+    setDebouncedSearch('')
+    setFilter('all')
+  }
+
+  function selectAllFiltered() {
+    setSelected(new Set(filtered.map((i) => i.id)))
+  }
 
   async function handleGenerate() {
     if (generateCount < 1 || generateCount > 500) {
@@ -190,10 +202,14 @@ export function QRPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">QR Codes</h1>
-          <span className="text-sm text-muted-foreground">{qrItems?.length ?? 0}</span>
+          <span className="text-sm text-muted-foreground">
+            {filtered.length}
+            {hasActiveFilters && ` / ${qrItems?.length ?? 0}`} QR code
+            {(hasActiveFilters ? (qrItems?.length ?? 0) : filtered.length) !== 1 ? 's' : ''}
+          </span>
         </div>
         <div className="relative">
           <Button onClick={() => setShowGenerate((v) => !v)}>
@@ -264,38 +280,67 @@ export function QRPage() {
         </Card>
       </div>
 
-      {/* Filters + Selection actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      {/* Filters — pattern coherent avec les autres pages (search + dropdown) */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div className="relative flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Rechercher UUID ou panneau..." className="h-9 pl-9 text-sm" />
+          <Input
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Rechercher UUID ou panneau..."
+            className="h-9 pl-9 text-sm"
+          />
         </div>
-        <div className="flex gap-1">
-          {(['all', 'available', 'assigned'] as const).map((f) => (
-            <button
-              key={f} onClick={() => setFilter(f)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${filter === f ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'}`}
-            >
-              {f === 'all' ? `Tous (${qrItems?.length ?? 0})` : f === 'available' ? `Dispo (${stats?.available ?? 0})` : `Assignés (${stats?.assigned ?? 0})`}
-            </button>
-          ))}
+        <div className="relative">
+          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as FilterOption)}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="all">Tous ({qrItems?.length ?? 0})</option>
+            <option value="available">Disponibles ({stats?.available ?? 0})</option>
+            <option value="assigned">Assignés ({stats?.assigned ?? 0})</option>
+          </select>
         </div>
-        <select
-          value={sort} onChange={(e) => setSort(e.target.value as SortOption)}
-          className="flex h-9 appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm"
-        >
-          <option value="newest">Plus récents</option>
-          <option value="oldest">Plus anciens</option>
-          <option value="uuid">UUID</option>
-          <option value="status">Statut</option>
-        </select>
+        <div className="relative">
+          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOption)}
+            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+          >
+            <option value="newest">Plus récents</option>
+            <option value="oldest">Plus anciens</option>
+            <option value="uuid">UUID</option>
+            <option value="status">Statut</option>
+          </select>
+        </div>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="size-4" />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       {/* Selection bar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2">
           <span className="text-sm font-medium">{selected.size} sélectionné{selected.size !== 1 ? 's' : ''}</span>
-          <button onClick={() => setSelected(new Set())} className="text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button>
+          <button onClick={() => setSelected(new Set())} className="text-muted-foreground hover:text-foreground" title="Tout désélectionner"><X className="size-3.5" /></button>
+          {selected.size < filtered.length && (
+            <button
+              onClick={selectAllFiltered}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+            >
+              <CheckSquare className="size-3.5" />
+              Tout sélectionner ({filtered.length})
+            </button>
+          )}
           <div className="ml-auto flex gap-2">
             <div className="relative">
               <Button variant="outline" size="sm" onClick={() => setShowExportMenu((v) => !v)} disabled={exporting}>
@@ -344,9 +389,30 @@ export function QRPage() {
             <tbody className="divide-y divide-border/50">
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
-                    <QrCode className="mx-auto mb-2 size-8" />
-                    {debouncedSearch || filter !== 'all' ? 'Aucun QR code trouvé' : 'Aucun QR code généré'}
+                  <td colSpan={6} className="px-4 py-12">
+                    {hasActiveFilters ? (
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <QrCode className="size-8" />
+                        <p>Aucun QR code trouvé</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3 text-center">
+                        <div className="flex size-12 items-center justify-center rounded-full bg-muted/60">
+                          <QrCode className="size-6 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">Aucun QR code généré</h3>
+                          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                            Génère des QR codes pour les imprimer sur étiquettes Dymo et les
+                            scanner sur le terrain via l'app opérateur.
+                          </p>
+                        </div>
+                        <Button size="sm" onClick={() => setShowGenerate(true)}>
+                          <Plus className="mr-1.5 size-4" />
+                          Générer des QR codes
+                        </Button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (

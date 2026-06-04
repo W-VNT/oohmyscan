@@ -25,20 +25,36 @@ export function usePaginatedQuotes(
   search: string,
   status: string,
   sort: string,
-  showArchived: boolean,
+  archiveMode: 'active' | 'archived' | 'all',
+  clientId: string,
+  campaignId: string,
 ) {
   return useQuery({
-    queryKey: ['quotes', 'paginated', page, search, status, sort, showArchived],
+    queryKey: ['quotes', 'paginated', page, search, status, sort, archiveMode, clientId, campaignId],
     queryFn: async () => {
       let query = supabase
         .from('quotes')
         .select('*, clients!quotes_client_id_fkey(company_name), campaigns!quotes_campaign_id_fkey(name)', { count: 'exact' })
 
-      if (!showArchived) query = query.eq('is_archived', false)
+      if (archiveMode === 'active') query = query.eq('is_archived', false)
+      else if (archiveMode === 'archived') query = query.eq('is_archived', true)
       if (status && status !== 'all') query = query.eq('status', status as 'draft')
+      if (clientId && clientId !== 'all') query = query.eq('client_id', clientId)
+      if (campaignId && campaignId !== 'all') query = query.eq('campaign_id', campaignId)
       if (search.trim()) {
-        const q = `%${search.trim()}%`
-        query = query.or(`quote_number.ilike.${q}`)
+        const escaped = search.trim().replace(/[%_\\]/g, (c) => `\\${c}`).replace(/[,()]/g, '')
+        const q = `%${escaped}%`
+        // Recherche par quote_number OU par nom de client (2-step pour join)
+        const { data: matchingClients } = await supabase
+          .from('clients')
+          .select('id')
+          .ilike('company_name', q)
+        const clientIds = (matchingClients ?? []).map((c) => c.id)
+        if (clientIds.length > 0) {
+          query = query.or(`quote_number.ilike.${q},client_id.in.(${clientIds.join(',')})`)
+        } else {
+          query = query.ilike('quote_number', q)
+        }
       }
 
       // Sort
