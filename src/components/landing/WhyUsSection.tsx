@@ -86,8 +86,8 @@ export function WhyUsSection() {
           ))}
         </motion.div>
 
-        {/* Features — compact row */}
-        <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-5">
+        {/* Features — stack mobile, 5 cols desktop */}
+        <div className="mt-10 grid grid-cols-1 gap-3 md:grid-cols-5">
           {FEATURES.map((feat, i) => {
             const Icon = feat.icon
             return (

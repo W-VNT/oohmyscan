@@ -230,15 +230,15 @@ export function ProcessModal({ step, onClose }: ProcessModalProps) {
                   return (
                     <div
                       key={tool.name}
-                      className="rounded-xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4"
+                      className="flex items-center gap-3 rounded-xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-white/[0.04]">
-                          <ToolIcon className="h-4 w-4 text-[#F5C400]/60" />
-                        </div>
-                        <h3 className="text-[14px] font-medium text-[#111111] dark:text-white">{tool.name}</h3>
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-[#F5C400]/25 bg-[#F5C400]/[0.08]">
+                        <ToolIcon className="h-4 w-4 text-[#F5C400]/70" />
                       </div>
-                      <p className="mt-2 ml-11 text-[13px] leading-relaxed text-[#9CA3AF] dark:text-white/35">{tool.desc}</p>
+                      <div className="flex-1">
+                        <h3 className="text-[14px] font-medium text-[#111111] dark:text-white">{tool.name}</h3>
+                        <p className="mt-0.5 text-[13px] leading-relaxed text-[#9CA3AF] dark:text-white/35">{tool.desc}</p>
+                      </div>
                     </div>
                   )
                 })}

@@ -81,11 +81,11 @@ export function ContactSection() {
               )
             })}
 
-            <div className="border-t border-[#E5E5E5] dark:border-white/[0.06] pt-6">
+            <div className="border-t border-[#E5E5E5] dark:border-white/[0.06] pt-6 text-center md:text-left">
               <p className="text-[12px] text-[#6B7280] dark:text-white/50">Ou directement</p>
               <a
                 href="mailto:devis@oohmyad.com"
-                className="mt-1 text-[14px] font-medium text-[#111111] dark:text-white transition-colors hover:text-[#F5C400]"
+                className="mt-1 inline-block text-[14px] font-medium text-[#111111] dark:text-white transition-colors hover:text-[#F5C400]"
               >
                 devis@oohmyad.com
               </a>

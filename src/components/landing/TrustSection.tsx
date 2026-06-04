@@ -39,13 +39,25 @@ export function TrustSection() {
         Ils nous font confiance
       </motion.p>
 
-      {/* Infinite scroll marquee */}
       <div className="group/marquee relative mt-8">
         {/* Fade edges */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-[#FAFAFA] dark:from-[#0A0A0A] to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-[#FAFAFA] dark:from-[#0A0A0A] to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-[#FAFAFA] dark:from-[#0A0A0A] to-transparent md:w-20" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-[#FAFAFA] dark:from-[#0A0A0A] to-transparent md:w-20" />
 
-        <div className="flex animate-[marquee_25s_linear_infinite] group-hover/marquee:[animation-play-state:paused] motion-reduce:[animation-play-state:paused]">
+        {/* Mobile : scroll horizontal manuel (swipe) */}
+        <div className="flex gap-3 overflow-x-auto px-6 pb-2 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:hidden">
+          {CLIENTS.map((name) => (
+            <span
+              key={name}
+              className="flex-shrink-0 rounded-lg border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] px-5 py-2 text-[13px] font-medium tracking-wide text-[#6B7280] dark:text-white/60"
+            >
+              {name}
+            </span>
+          ))}
+        </div>
+
+        {/* Desktop : marquee infinie automatique */}
+        <div className="hidden md:flex animate-[marquee_25s_linear_infinite] group-hover/marquee:[animation-play-state:paused] motion-reduce:[animation-play-state:paused]">
           {[...CLIENTS, ...CLIENTS, ...CLIENTS, ...CLIENTS].map((name, i) => (
             <span
               key={i}

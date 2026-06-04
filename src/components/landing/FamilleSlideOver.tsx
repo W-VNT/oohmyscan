@@ -96,7 +96,7 @@ export function FamilleSlideOver({ famille, onClose }: FamilleSlideOverProps) {
 
               {/* Stats */}
               {famille.stats.length > 0 && (
-                <div className="mt-6 grid grid-cols-2 gap-3">
+                <div className="mt-6 grid grid-cols-2 gap-3 text-center [&>*:nth-child(odd):last-child]:col-span-2">
                   {famille.stats.map((s) => (
                     <div
                       key={s.label}
