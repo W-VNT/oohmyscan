@@ -48,6 +48,8 @@ const CampaignsPage = lazy(() => import('@/pages/admin/CampaignsPage').then((m) 
 const CampaignDetailPage = lazy(() => import('@/pages/admin/CampaignDetailPage').then((m) => ({ default: m.CampaignDetailPage })))
 const CampaignNewPage = lazy(() => import('@/pages/admin/CampaignNewPage').then((m) => ({ default: m.CampaignNewPage })))
 const ClientsPage = lazy(() => import('@/pages/admin/clients/ClientsPage').then((m) => ({ default: m.ClientsPage })))
+const LeadsPage = lazy(() => import('@/pages/admin/leads/LeadsPage').then((m) => ({ default: m.LeadsPage })))
+const LeadDetailPage = lazy(() => import('@/pages/admin/leads/LeadDetailPage').then((m) => ({ default: m.LeadDetailPage })))
 const ClientNewPage = lazy(() => import('@/pages/admin/clients/ClientNewPage').then((m) => ({ default: m.ClientNewPage })))
 const ClientDetailPage = lazy(() => import('@/pages/admin/clients/ClientDetailPage').then((m) => ({ default: m.ClientDetailPage })))
 const QuotesPage = lazy(() => import('@/pages/admin/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })))
@@ -165,6 +167,8 @@ export default function App() {
                   <Route path="clients" element={<ClientsPage />} />
                   <Route path="clients/new" element={<ClientNewPage />} />
                   <Route path="clients/:id" element={<ClientDetailPage />} />
+                  <Route path="leads" element={<LeadsPage />} />
+                  <Route path="leads/:id" element={<LeadDetailPage />} />
                   <Route path="quotes" element={<QuotesPage />} />
                   <Route path="quotes/:id" element={<QuoteDetailPage />} />
                   <Route path="invoices" element={<InvoicesPage />} />

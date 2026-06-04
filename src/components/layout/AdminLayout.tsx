@@ -17,6 +17,7 @@ import {
   Smartphone,
   SearchCheck,
   Landmark,
+  Inbox,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -34,6 +35,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/locations': 'Lieux',
   '/admin/campaigns': 'Campagnes',
   '/admin/clients': 'Clients',
+  '/admin/leads': 'Leads',
   '/admin/quotes': 'Devis',
   '/admin/invoices': 'Factures',
   '/admin/qr': 'QR Codes',
@@ -48,6 +50,7 @@ const navSections = [
   {
     items: [
       { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
+      { to: '/admin/leads', icon: Inbox, label: 'Leads' },
       { to: '/admin/map', icon: MapPin, label: 'Carte' },
     ],
   },

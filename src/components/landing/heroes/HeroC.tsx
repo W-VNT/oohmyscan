@@ -3,15 +3,14 @@ import { motion } from 'framer-motion'
 export function HeroC() {
   return (
     <section className="relative min-h-[85vh] md:min-h-screen overflow-hidden bg-[#F5C400]">
-      {/* Mobile background image — photo en bande centrale, jaune plein en haut & bas */}
+      {/* Mobile background image — photo en bande centrale, jaune plein en haut & bas
+          Le bas est plus opaque pour garder les CTAs et stats parfaitement lisibles */}
       <div className="absolute inset-0 md:hidden">
         <img src="/images/supports/hero.jpg" alt="Supports publicitaires OOH MY AD !" className="h-full w-full object-cover" loading="eager" />
         {/* Tint jaune subtil sur toute la photo */}
-        <div className="absolute inset-0 bg-[#F5C400]/55" />
-        {/* Fade jaune plein en haut */}
-        <div className="absolute inset-x-0 top-0 h-[38%] bg-gradient-to-b from-[#F5C400] via-[#F5C400]/85 to-transparent" />
-        {/* Fade jaune plein en bas */}
-        <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-[#F5C400] via-[#F5C400]/85 to-transparent" />
+        <div className="absolute inset-0 bg-[#F5C400]/50" />
+        {/* Fade jaune plein en bas — zone opaque renforcee pour le contraste des CTAs */}
+        <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-[#F5C400] from-50% to-transparent" />
       </div>
 
       {/* Desktop background image — extends to the viewport right edge so no yellow strip appears beyond the 1400px container */}
@@ -97,7 +96,7 @@ export function HeroC() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.8, delay: 1 }}
-                className="mt-4 text-center text-[12px] text-[#0A0A0A]/60"
+                className="mt-4 text-center text-[12px] font-medium text-[#0A0A0A]/80"
               >
                 Brief gratuit — Réponse sous 24h — Sans engagement
               </motion.p>
@@ -107,7 +106,7 @@ export function HeroC() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1.2, duration: 0.8 }}
-              className="mx-auto mt-16 flex w-full max-w-sm justify-around gap-6 border-t border-[#0A0A0A]/15 pt-8 text-left md:mx-0 md:w-auto md:max-w-none md:justify-start md:gap-10"
+              className="mx-auto mt-16 flex w-full max-w-sm justify-around gap-6 border-t border-[#0A0A0A]/15 pt-8 text-center md:mx-0 md:w-auto md:max-w-none md:justify-start md:gap-10 md:text-left"
             >
               {[
                 { value: '5', label: 'familles de supports' },
