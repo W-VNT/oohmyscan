@@ -24,6 +24,7 @@ export interface CompanySettings {
   default_panel_type_id: string | null
   late_penalty_text: string | null
   terms_and_conditions: string | null
+  terms_and_conditions_pdf_path: string | null
   resend_api_key: string | null
   email_from: string | null
   email_from_name: string | null

@@ -23,6 +23,7 @@ import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { InvoicePDF } from '@/lib/pdf/InvoicePDF'
+import { mergeWithCgvPdf } from '@/lib/pdf/mergeCgv'
 import { INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, PAYMENT_TERMS, PAYMENT_TERMS_LABELS, computeDueDate, type InvoiceStatus, type InvoiceType, type PaymentTerms } from '@/lib/constants'
 import { useDetailPageHotkeys } from '@/hooks/usePageHotkeys'
 import { urlToDataUrl } from '@/lib/image-utils'
@@ -555,7 +556,8 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
         ? depositInvoices.find((d) => d.id === invoice.deposit_invoice_id)?.invoice_number ?? null
         : null
       const logoDataUrl = await getLogoDataUrl()
-      return await pdf(
+      const hasPdfCgv = !!settings.terms_and_conditions_pdf_path
+      const baseBlob = await pdf(
         <InvoicePDF
           invoice={{
             ...invoice,
@@ -582,9 +584,10 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
             ...settings,
             logo_url: logoDataUrl,
           }}
-          termsHtml={settings.terms_and_conditions}
+          termsHtml={hasPdfCgv ? null : settings.terms_and_conditions}
         />,
       ).toBlob()
+      return await mergeWithCgvPdf(baseBlob, settings.terms_and_conditions_pdf_path)
     } catch {
       toast('Erreur lors de la génération du PDF', 'error')
       return null

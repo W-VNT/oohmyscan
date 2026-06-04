@@ -22,6 +22,7 @@ import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
 import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { QuotePDF } from '@/lib/pdf/QuotePDF'
+import { mergeWithCgvPdf } from '@/lib/pdf/mergeCgv'
 import { QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
 import { urlToDataUrl } from '@/lib/image-utils'
 import { Kbd } from '@/components/shared/KeyboardShortcuts'
@@ -334,7 +335,8 @@ export function QuoteDetailPage() {
     }
     try {
       const logoDataUrl = await getLogoDataUrl()
-      return await pdf(
+      const hasPdfCgv = !!settings.terms_and_conditions_pdf_path
+      const baseBlob = await pdf(
         <QuotePDF
           quote={quote}
           contactName={pdfContact.name}
@@ -356,9 +358,10 @@ export function QuoteDetailPage() {
             ...settings,
             logo_url: logoDataUrl,
           }}
-          termsHtml={settings.terms_and_conditions}
+          termsHtml={hasPdfCgv ? null : settings.terms_and_conditions}
         />,
       ).toBlob()
+      return await mergeWithCgvPdf(baseBlob, settings.terms_and_conditions_pdf_path)
     } catch {
       toast('Erreur lors de la génération du PDF', 'error')
       return null

@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
 import { Loader2, Plus, Upload, Pencil, Check, X, Star, Mail } from 'lucide-react'
 import { MiniRichEditor } from '@/components/shared/MiniRichEditor'
+import { CgvPdfUploader } from '@/components/admin/CgvPdfUploader'
 import { cn } from '@/lib/utils'
 
 const RichTextEditor = lazy(() => import('@/components/admin/RichTextEditor').then((m) => ({ default: m.RichTextEditor })))
@@ -432,22 +433,51 @@ export function SettingsPage() {
 
       {/* === TAB: CGV === */}
       {activeTab === 'cgv' && (
-        <Card>
-          <CardContent className="space-y-4">
-            <p className="text-sm font-semibold">Conditions générales de vente</p>
-            <p className="text-xs text-muted-foreground">
-              Ajoutées automatiquement en page 2 des PDF devis et factures.
-            </p>
-            <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="size-4 animate-spin text-muted-foreground" /></div>}>
-              <RichTextEditor
-                content={form.terms_and_conditions ?? ''}
-                onChange={(html) => setForm((f) => ({ ...f, terms_and_conditions: html }))}
-                placeholder="Saisissez vos conditions générales de vente..."
+        <div className="space-y-6">
+          {/* PDF upload */}
+          <Card>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold">PDF CGV (recommandé)</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Si un PDF est uploadé, il sera <strong>ajouté en fin des PDF devis et factures</strong> à
+                  la place du texte enrichi ci-dessous.
+                </p>
+              </div>
+              <CgvPdfUploader
+                currentPath={settings?.terms_and_conditions_pdf_path ?? null}
+                onUploaded={async (path) => {
+                  await updateSettings.mutateAsync({ id: settings!.id, terms_and_conditions_pdf_path: path })
+                  toast('PDF CGV mis à jour')
+                }}
+                onRemoved={async () => {
+                  await updateSettings.mutateAsync({ id: settings!.id, terms_and_conditions_pdf_path: null })
+                  toast('PDF CGV retiré')
+                }}
               />
-            </Suspense>
-            {saveButton()}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Rich text fallback */}
+          <Card>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold">CGV — texte enrichi (fallback)</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Utilisé en page 2 des PDF <strong>uniquement si aucun PDF CGV n'est uploadé</strong>.
+                </p>
+              </div>
+              <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="size-4 animate-spin text-muted-foreground" /></div>}>
+                <RichTextEditor
+                  content={form.terms_and_conditions ?? ''}
+                  onChange={(html) => setForm((f) => ({ ...f, terms_and_conditions: html }))}
+                  placeholder="Saisissez vos conditions générales de vente..."
+                />
+              </Suspense>
+              {saveButton()}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* === TAB: Email === */}
