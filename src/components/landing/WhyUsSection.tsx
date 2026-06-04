@@ -72,7 +72,7 @@ export function WhyUsSection() {
               initial={{ opacity: 0, y: 15 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.1 + i * 0.08 }}
-              className="md:px-8 first:md:pl-0 last:md:pr-0"
+              className="text-center md:px-8 first:md:pl-0 last:md:pr-0"
             >
               <div className="text-3xl font-semibold tabular-nums text-[#111111] dark:text-white md:text-4xl">
                 {inView ? (
@@ -96,9 +96,11 @@ export function WhyUsSection() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={inView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.5, delay: 0.3 + i * 0.08 }}
-                className="rounded-xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 transition-colors hover:border-[#D1D5DB] dark:hover:border-white/[0.1] hover:bg-[#F5F5F5] dark:hover:bg-white/[0.03]"
+                className="rounded-xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 text-center transition-colors hover:border-[#D1D5DB] dark:hover:border-white/[0.1] hover:bg-[#F5F5F5] dark:hover:bg-white/[0.03]"
               >
-                <Icon className="h-4 w-4 text-[#F5C400]/50" />
+                <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg border border-[#F5C400]/25 bg-[#F5C400]/[0.08]">
+                  <Icon className="h-4 w-4 text-[#F5C400]/70" />
+                </div>
                 <h3 className="mt-3 text-[13px] font-medium text-[#111111] dark:text-white">{feat.title}</h3>
                 <p className="mt-1 text-[12px] leading-relaxed text-[#6B7280] dark:text-white/60">{feat.desc}</p>
               </motion.div>
