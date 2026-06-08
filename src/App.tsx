@@ -62,6 +62,7 @@ const PotentialPage = lazy(() => import('@/pages/admin/potential/PotentialPage')
 const PotentialNewPage = lazy(() => import('@/pages/admin/potential/PotentialNewPage').then((m) => ({ default: m.PotentialNewPage })))
 const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 const ProofOfPostingPage = lazy(() => import('@/pages/admin/reports/ProofOfPostingPage').then((m) => ({ default: m.ProofOfPostingPage })))
+const CampaignReportEditorPage = lazy(() => import('@/pages/admin/reports/CampaignReportEditorPage').then((m) => ({ default: m.CampaignReportEditorPage })))
 const AdminProfilePage = lazy(() => import('@/pages/admin/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const LocationsPage = lazy(() => import('@/pages/admin/locations/LocationsPage').then((m) => ({ default: m.LocationsPage })))
@@ -180,6 +181,7 @@ export default function App() {
                   <Route path="users" element={<UsersPage />} />
                   <Route path="reports" element={<ReportsPage />} />
                   <Route path="reports/:campaignId" element={<ProofOfPostingPage />} />
+                  <Route path="campaigns/:campaignId/report" element={<CampaignReportEditorPage />} />
                   <Route path="profile" element={<AdminProfilePage />} />
                   <Route path="settings" element={<SettingsPage />} />
                 </Route>

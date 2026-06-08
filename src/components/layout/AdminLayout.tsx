@@ -113,6 +113,7 @@ export function AdminLayout() {
 
   // Match exact path or parent path for detail pages
   const pageTitle = PAGE_TITLES[pathname] ?? (
+    pathname.match(/^\/admin\/campaigns\/[^/]+\/report$/) ? 'Rapport campagne' :
     pathname.startsWith('/admin/panels/') ? 'Détail panneau' :
     pathname.startsWith('/admin/campaigns/') ? 'Détail campagne' :
     pathname.startsWith('/admin/quotes/') ? 'Détail devis' :
@@ -121,6 +122,9 @@ export function AdminLayout() {
     pathname.startsWith('/admin/reports/') ? 'Justificatif de pose' :
     ''
   )
+
+  // Pages "fullscreen" : retirent le padding du <main> pour utiliser tout l'espace
+  const isFullscreen = !!pathname.match(/^\/admin\/campaigns\/[^/]+\/report$/)
 
   return (
     <div className="flex h-screen bg-background pt-[env(safe-area-inset-top)]">
@@ -212,7 +216,7 @@ export function AdminLayout() {
           {pageTitle && <h2 className="text-sm font-semibold">{pageTitle}</h2>}
           <div className="flex-1" />
         </header>
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className={cn('flex-1 overflow-hidden', isFullscreen ? 'p-0' : 'overflow-y-auto p-6')}>
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>

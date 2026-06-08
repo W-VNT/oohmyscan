@@ -398,6 +398,10 @@ export interface Database {
           default_panel_type_id: string | null
           late_penalty_text: string | null
           terms_and_conditions: string | null
+          default_report_intro_text: string | null
+          report_linkedin_url: string | null
+          report_website_url: string | null
+          default_brand_color: string | null
         }
         Insert: {
           id?: string
@@ -420,6 +424,10 @@ export interface Database {
           potential_prefix?: string
           next_potential_number?: number
           default_panel_type_id?: string | null
+          default_report_intro_text?: string | null
+          report_linkedin_url?: string | null
+          report_website_url?: string | null
+          default_brand_color?: string | null
         }
         Update: {
           id?: string
@@ -442,6 +450,58 @@ export interface Database {
           potential_prefix?: string
           next_potential_number?: number
           default_panel_type_id?: string | null
+          default_report_intro_text?: string | null
+          report_linkedin_url?: string | null
+          report_website_url?: string | null
+          default_brand_color?: string | null
+        }
+        Relationships: []
+      }
+      campaign_reports: {
+        Row: {
+          id: string
+          campaign_id: string
+          slides: unknown
+          intro_text: string | null
+          cover_photo_path: string | null
+          contact_user_id: string | null
+          contact_name_override: string | null
+          contact_email_override: string | null
+          contact_phone_override: string | null
+          brand_color: string | null
+          template_version: number
+          generated_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          slides?: unknown
+          intro_text?: string | null
+          cover_photo_path?: string | null
+          contact_user_id?: string | null
+          contact_name_override?: string | null
+          contact_email_override?: string | null
+          contact_phone_override?: string | null
+          brand_color?: string | null
+          template_version?: number
+          generated_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          slides?: unknown
+          intro_text?: string | null
+          cover_photo_path?: string | null
+          contact_user_id?: string | null
+          contact_name_override?: string | null
+          contact_email_override?: string | null
+          contact_phone_override?: string | null
+          brand_color?: string | null
+          template_version?: number
+          generated_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

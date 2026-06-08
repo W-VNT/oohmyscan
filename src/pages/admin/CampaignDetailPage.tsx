@@ -21,7 +21,9 @@ import {
   Pencil,
   Copy,
   Search,
+  Sparkles,
 } from 'lucide-react'
+import { GenerateReportModal } from '@/components/admin/reports/GenerateReportModal'
 import {
   CAMPAIGN_STATUSES,
   CAMPAIGN_STATUS_CONFIG,
@@ -82,6 +84,7 @@ export function CampaignDetailPage() {
   // Panel assignments pagination & search
   const [panelsExpanded, setPanelsExpanded] = useState(false)
   const [panelSearch, setPanelSearch] = useState('')
+  const [reportModalOpen, setReportModalOpen] = useState(false)
 
   const { data: assignments } = useQuery({
     queryKey: ['campaign-panels', id],
@@ -709,18 +712,35 @@ export function CampaignDetailPage() {
                 </button>
               )}
               {(campaign.status === 'active' || campaign.status === 'completed') && (
-                <Link
-                  to={`/admin/reports/${id}`}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                >
-                  <FileText className="size-4" />
-                  Proof of Posting
-                </Link>
+                <>
+                  <button
+                    onClick={() => setReportModalOpen(true)}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
+                  >
+                    <Sparkles className="size-4" />
+                    Generer rapport campagne
+                  </button>
+                  <Link
+                    to={`/admin/reports/${id}`}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                  >
+                    <FileText className="size-4" />
+                    Editeur libre (legacy)
+                  </Link>
+                </>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {id && (
+        <GenerateReportModal
+          campaignId={id}
+          isOpen={reportModalOpen}
+          onClose={() => setReportModalOpen(false)}
+        />
+      )}
     </div>
   )
 }
