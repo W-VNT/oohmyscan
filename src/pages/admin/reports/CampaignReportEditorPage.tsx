@@ -276,42 +276,72 @@ export function CampaignReportEditorPage() {
   return (
     <BrandColorProvider color={brandColor}>
     <div className="flex h-full flex-col bg-muted/30">
-      {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-border bg-background px-4 py-3">
-        <div className="flex items-center gap-3">
+      {/* Top bar (responsive : mobile = back + nom + export, desktop = tout) */}
+      <div className="flex items-center justify-between gap-2 border-b border-border bg-background px-3 py-2.5 sm:px-4 sm:py-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Link
             to={`/admin/campaigns/${campaignId}`}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
             title="Retour campagne"
           >
             <ArrowLeft className="size-4" />
           </Link>
-          <div>
-            <p className="text-sm font-semibold leading-tight">{campaign?.name ?? '—'}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold leading-tight">{campaign?.name ?? '—'}</p>
             <p className="text-xs text-muted-foreground">Rapport campagne</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <SaveIndicator status={saveStatus} />
-          <BrandColorPicker value={brandColor} onChange={setBrandColor} />
-          <Button variant="outline" size="sm" onClick={handleRegenerate}>
-            <Sparkles className="mr-1.5 size-3.5" />
-            Regenerer
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleDelete} className="text-destructive">
-            <Trash2 className="mr-1.5 size-3.5" />
-            Supprimer
-          </Button>
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Desktop only */}
+          <div className="hidden items-center gap-3 lg:flex">
+            <SaveIndicator status={saveStatus} />
+            <BrandColorPicker value={brandColor} onChange={setBrandColor} />
+            <Button variant="outline" size="sm" onClick={handleRegenerate}>
+              <Sparkles className="mr-1.5 size-3.5" />
+              Regenerer
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDelete} className="text-destructive">
+              <Trash2 className="mr-1.5 size-3.5" />
+              Supprimer
+            </Button>
+          </div>
+          {/* Export PDF : visible partout */}
           <Button size="sm" onClick={handleExport} disabled={exporting}>
             {exporting ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Download className="mr-1.5 size-3.5" />}
-            Exporter PDF
+            <span className="hidden sm:inline">Exporter </span>PDF
           </Button>
         </div>
       </div>
 
-      {/* Body : sidebar thumbnails | preview | edit panel */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* MOBILE fallback : l'editeur 3 colonnes est inutilisable < lg */}
+      <div className="flex flex-1 items-center justify-center overflow-y-auto p-6 lg:hidden">
+        <div className="max-w-sm space-y-4 rounded-xl border border-border bg-background p-6 text-center shadow-sm">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
+            <ImageIcon className="size-6 text-muted-foreground" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Editeur disponible sur grand ecran</h2>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              L'edition complete du rapport ({slides.length} slides) necessite un ecran &gt;= 1024px.
+              Tu peux exporter le PDF des maintenant.
+            </p>
+          </div>
+          <Button onClick={handleExport} disabled={exporting} className="w-full">
+            {exporting ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Download className="mr-1.5 size-3.5" />}
+            Exporter le PDF
+          </Button>
+          <Link
+            to={`/admin/campaigns/${campaignId}`}
+            className="block text-xs text-muted-foreground hover:text-foreground"
+          >
+            ← Retour a la campagne
+          </Link>
+        </div>
+      </div>
+
+      {/* Body desktop : sidebar thumbnails | preview | edit panel */}
+      <div className="hidden flex-1 overflow-hidden lg:flex">
         {/* Sidebar thumbnails */}
         <aside className="flex w-56 flex-col border-r border-border bg-background">
           <div className="border-b border-border px-3 py-2">
