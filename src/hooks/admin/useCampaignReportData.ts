@@ -147,16 +147,17 @@ export function useCampaignReportData(campaignId: string | undefined) {
         }
       }
 
-      // 8. Textes / liens par defaut depuis company_settings
+      // 8. Textes / liens / couleur par defaut depuis company_settings
       const { data: settings } = await supabase
         .from('company_settings')
-        .select('default_report_intro_text, report_linkedin_url, report_website_url')
+        .select('default_report_intro_text, report_linkedin_url, report_website_url, default_brand_color')
         .maybeSingle()
       const s = settings as
         | {
             default_report_intro_text: string | null
             report_linkedin_url: string | null
             report_website_url: string | null
+            default_brand_color: string | null
           }
         | null
 
@@ -179,6 +180,7 @@ export function useCampaignReportData(campaignId: string | undefined) {
         defaultIntroText: s?.default_report_intro_text ?? '',
         defaultLinkedinUrl: s?.report_linkedin_url ?? null,
         defaultWebsiteUrl: s?.report_website_url ?? null,
+        defaultBrandColor: s?.default_brand_color ?? null,
       }
     },
     enabled: !!campaignId,

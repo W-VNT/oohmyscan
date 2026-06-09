@@ -12,7 +12,23 @@ import {
   Sparkles,
   Save,
   Image as ImageIcon,
+  GripVertical,
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
 import {
@@ -53,13 +69,14 @@ export function CampaignReportEditorPage() {
   const [previewScale, setPreviewScale] = useState(PREVIEW_SCALE_BASE)
 
   // Charge les slides depuis le rapport en DB
+  // Cascade brand color : override rapport > default settings > BRAND_RED
   useEffect(() => {
     if (report) {
       setSlides((report.slides as BrandedSlide[]) ?? [])
       setIntroText(report.intro_text)
-      setBrandColor(report.brand_color || BRAND_RED)
+      setBrandColor(report.brand_color || reportData?.defaultBrandColor || BRAND_RED)
     }
-  }, [report])
+  }, [report, reportData?.defaultBrandColor])
 
   // Resize : ajuste le scale de la preview pour rentrer dans la zone visible
   const previewContainerRef = useRef<HTMLDivElement>(null)
@@ -89,6 +106,21 @@ export function CampaignReportEditorPage() {
   )
 
   const activeSlide = slides[activeIdx]
+
+  // Drag & drop des thumbnails
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = slides.findIndex((s) => s.id === active.id)
+    const newIndex = slides.findIndex((s) => s.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    setSlides((prev) => arrayMove(prev, oldIndex, newIndex))
+    // Si la slide active change d'index, on suit le mouvement
+    if (activeIdx === oldIndex) setActiveIdx(newIndex)
+    else if (activeIdx > oldIndex && activeIdx <= newIndex) setActiveIdx(activeIdx - 1)
+    else if (activeIdx < oldIndex && activeIdx >= newIndex) setActiveIdx(activeIdx + 1)
+  }
 
   function patchActive(updated: BrandedSlide) {
     setSlides((prev) => prev.map((s, i) => (i === activeIdx ? updated : s)))
@@ -288,34 +320,26 @@ export function CampaignReportEditorPage() {
             </p>
           </div>
           <div className="flex-1 space-y-2 overflow-y-auto p-2">
-            {slides.map((slide, idx) => (
-              <button
-                key={slide.id}
-                onClick={() => setActiveIdx(idx)}
-                className={`group flex w-full flex-col gap-1 rounded-lg border-2 p-1.5 text-left transition-all ${
-                  idx === activeIdx
-                    ? 'border-primary bg-primary/5'
-                    : 'border-transparent hover:border-border hover:bg-muted/50'
-                }`}
+            <DndContext
+              sensors={dndSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={slides.map((s) => s.id)}
+                strategy={verticalListSortingStrategy}
               >
-                <div className="overflow-hidden rounded border border-border bg-white">
-                  <SlideCanvas scale={THUMB_SCALE}>
-                    <SlideView slide={slide} />
-                  </SlideCanvas>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="truncate text-[10px] font-medium">
-                    {idx + 1}. {getSlideLabel(slide)}
-                  </span>
-                  {slide.customized && (
-                    <span
-                      title="Slide modifiee"
-                      className="size-1.5 shrink-0 rounded-full bg-orange-500"
-                    />
-                  )}
-                </div>
-              </button>
-            ))}
+                {slides.map((slide, idx) => (
+                  <SortableThumb
+                    key={slide.id}
+                    slide={slide}
+                    idx={idx}
+                    isActive={idx === activeIdx}
+                    onClick={() => setActiveIdx(idx)}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           </div>
           <div className="border-t border-border p-2">
             <Button variant="outline" size="sm" onClick={addPhotoSlide} className="w-full">
@@ -376,6 +400,67 @@ export function CampaignReportEditorPage() {
       </div>
     </div>
     </BrandColorProvider>
+  )
+}
+
+/** Thumbnail sortable d'une slide dans la sidebar gauche. */
+function SortableThumb({
+  slide,
+  idx,
+  isActive,
+  onClick,
+}: {
+  slide: BrandedSlide
+  idx: number
+  isActive: boolean
+  onClick: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: slide.id,
+  })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onClick={onClick}
+      className={`group relative flex w-full cursor-pointer flex-col gap-1 rounded-lg border-2 p-1.5 text-left transition-all ${
+        isActive
+          ? 'border-primary bg-primary/5'
+          : 'border-transparent hover:border-border hover:bg-muted/50'
+      } ${isDragging ? 'ring-2 ring-primary/40' : ''}`}
+    >
+      {/* Handle drag : icone qui apparait au hover */}
+      <button
+        {...attributes}
+        {...listeners}
+        onClick={(e) => e.stopPropagation()}
+        className="absolute -left-1 top-1/2 -translate-y-1/2 cursor-grab rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 active:cursor-grabbing"
+        title="Glisser pour reordonner"
+      >
+        <GripVertical className="size-3.5" />
+      </button>
+      <div className="overflow-hidden rounded border border-border bg-white">
+        <SlideCanvas scale={THUMB_SCALE}>
+          <SlideView slide={slide} />
+        </SlideCanvas>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="truncate text-[10px] font-medium">
+          {idx + 1}. {getSlideLabel(slide)}
+        </span>
+        {slide.customized && (
+          <span
+            title="Slide modifiee"
+            className="size-1.5 shrink-0 rounded-full bg-orange-500"
+          />
+        )}
+      </div>
+    </div>
   )
 }
 

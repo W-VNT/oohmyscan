@@ -163,10 +163,11 @@ export interface CampaignReportData {
     email: string
     phone: string
   } | null
-  // Default intro text from company_settings
+  // Defaults depuis company_settings
   defaultIntroText: string
   defaultLinkedinUrl: string | null
   defaultWebsiteUrl: string | null
+  defaultBrandColor: string | null
 }
 
 export interface PanelLite {

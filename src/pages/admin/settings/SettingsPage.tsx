@@ -25,6 +25,7 @@ const TABS = [
   { key: 'types', label: 'Types de panneaux' },
   { key: 'cgv', label: 'CGV' },
   { key: 'email', label: 'Email' },
+  { key: 'rapports', label: 'Rapports' },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -655,6 +656,78 @@ export function SettingsPage() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* === TAB: Rapports === */}
+      {activeTab === 'rapports' && (
+        <Card>
+          <CardContent className="space-y-5">
+            <div>
+              <p className="text-sm font-semibold">Rapports campagne</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Valeurs par defaut utilisees a la generation de chaque rapport. Editables par rapport dans l'editeur.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Description du support (par defaut)</label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Paragraphe affiche sur la page "Le support publicitaire" du rapport.
+                Ex: "Notre reseau OOH MY AD ! est constitue de 395 etablissements..."
+              </p>
+              <textarea
+                value={form.default_report_intro_text ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, default_report_intro_text: e.target.value }))}
+                rows={5}
+                placeholder="Notre reseau est constitue de..."
+                className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              />
+            </div>
+
+            <Separator />
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Couleur de marque par defaut</label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Couleur principale appliquee aux badges, ondes et accents du rapport.
+                Le logo OOH MY AD ! reste toujours rouge.
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={form.default_brand_color ?? '#EF4444'}
+                  onChange={(e) => setForm((f) => ({ ...f, default_brand_color: e.target.value }))}
+                  className="size-10 cursor-pointer rounded-lg border border-border bg-transparent"
+                />
+                <Input
+                  value={form.default_brand_color ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, default_brand_color: e.target.value }))}
+                  placeholder="#EF4444"
+                  className="w-32 font-mono text-sm"
+                  maxLength={7}
+                />
+                <button
+                  onClick={() => setForm((f) => ({ ...f, default_brand_color: null }))}
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {field('report_linkedin_url', 'URL LinkedIn', 'https://linkedin.com/company/oohmyad', 'url')}
+              {field('report_website_url', 'URL site web', 'https://oohmyad.com', 'url')}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Affichees sur la page "Merci" du rapport. Modifiables par rapport.
+            </p>
+
+            {saveButton()}
+          </CardContent>
+        </Card>
       )}
 
       {/* Sticky save bar quand modifs en cours (sauf pour catalogue/types qui ont leur propre logique) */}

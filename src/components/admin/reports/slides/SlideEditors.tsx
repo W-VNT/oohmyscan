@@ -150,8 +150,22 @@ function PhotoThumb({ path }: { path: string }) {
 // =========================================================================
 
 function CoverEditor({ slide, onChange }: { slide: CoverBrandSlide; onChange: (s: BrandedSlide) => void }) {
+  const { campaignId } = useParams<{ campaignId: string }>()
+  const { data: reportData } = useCampaignReportData(campaignId)
+
   const patch = (data: Partial<CoverBrandSlide['data']>) =>
     onChange({ ...slide, customized: true, data: { ...slide.data, ...data } })
+
+  /** Refresh : reprend le nom client + titre par defaut depuis la campagne. */
+  function refreshFromCampaign() {
+    if (!reportData) return
+    patch({
+      clientName: reportData.clientName,
+      subtitle: reportData.campaignName.toUpperCase(),
+    })
+    toast('Cover actualisee depuis la campagne')
+  }
+
   return (
     <div className="space-y-4">
       <Field label="Titre">
@@ -169,6 +183,10 @@ function CoverEditor({ slide, onChange }: { slide: CoverBrandSlide; onChange: (s
           onChange={(coverPhotoPath) => patch({ coverPhotoPath })}
         />
       </Field>
+      <Button variant="outline" size="sm" onClick={refreshFromCampaign} disabled={!reportData}>
+        <RefreshCw className="mr-1.5 size-3.5" />
+        Actualiser depuis campagne
+      </Button>
     </div>
   )
 }
@@ -268,8 +286,21 @@ function SupportIntroEditor({
   slide: SupportIntroSlide
   onChange: (s: BrandedSlide) => void
 }) {
+  const { campaignId } = useParams<{ campaignId: string }>()
+  const { data: reportData } = useCampaignReportData(campaignId)
+
   const patch = (data: Partial<SupportIntroSlide['data']>) =>
     onChange({ ...slide, customized: true, data: { ...slide.data, ...data } })
+
+  const hasDefault = !!reportData?.defaultIntroText
+  const canRestore = hasDefault && slide.data.introText !== reportData?.defaultIntroText
+
+  function restoreDefault() {
+    if (!reportData) return
+    patch({ introText: reportData.defaultIntroText })
+    toast('Texte par defaut restaure')
+  }
+
   return (
     <div className="space-y-4">
       <Field label="Label badge (rouge)">
@@ -282,6 +313,15 @@ function SupportIntroEditor({
           rows={8}
           placeholder="Notre reseau est constitue de..."
         />
+        {canRestore && (
+          <button
+            onClick={restoreDefault}
+            className="mt-1.5 inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground"
+          >
+            <RefreshCw className="size-3" />
+            Restaurer texte par defaut
+          </button>
+        )}
       </Field>
       <Field label="Visuel droite (affiche)">
         <PhotoPicker value={slide.data.visualPath} onChange={(visualPath) => patch({ visualPath })} />
@@ -297,6 +337,9 @@ function CampaignTimelineEditor({
   slide: CampaignTimelineSlide
   onChange: (s: BrandedSlide) => void
 }) {
+  const { campaignId } = useParams<{ campaignId: string }>()
+  const { data: reportData } = useCampaignReportData(campaignId)
+
   const patchData = (patch: Partial<CampaignTimelineSlide['data']>) =>
     onChange({ ...slide, customized: true, data: { ...slide.data, ...patch } })
 
@@ -304,6 +347,32 @@ function CampaignTimelineEditor({
     const items = slide.data.items.map((it, i) => (i === idx ? { ...it, ...p } : it))
     patchData({ items })
   }
+
+  /** Re-calcule les 4 jalons auto depuis les donnees campagne, garde le 5e (bonus). */
+  function refreshFromCampaign() {
+    if (!reportData) return
+    const start = reportData.startDate ? new Date(reportData.startDate) : null
+    const launchLabel = start
+      ? `Semaine ${Math.ceil(((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / 86_400_000 + start.getDay() + 1) / 7)}`
+      : '—'
+    const regions = Array.from(reportData.panelsByRegion.keys()).filter((r) => r !== 'Inconnu')
+    const zoneLabel = regions.length > 0 ? regions.join(', ') : '—'
+
+    // Garde les labels existants (l'admin a peut-etre customise "Date de lancement")
+    // mais reset les valeurs
+    const existing = slide.data.items
+    const refreshed = [
+      { label: existing[0]?.label ?? 'Date de lancement', value: launchLabel },
+      { label: existing[1]?.label ?? "Nombre d'affiches", value: String(reportData.totalPanels) },
+      { label: existing[2]?.label ?? 'Zone geographique', value: zoneLabel },
+      { label: existing[3]?.label ?? 'Nombre de lieux', value: String(reportData.totalLocations) },
+      existing[4] ?? { label: '', value: 'Une communication ultra ciblee !' },
+      ...existing.slice(5),
+    ]
+    patchData({ items: refreshed })
+    toast('Timeline actualisee')
+  }
+
   return (
     <div className="space-y-3">
       <Field label="Label badge (rouge)">
@@ -328,6 +397,11 @@ function CampaignTimelineEditor({
           />
         </div>
       ))}
+
+      <Button variant="outline" size="sm" onClick={refreshFromCampaign} disabled={!reportData} className="w-full">
+        <RefreshCw className="mr-1.5 size-3.5" />
+        Actualiser valeurs depuis campagne
+      </Button>
     </div>
   )
 }
@@ -524,8 +598,34 @@ function ThanksEditor({
   slide: ThanksSlide
   onChange: (s: BrandedSlide) => void
 }) {
+  const { campaignId } = useParams<{ campaignId: string }>()
+  const { data: reportData } = useCampaignReportData(campaignId)
+
   const patch = (data: Partial<ThanksSlide['data']>) =>
     onChange({ ...slide, customized: true, data: { ...slide.data, ...data } })
+
+  function refreshContact() {
+    if (!reportData?.defaultContact) {
+      toast('Aucun contact commercial defini sur la campagne', 'error')
+      return
+    }
+    patch({
+      contactName: reportData.defaultContact.name,
+      contactEmail: reportData.defaultContact.email,
+      contactPhone: reportData.defaultContact.phone,
+    })
+    toast('Contact actualise depuis campagne')
+  }
+
+  function refreshSocialLinks() {
+    if (!reportData) return
+    patch({
+      linkedinUrl: reportData.defaultLinkedinUrl,
+      websiteUrl: reportData.defaultWebsiteUrl,
+    })
+    toast('Reseaux actualises depuis settings')
+  }
+
   return (
     <div className="space-y-4">
       <Field label="Titre">
@@ -535,9 +635,19 @@ function ThanksEditor({
         <TextArea value={slide.data.subtext} onChange={(subtext) => patch({ subtext })} rows={2} />
       </Field>
       <div className="border-t border-border pt-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Contact campagne
-        </p>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Contact campagne
+          </p>
+          <button
+            onClick={refreshContact}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground"
+            title="Reprendre le contact commercial du client"
+          >
+            <RefreshCw className="size-3" />
+            Actualiser
+          </button>
+        </div>
         <div className="space-y-3">
           <Input
             value={slide.data.contactName}
@@ -559,9 +669,21 @@ function ThanksEditor({
         </div>
       </div>
       <div className="border-t border-border pt-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Reseaux
-        </p>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Reseaux
+          </p>
+          {(reportData?.defaultLinkedinUrl || reportData?.defaultWebsiteUrl) && (
+            <button
+              onClick={refreshSocialLinks}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground"
+              title="Reprendre les URLs definies en parametres"
+            >
+              <RefreshCw className="size-3" />
+              Actualiser
+            </button>
+          )}
+        </div>
         <div className="space-y-2">
           <Input
             value={slide.data.linkedinUrl ?? ''}

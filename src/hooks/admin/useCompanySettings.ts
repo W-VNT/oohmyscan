@@ -32,6 +32,11 @@ export interface CompanySettings {
   email_quote_body: string | null
   email_invoice_subject: string | null
   email_invoice_body: string | null
+  // Defaults rapport campagne (cf table company_settings)
+  default_report_intro_text: string | null
+  default_brand_color: string | null
+  report_linkedin_url: string | null
+  report_website_url: string | null
 }
 
 /**

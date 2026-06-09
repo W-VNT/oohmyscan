@@ -10,8 +10,15 @@
  * branchee en fournissant un TTF dans public/fonts (a venir en polish).
  */
 
-import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, pdf } from '@react-pdf/renderer'
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Font, pdf } from '@react-pdf/renderer'
 import { supabase } from '@/lib/supabase'
+
+// Register Poppins (TTF bundles dans public/fonts/). On enregistre les deux
+// poids comme deux familles separees pour simplifier l'usage : font-family =
+// "Poppins-Bold" ou "Poppins-Black" directement dans les styles.
+const FONT_ORIGIN = typeof window !== 'undefined' ? window.location.origin : ''
+Font.register({ family: 'Poppins-Bold',  src: `${FONT_ORIGIN}/fonts/Poppins-Bold.ttf` })
+Font.register({ family: 'Poppins-Black', src: `${FONT_ORIGIN}/fonts/Poppins-Black.ttf` })
 import {
   BRAND_RED,
   BRAND_BLACK,
@@ -87,27 +94,68 @@ interface Palette {
   redPale: string
 }
 
+/**
+ * Convertit une URL d'image en data URL grayscale via un canvas.
+ * Necessaire car @react-pdf/renderer ne supporte pas les filtres CSS sur les images.
+ */
+async function fetchAsGrayscaleDataUrl(url: string): Promise<string> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`fetch image ${response.status}`)
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      // Note : `Image` import @react-pdf shadow le global, on passe par createElement
+      const i = document.createElement('img')
+      i.onload = () => resolve(i)
+      i.onerror = reject
+      i.src = objectUrl
+    })
+    const canvas = document.createElement('canvas')
+    canvas.width = img.naturalWidth
+    canvas.height = img.naturalHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('No canvas context')
+    ctx.filter = 'grayscale(100%)'
+    ctx.drawImage(img, 0, 0)
+    return canvas.toDataURL('image/jpeg', 0.85)
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
+
 async function resolveSlidePaths(slide: BrandedSlide): Promise<ResolvedSlide> {
-  const paths: string[] = []
+  // Path -> kind ('normal' | 'grayscale')
+  const pathsToResolve: Array<{ path: string; grayscale: boolean }> = []
   switch (slide.type) {
     case 'cover_brand':
-      if (slide.data.coverPhotoPath) paths.push(slide.data.coverPhotoPath)
+      if (slide.data.coverPhotoPath) pathsToResolve.push({ path: slide.data.coverPhotoPath, grayscale: true })
       break
     case 'support_intro':
-      if (slide.data.visualPath) paths.push(slide.data.visualPath)
+      if (slide.data.visualPath) pathsToResolve.push({ path: slide.data.visualPath, grayscale: false })
       break
     case 'region_intro':
-      if (slide.data.backgroundPhotoPath) paths.push(slide.data.backgroundPhotoPath)
+      if (slide.data.backgroundPhotoPath) pathsToResolve.push({ path: slide.data.backgroundPhotoPath, grayscale: true })
       break
     case 'photo_full':
-      paths.push(slide.data.photoPath)
+      pathsToResolve.push({ path: slide.data.photoPath, grayscale: false })
       break
   }
   const signedUrls: Record<string, string> = {}
   await Promise.all(
-    paths.map(async (p) => {
-      const { data } = await supabase.storage.from('panel-photos').createSignedUrl(p, 3600)
-      if (data?.signedUrl) signedUrls[p] = data.signedUrl
+    pathsToResolve.map(async ({ path, grayscale }) => {
+      const { data } = await supabase.storage.from('panel-photos').createSignedUrl(path, 3600)
+      if (!data?.signedUrl) return
+      if (grayscale) {
+        try {
+          signedUrls[path] = await fetchAsGrayscaleDataUrl(data.signedUrl)
+        } catch {
+          // Fallback : URL signee couleur si la conversion echoue (CORS, etc.)
+          signedUrls[path] = data.signedUrl
+        }
+      } else {
+        signedUrls[path] = data.signedUrl
+      }
     }),
   )
   return { slide, signedUrls }
@@ -179,7 +227,7 @@ function BrandFooterPdf({ dark = false }: { dark?: boolean }) {
       <View>
         <Text
           style={{
-            fontFamily: 'Helvetica-Bold',
+            fontFamily: 'Poppins-Bold',
             fontSize: 11,
             color: dark ? BRAND_BLACK : BRAND_WHITE,
             letterSpacing: 0.5,
@@ -222,7 +270,7 @@ function SectionBadgePdf({ label, palette, width = 230, fontSize = 14 }: { label
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontFamily: 'Helvetica-Bold', fontSize, color: BRAND_WHITE, letterSpacing: 0.8 }}>
+        <Text style={{ fontFamily: 'Poppins-Bold', fontSize, color: BRAND_WHITE, letterSpacing: 0.8 }}>
           {label}
         </Text>
       </View>
@@ -237,7 +285,7 @@ function PageNumberPdf({ n, palette }: { n: number; palette: Palette }) {
         position: 'absolute',
         bottom: 14,
         right: 22,
-        fontFamily: 'Helvetica-Bold',
+        fontFamily: 'Poppins-Bold',
         fontSize: 14,
         color: palette.red,
       }}
@@ -284,11 +332,11 @@ function CoverPdf({
       </View>
 
       <View style={{ position: 'absolute', top: 130, left: 420 }}>
-        <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 66, color: BRAND_BLACK }}>{title}</Text>
+        <Text style={{ fontFamily: 'Poppins-Black', fontSize: 66, color: BRAND_BLACK }}>{title}</Text>
         <View style={{ marginTop: 22 }}>
           <SectionBadgePdf label={subtitle} palette={palette} width={335} fontSize={17} />
         </View>
-        <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 22, color: BRAND_BLACK, marginTop: 30 }}>
+        <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 22, color: BRAND_BLACK, marginTop: 30 }}>
           {clientName}
         </Text>
       </View>
@@ -331,7 +379,7 @@ function TocPdf({ slide, pageNumber, palette }: { slide: TocBrandSlide; pageNumb
           >
             <Text
               style={{
-                fontFamily: 'Helvetica-Bold',
+                fontFamily: 'Poppins-Black',
                 fontSize: 34,
                 color: palette.red,
                 marginRight: 18,
@@ -340,7 +388,7 @@ function TocPdf({ slide, pageNumber, palette }: { slide: TocBrandSlide; pageNumb
               {item.number}
             </Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 18, color: BRAND_BLACK }}>
+              <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 18, color: BRAND_BLACK }}>
                 {item.title}
               </Text>
               <Text
@@ -458,13 +506,13 @@ function CampaignTimelinePdf({ slide, pageNumber, palette }: { slide: CampaignTi
               }}
             >
               {item.label ? (
-                <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 11, color: palette.red, marginBottom: 4 }}>
+                <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 11, color: palette.red, marginBottom: 4 }}>
                   {item.label}
                 </Text>
               ) : null}
               <Text
                 style={{
-                  fontFamily: 'Helvetica-Bold',
+                  fontFamily: 'Poppins-Bold',
                   fontSize: 11,
                   color: BRAND_BLACK,
                   textAlign: 'center',
@@ -502,7 +550,7 @@ function RegionMapPdf({ slide, pageNumber, palette }: { slide: RegionMapSlide; p
           position: 'absolute',
           top: 60,
           left: 72,
-          fontFamily: 'Helvetica-Bold',
+          fontFamily: 'Poppins-Black',
           fontSize: 28,
           color: BRAND_BLACK,
           width: 300,
@@ -527,7 +575,7 @@ function RegionMapPdf({ slide, pageNumber, palette }: { slide: RegionMapSlide; p
       </View>
 
       <View style={{ position: 'absolute', top: 215, left: 535, width: 230 }}>
-        <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 16, color: palette.red }}>
+        <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 16, color: palette.red }}>
           {zoomTitle}
         </Text>
         <Text style={{ fontFamily: 'Helvetica', fontSize: 11, color: BRAND_BLACK, lineHeight: 1.5, marginTop: 12 }}>
@@ -563,19 +611,9 @@ function RegionIntroPdf({
   return (
     <>
       <View style={{ position: 'absolute', top: 0, left: 0, width: W, height: 415 }}>
+        {/* L'image est resolue en grayscale via canvas dans resolveSlidePaths.
+            Pas besoin de tint noir d'approximation. */}
         {bgUrl && <Image src={bgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-        {/* Tint pour effet BW approx */}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: W,
-            height: 415,
-            backgroundColor: BRAND_BLACK,
-            opacity: 0.15,
-          }}
-        />
       </View>
 
       {/* Vague blanche separatrice */}
@@ -588,7 +626,7 @@ function RegionIntroPdf({
           position: 'absolute',
           bottom: 78,
           left: 72,
-          fontFamily: 'Helvetica-Bold',
+          fontFamily: 'Poppins-Black',
           fontSize: 32,
           color: BRAND_BLACK,
         }}
@@ -677,7 +715,7 @@ function ThanksPdf({ slide, palette }: { slide: ThanksSlide; palette: Palette })
           top: 130,
           left: 72,
           width: 420,
-          fontFamily: 'Helvetica-Bold',
+          fontFamily: 'Poppins-Black',
           fontSize: 50,
           color: palette.red,
           lineHeight: 1.05,
@@ -704,9 +742,9 @@ function ThanksPdf({ slide, palette }: { slide: ThanksSlide; palette: Palette })
       <View style={{ position: 'absolute', top: 130, right: 72, width: 230 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 3, height: 14, backgroundColor: palette.red, marginRight: 6 }} />
-          <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 13, color: palette.red }}>Votre interlocuteur</Text>
+          <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 13, color: palette.red }}>Votre interlocuteur</Text>
         </View>
-        <Text style={{ marginTop: 12, fontFamily: 'Helvetica-Bold', fontSize: 13, color: BRAND_BLACK }}>
+        <Text style={{ marginTop: 12, fontFamily: 'Poppins-Bold', fontSize: 13, color: BRAND_BLACK }}>
           {contactName || '—'}
         </Text>
         {contactEmail ? (
@@ -724,7 +762,7 @@ function ThanksPdf({ slide, palette }: { slide: ThanksSlide; palette: Palette })
           <>
             <View style={{ marginTop: 30, flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ width: 3, height: 14, backgroundColor: palette.red, marginRight: 6 }} />
-              <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 13, color: palette.red }}>Nous retrouver</Text>
+              <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 13, color: palette.red }}>Nous retrouver</Text>
             </View>
             <View style={{ marginTop: 10, flexDirection: 'row' }}>
               {linkedinUrl && (
@@ -738,7 +776,7 @@ function ThanksPdf({ slide, palette }: { slide: ThanksSlide; palette: Palette })
                     marginRight: 10,
                   }}
                 >
-                  <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 9, color: BRAND_WHITE }}>in</Text>
+                  <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 9, color: BRAND_WHITE }}>in</Text>
                 </View>
               )}
               {websiteUrl && (
@@ -751,7 +789,7 @@ function ThanksPdf({ slide, palette }: { slide: ThanksSlide; palette: Palette })
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 9, color: BRAND_WHITE }}>www</Text>
+                  <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 9, color: BRAND_WHITE }}>www</Text>
                 </View>
               )}
             </View>
