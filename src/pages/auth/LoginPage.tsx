@@ -23,19 +23,35 @@ export function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [settingPassword, setSettingPassword] = useState(false)
 
-  // Detect auth callback (invite or recovery) on mount
+  // Detect auth callback (invite or recovery) on mount.
+  // 3 cas a couvrir :
+  //  - implicit flow : main.tsx a stocke 'invite' ou 'recovery' depuis le hash
+  //  - PKCE explicit : main.tsx a stocke 'invite'/'recovery' depuis ?type=...
+  //  - PKCE callback sans type : on attend SIGNED_IN et on regarde l'utilisateur
+  //    (un premier signin via invite n'a pas de last_sign_in_at)
   useEffect(() => {
-    // Hash captured in main.tsx before Supabase consumed it
     const callbackType = sessionStorage.getItem('auth_callback_type')
     if (callbackType === 'invite' || callbackType === 'recovery') {
       setMode('set_password')
       sessionStorage.removeItem('auth_callback_type')
     }
+    const isPkceCallback = callbackType === 'pkce_callback'
+    if (isPkceCallback) sessionStorage.removeItem('auth_callback_type')
 
-    // Listen for PASSWORD_RECOVERY event (fallback for in-app recovery flows)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Recovery flow standard
       if (event === 'PASSWORD_RECOVERY') {
         setMode('set_password')
+        return
+      }
+      // PKCE callback : si pas de last_sign_in_at, c'est un invite first-login
+      if (event === 'SIGNED_IN' && session?.user && isPkceCallback) {
+        const lastSignIn = session.user.last_sign_in_at
+        const createdAt = session.user.created_at
+        const isFirstSignIn = !lastSignIn || (
+          createdAt && new Date(lastSignIn).getTime() - new Date(createdAt).getTime() < 5000
+        )
+        if (isFirstSignIn) setMode('set_password')
       }
     })
 
@@ -101,6 +117,16 @@ export function LoginPage() {
     if (newPassword !== confirmPassword) { setError('Les mots de passe ne correspondent pas'); return }
 
     setSettingPassword(true)
+
+    // Verifie la session AVANT updateUser : si elle est manquante on donne un
+    // message explicite a l'utilisateur (lien invitation perime / consomme).
+    const { data: { session: preSession } } = await supabase.auth.getSession()
+    if (!preSession?.user) {
+      setError("Lien d'invitation expiré ou déjà utilisé. Demande à l'administrateur de t'en renvoyer un.")
+      setSettingPassword(false)
+      return
+    }
+
     const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword })
     if (updateErr) {
       setError(updateErr.message)
@@ -108,7 +134,7 @@ export function LoginPage() {
       return
     }
 
-    // Update profile status to active
+    // Mark profile as active + redirige vers la home selon le role
     const { data: { session } } = await supabase.auth.getSession()
     if (session?.user) {
       await supabase.from('profiles').update({ is_active: true }).eq('id', session.user.id)
