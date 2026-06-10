@@ -57,6 +57,40 @@ export async function nearbyPlaces(
   })
 }
 
+/**
+ * Reverse geocode strict pour recuperer l'adresse (street + postcode + city)
+ * a partir de coordonnees GPS. Utilise pour pre-remplir le form "nouveau lieu"
+ * dans le wizard install operateur.
+ */
+export async function reverseGeocodeAddress(
+  lng: number,
+  lat: number,
+): Promise<{ address: string; postal_code: string; city: string } | null> {
+  if (!MAPBOX_TOKEN) return null
+  const url = new URL(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json`,
+  )
+  url.searchParams.set('types', 'address')
+  url.searchParams.set('language', 'fr')
+  url.searchParams.set('limit', '1')
+  url.searchParams.set('access_token', MAPBOX_TOKEN)
+
+  const res = await fetch(url.toString())
+  if (!res.ok) return null
+
+  const data = await res.json()
+  const feature = data.features?.[0]
+  if (!feature) return null
+
+  const ctx = ((feature.context as Array<{ id: string; text: string }>) ?? [])
+  const postcode = ctx.find((c) => c.id.startsWith('postcode'))?.text ?? ''
+  const city = ctx.find((c) => c.id.startsWith('place'))?.text ?? ''
+  // Le place_name commence par "<numero> <rue>, <postcode> <ville>, France"
+  const street = ((feature.place_name as string) ?? '').split(',')[0]?.trim() ?? ''
+
+  return { address: street, postal_code: postcode, city }
+}
+
 export async function searchPlaces(
   query: string,
   lng: number,

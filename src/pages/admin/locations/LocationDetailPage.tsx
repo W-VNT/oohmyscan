@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useLocation, useLocationPanels, useLocationContract, useContractAmendments, useUpdateLocation } from '@/hooks/useLocations'
+import { useLocation, useLocationPanels, useLocationContract, useContractAmendments, useUpdateLocation, useDeleteLocation, useDeleteContract } from '@/hooks/useLocations'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PANEL_ZONES } from '@/lib/constants'
-import { ArrowLeft, Loader2, PanelTop, Phone, Mail, MapPin, Calendar, Pencil, Eye, X, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Loader2, PanelTop, Phone, Mail, MapPin, Calendar, Pencil, Eye, X, ExternalLink, Trash2 } from 'lucide-react'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/components/shared/Toast'
@@ -32,6 +32,8 @@ export function LocationDetailPage() {
   const { data: contract } = useLocationContract(id)
   const { data: amendments } = useContractAmendments(contract?.id)
   const updateLocation = useUpdateLocation()
+  const deleteLocation = useDeleteLocation()
+  const deleteContract = useDeleteContract()
 
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -122,10 +124,36 @@ export function LocationDetailPage() {
           </p>
         </div>
         {!editing && (
-          <Button variant="outline" size="sm" onClick={openEdit}>
-            <Pencil className="mr-1.5 size-3.5" />
-            Modifier
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={openEdit}>
+              <Pencil className="mr-1.5 size-3.5" />
+              Modifier
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive"
+              onClick={async () => {
+                if (!id) return
+                const ok = confirm(
+                  `Supprimer définitivement "${location.name}" ?\n\n` +
+                  `Cette action est irréversible. Les contrats et avenants liés seront supprimés. ` +
+                  `Les panneaux du lieu seront orphelinés (location vidée).`
+                )
+                if (!ok) return
+                try {
+                  await deleteLocation.mutateAsync(id)
+                  toast('Lieu supprimé')
+                  navigate('/admin/locations')
+                } catch (e) {
+                  toast(e instanceof Error ? e.message : 'Erreur', 'error')
+                }
+              }}
+            >
+              <Trash2 className="mr-1.5 size-3.5" />
+              Supprimer
+            </Button>
+          </div>
         )}
       </div>
 
@@ -372,6 +400,27 @@ export function LocationDetailPage() {
                       <Eye className="size-4 text-muted-foreground" />
                     </button>
                   )}
+                  <button
+                    onClick={async () => {
+                      const amendCount = amendments?.length ?? 0
+                      const ok = confirm(
+                        `Supprimer le contrat ${contract.contract_number} ?\n\n` +
+                        `Cette action est irréversible.` +
+                        (amendCount > 0 ? `\n${amendCount} avenant${amendCount > 1 ? 's seront supprimés' : ' sera supprimé'} aussi.` : '')
+                      )
+                      if (!ok) return
+                      try {
+                        await deleteContract.mutateAsync(contract.id)
+                        toast('Contrat supprimé')
+                      } catch (e) {
+                        toast(e instanceof Error ? e.message : 'Erreur', 'error')
+                      }
+                    }}
+                    className="rounded-md p-1.5 text-destructive transition-colors hover:bg-destructive/10"
+                    title="Supprimer le contrat"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
                 </div>
               </div>
 

@@ -125,3 +125,31 @@ export function useUpdatePanel() {
     },
   })
 }
+
+/**
+ * Supprime un panneau apres avoir nettoye ses assignations campagne actives
+ * (panel_campaigns n'a pas ON DELETE CASCADE). Les photos sont supprimees
+ * automatiquement par la FK CASCADE. Le panels_snapshot dans les contrats
+ * reste en l'etat (historique).
+ */
+export function useDeletePanel() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (panelId: string) => {
+      // 1. Nettoie les assignations campagne (pas de cascade en DB)
+      const { error: assignErr } = await supabase
+        .from('panel_campaigns')
+        .delete()
+        .eq('panel_id', panelId)
+      if (assignErr) throw assignErr
+
+      // 2. Supprime le panneau (cascade auto sur panel_photos)
+      const { error } = await supabase.from('panels').delete().eq('id', panelId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['panels'] })
+    },
+  })
+}

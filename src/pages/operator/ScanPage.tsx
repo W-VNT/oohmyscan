@@ -19,6 +19,8 @@ export function ScanPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const mode: ScanMode = (searchParams.get('mode') as ScanMode) || 'install'
+  /** Si vrai : continuation d'une session multi-panneau du wizard install. */
+  const installSession = searchParams.get('install_session') === '1'
 
   const [scannedId, setScannedId] = useState<string | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
@@ -55,8 +57,14 @@ export function ScanPage() {
       if (mode === 'install') {
         // Mode install : on veut créer un nouveau point
         if (!existingPanel) {
-          // QR nouveau → OK, aller vers register
-          navigate(`/app/register/${scannedId}`, { replace: true })
+          // QR nouveau → wizard install unifié.
+          // Si on est en continuation d'une session multi-panneau, on ajoute
+          // ?continue=1 pour que le wizard restaure le contexte (etablissement
+          // deja choisi, panneaux deja installes...).
+          const target = installSession
+            ? `/app/install/${scannedId}?continue=1`
+            : `/app/install/${scannedId}`
+          navigate(target, { replace: true })
           return
         }
 
@@ -96,7 +104,7 @@ export function ScanPage() {
             message: 'Ce point n\'est pas encore dans le système. Voulez-vous l\'installer d\'abord ?',
             actions: [
               { label: 'Rescanner', icon: RotateCcw, onClick: resetScan },
-              { label: 'Installer ce point', icon: Plus, onClick: () => navigate(`/app/register/${scannedId}`), primary: true },
+              { label: 'Installer ce point', icon: Plus, onClick: () => navigate(`/app/install/${scannedId}`), primary: true },
             ],
           })
           return

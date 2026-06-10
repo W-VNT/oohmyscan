@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Camera, X, Loader2, RotateCcw } from 'lucide-react'
+import { Camera, X, Loader2, RotateCcw, Image as ImageIcon } from 'lucide-react'
 import imageCompression from 'browser-image-compression'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -20,7 +20,8 @@ export function PhotoCapture({
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
   const pendingFileRef = useRef<File | null>(null)
 
   const ALLOWED_TYPES = ALLOWED_IMAGE_TYPES
@@ -101,7 +102,8 @@ export function PhotoCapture({
     setPreview(null)
     setError(null)
     pendingFileRef.current = null
-    if (inputRef.current) inputRef.current.value = ''
+    if (cameraInputRef.current) cameraInputRef.current.value = ''
+    if (galleryInputRef.current) galleryInputRef.current.value = ''
   }
 
   return (
@@ -122,32 +124,48 @@ export function PhotoCapture({
             <X className="h-4 w-4" />
           </button>
         </div>
+      ) : uploading ? (
+        <div className="flex h-48 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="text-sm">Compression et upload...</span>
+        </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-          className="flex h-48 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="text-sm">Compression et upload...</span>
-            </>
-          ) : (
-            <>
-              <Camera className="h-8 w-8" />
-              <span className="text-sm">Prendre une photo</span>
-            </>
-          )}
-        </button>
+        <div className="space-y-2">
+          {/* Action principale : appareil photo */}
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            className="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          >
+            <Camera className="h-8 w-8" />
+            <span className="text-sm font-medium">Prendre une photo</span>
+          </button>
+          {/* Action secondaire : galerie */}
+          <button
+            type="button"
+            onClick={() => galleryInputRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ImageIcon className="h-4 w-4" />
+            Choisir depuis la galerie
+          </button>
+        </div>
       )}
 
+      {/* Input camera : capture force */}
       <input
-        ref={inputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      {/* Input galerie : pas de capture, ouvre le file picker */}
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
         onChange={handleFileChange}
         className="hidden"
       />

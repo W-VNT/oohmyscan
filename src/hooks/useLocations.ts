@@ -100,6 +100,53 @@ export function useCreateLocation() {
   })
 }
 
+/**
+ * Supprime un lieu (cascade : panel_contracts + contract_amendments).
+ * Les panneaux du lieu sont orphelinés (location_id mis à NULL), pas supprimés.
+ * Pratique pour cleanup de tests.
+ */
+export function useDeleteLocation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // 1. Orpheline les panneaux (FK panels.location_id n'a pas de CASCADE)
+      const { error: unlinkErr } = await supabase
+        .from('panels')
+        .update({ location_id: null })
+        .eq('location_id', id)
+      if (unlinkErr) throw unlinkErr
+
+      // 2. Supprime le lieu (cascade panel_contracts -> contract_amendments)
+      const { error } = await supabase.from('locations').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] })
+      queryClient.invalidateQueries({ queryKey: ['panels'] })
+    },
+  })
+}
+
+/**
+ * Supprime un contrat (cascade auto sur contract_amendments).
+ * Le trigger DB doit reset locations.has_contract = false.
+ */
+export function useDeleteContract() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (contractId: string) => {
+      const { error } = await supabase
+        .from('panel_contracts')
+        .delete()
+        .eq('id', contractId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] })
+    },
+  })
+}
+
 export function useUpdateLocation() {
   const queryClient = useQueryClient()
   return useMutation({

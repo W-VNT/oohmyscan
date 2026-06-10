@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { usePanel, useUpdatePanel } from '@/hooks/usePanels'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { usePanel, useUpdatePanel, useDeletePanel } from '@/hooks/usePanels'
 import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { useLocations } from '@/hooks/useLocations'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
@@ -38,9 +38,11 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
 
 export function PanelDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: panel, isLoading } = usePanel(id)
   const updatePanel = useUpdatePanel()
+  const deletePanel = useDeletePanel()
   const { data: panelTypes } = useActivePanelTypes()
   const { data: locations } = useLocations()
   const { data: companySettings } = useCompanySettings()
@@ -170,6 +172,23 @@ export function PanelDetailPage() {
     }
   }
 
+  async function handleDeletePanel() {
+    if (!panel || !id) return
+    const ok = confirm(
+      `Supprimer définitivement le panneau "${panel.name || panel.reference}" ?\n\n` +
+      `Cette action est irréversible. Les photos et assignations campagne associées seront aussi supprimées.\n` +
+      `Les contrats déjà signés conservent l'historique du panneau.`
+    )
+    if (!ok) return
+    try {
+      await deletePanel.mutateAsync(id)
+      toast('Panneau supprimé')
+      navigate('/admin/panels')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur lors de la suppression', 'error')
+    }
+  }
+
   async function handleDeletePhoto(photo: PanelPhoto) {
     if (!confirm('Supprimer cette photo ?')) return
     try {
@@ -230,10 +249,16 @@ export function PanelDetailPage() {
           </p>
         </div>
         {!editing && (
-          <Button variant="outline" size="sm" onClick={openEdit}>
-            <Pencil className="mr-1.5 size-3.5" />
-            Modifier
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={openEdit}>
+              <Pencil className="mr-1.5 size-3.5" />
+              Modifier
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDeletePanel} className="text-destructive">
+              <Trash2 className="mr-1.5 size-3.5" />
+              Supprimer
+            </Button>
+          </div>
         )}
       </div>
 
