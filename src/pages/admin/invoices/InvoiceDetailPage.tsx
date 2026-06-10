@@ -24,7 +24,7 @@ import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { InvoicePDF } from '@/lib/pdf/InvoicePDF'
 import { mergeWithCgvPdf } from '@/lib/pdf/mergeCgv'
-import { INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, PAYMENT_TERMS, PAYMENT_TERMS_LABELS, computeDueDate, type InvoiceStatus, type InvoiceType, type PaymentTerms } from '@/lib/constants'
+import { INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, PAYMENT_TERMS_OPTIONS, PAYMENT_TERMS_LABELS, computeDueDate, type InvoiceStatus, type InvoiceType, type PaymentTerms } from '@/lib/constants'
 import { useDetailPageHotkeys } from '@/hooks/usePageHotkeys'
 import { urlToDataUrl } from '@/lib/image-utils'
 import { Kbd } from '@/components/shared/KeyboardShortcuts'
@@ -152,6 +152,9 @@ export function InvoiceDetailPage() {
       setQuoteId(sourceQuote.id)
       setNotes(sourceQuote.notes ?? '')
       setClientReference(sourceQuote.client_reference ?? '')
+      if (sourceQuote.payment_terms) {
+        setPaymentTerms(sourceQuote.payment_terms as PaymentTerms)
+      }
     }
   }, [sourceQuote, isNew])
 
@@ -973,9 +976,9 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
               <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium">Conditions</label>
+              <label className="mb-2 block text-sm font-medium">Conditions de règlement</label>
               <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)} disabled={isStructureLocked} className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50">
-                {PAYMENT_TERMS.map((t) => (
+                {PAYMENT_TERMS_OPTIONS.map((t) => (
                   <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
                 ))}
               </select>

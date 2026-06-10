@@ -87,29 +87,68 @@ export const INVOICE_TYPE_LABELS: Record<InvoiceType, string> = {
   avoir: 'Avoir',
 }
 
-export const PAYMENT_TERMS = ['on_receipt', '30_days', '30_days_eom', '60_days', '60_days_eom'] as const
+// Conditions de règlement — unifiées devis + factures.
+// '60_days_eom' est conservé en interne pour la rétro-compat des factures
+// existantes mais n'apparaît plus dans PAYMENT_TERMS_OPTIONS (dropdown).
+export const PAYMENT_TERMS = [
+  'cash_on_order',
+  'on_receipt',
+  'deposit_50_30_days',
+  'deposit_50_30_days_eom',
+  '30_days',
+  '30_days_eom',
+  '45_days_eom',
+  '60_days',
+  '60_days_eom',
+] as const
 export type PaymentTerms = (typeof PAYMENT_TERMS)[number]
 
+/** Options proposées dans les formulaires (sans le legacy 60_days_eom). */
+export const PAYMENT_TERMS_OPTIONS: readonly PaymentTerms[] = [
+  'cash_on_order',
+  'on_receipt',
+  'deposit_50_30_days',
+  'deposit_50_30_days_eom',
+  '30_days',
+  '30_days_eom',
+  '45_days_eom',
+  '60_days',
+] as const
+
 export const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
-  on_receipt: 'Paiement à réception',
-  '30_days': 'Paiement à 30 jours',
+  cash_on_order: 'Paiement comptant à la commande',
+  on_receipt: 'Paiement à réception de facture',
+  deposit_50_30_days: "50 % d'acompte à la commande, solde à 30 jours date de facture",
+  deposit_50_30_days_eom: "50 % d'acompte à la commande, solde à 30 jours fin de mois",
+  '30_days': 'Paiement à 30 jours date de facture',
   '30_days_eom': 'Paiement à 30 jours fin de mois',
-  '60_days': 'Paiement à 60 jours',
+  '45_days_eom': 'Paiement à 45 jours fin de mois',
+  '60_days': 'Paiement à 60 jours date de facture',
   '60_days_eom': 'Paiement à 60 jours fin de mois',
 }
 
-/** Compute due date from issue date and payment terms */
+/** Compute due date from issue date and payment terms.
+ *  Pour cash_on_order / deposit_*, la date de l'échéance globale reste celle
+ *  du solde (30j ou 30j fin de mois) — l'acompte se règle à la commande. */
 export function computeDueDate(issuedAt: string, terms: PaymentTerms): string {
   const d = new Date(issuedAt)
   switch (terms) {
+    case 'cash_on_order':
     case 'on_receipt':
       break
+    case 'deposit_50_30_days':
     case '30_days':
       d.setDate(d.getDate() + 30)
       break
+    case 'deposit_50_30_days_eom':
     case '30_days_eom':
       d.setMonth(d.getMonth() + 1)
       d.setDate(0) // last day of that month
+      break
+    case '45_days_eom':
+      d.setMonth(d.getMonth() + 1)
+      d.setDate(0)
+      d.setDate(d.getDate() + 15)
       break
     case '60_days':
       d.setDate(d.getDate() + 60)

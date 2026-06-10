@@ -1,6 +1,7 @@
 import { Document, Page, View, Text, Image, StyleSheet, Font } from '@react-pdf/renderer'
 import { computeTotals, formatEUR, formatDateFR, type DocumentLine } from './pdf-helpers'
 import { HtmlContent, renderHtmlInline } from './html-to-pdf'
+import { PAYMENT_TERMS_LABELS, type PaymentTerms } from '@/lib/constants'
 
 Font.register({
   family: 'Helvetica',
@@ -100,6 +101,7 @@ export interface QuotePDFProps {
     quote_number: string
     issued_at: string
     valid_until: string
+    payment_terms?: string | null
     notes: string | null
     status: string
     client_reference?: string | null
@@ -141,6 +143,9 @@ export function QuotePDF({ quote, contactName, contactPhone, client, lines, comp
 
   const dossierParts: string[] = []
   if (quote.client_reference) dossierParts.push(`Dossier ${quote.client_reference}`)
+
+  const paymentTermsKey = (quote.payment_terms ?? '30_days') as PaymentTerms
+  const paymentTermsLabel = PAYMENT_TERMS_LABELS[paymentTermsKey] ?? PAYMENT_TERMS_LABELS['30_days']
 
   return (
     <Document>
@@ -220,11 +225,12 @@ export function QuotePDF({ quote, contactName, contactPhone, client, lines, comp
           ))}
         </View>
 
-        {/* === CONDITIONS DE PAIEMENT === */}
+        {/* === CONDITIONS DE RÈGLEMENT === */}
         <View style={s.paymentBox}>
-          <Text style={s.paymentTitle}>Conditions de paiement</Text>
-          <Text style={s.paymentBold}>
-            Échéance : {formatEUR(totalTTC)} € par virement
+          <Text style={s.paymentTitle}>Conditions de règlement</Text>
+          <Text style={s.paymentBold}>{paymentTermsLabel}</Text>
+          <Text style={[s.paymentBold, { marginTop: 2 }]}>
+            Montant : {formatEUR(totalTTC)} € par virement
           </Text>
           {company.late_penalty_text && (
             <Text style={s.paymentSmall}>

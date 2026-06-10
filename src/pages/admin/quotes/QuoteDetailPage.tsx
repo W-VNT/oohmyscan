@@ -23,7 +23,7 @@ import { pdf } from '@react-pdf/renderer'
 import { saveAs } from 'file-saver'
 import { QuotePDF } from '@/lib/pdf/QuotePDF'
 import { mergeWithCgvPdf } from '@/lib/pdf/mergeCgv'
-import { QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
+import { QUOTE_STATUS_CONFIG, PAYMENT_TERMS_OPTIONS, PAYMENT_TERMS_LABELS, type QuoteStatus, type PaymentTerms } from '@/lib/constants'
 import { urlToDataUrl } from '@/lib/image-utils'
 import { Kbd } from '@/components/shared/KeyboardShortcuts'
 import { useDetailPageHotkeys } from '@/hooks/usePageHotkeys'
@@ -86,6 +86,7 @@ export function QuoteDetailPage() {
   const [selectedContactEmail, setSelectedContactEmail] = useState('')
   const [issuedAt, setIssuedAt] = useState(new Date().toISOString().split('T')[0])
   const [validUntil, setValidUntil] = useState('')
+  const [paymentTerms, setPaymentTerms] = useState<PaymentTerms>('30_days')
   const [lines, setLines] = useState<EditableLine[]>([newLine(0)])
   const [saving, setSaving] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -109,6 +110,7 @@ export function QuoteDetailPage() {
       setClientReference(quote.client_reference ?? '')
       setIssuedAt(quote.issued_at?.split('T')[0] ?? new Date().toISOString().split('T')[0])
       setValidUntil(quote.valid_until?.split('T')[0] ?? '')
+      setPaymentTerms((quote.payment_terms as PaymentTerms) ?? '30_days')
     }
   }, [quote])
 
@@ -257,6 +259,7 @@ export function QuoteDetailPage() {
           status: 'draft',
           issued_at: issuedAt || new Date().toISOString().split('T')[0],
           valid_until: validUntil || new Date(Date.now() + 30 * 86400000).toISOString(),
+          payment_terms: paymentTerms,
           notes: notes || null,
           client_reference: clientReference || null,
           created_by: profile?.id ?? null,
@@ -271,6 +274,7 @@ export function QuoteDetailPage() {
           notes: notes || null,
           client_reference: clientReference || null,
           valid_until: validUntil || undefined,
+          payment_terms: paymentTerms,
           commercial_id: commercialId || null,
         })
       }
@@ -341,7 +345,7 @@ export function QuoteDetailPage() {
       const hasPdfCgv = !!settings.terms_and_conditions_pdf_path
       const baseBlob = await pdf(
         <QuotePDF
-          quote={quote}
+          quote={{ ...quote, payment_terms: paymentTerms }}
           contactName={pdfContact.name}
           contactPhone={pdfContact.phone}
           client={{
@@ -412,6 +416,7 @@ export function QuoteDetailPage() {
         status: 'draft',
         issued_at: new Date().toISOString().split('T')[0],
         valid_until: new Date(Date.now() + 30 * 86400000).toISOString(),
+        payment_terms: paymentTerms,
         notes: notes || null,
         client_reference: clientReference || null,
         created_by: profile?.id ?? null,
@@ -698,6 +703,21 @@ export function QuoteDetailPage() {
               <label className="mb-2 block text-sm font-medium">Réf. dossier</label>
               <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isStructureLocked} placeholder="Ex: 25090548" className="h-9 text-sm" />
             </div>
+          </div>
+
+          {/* Row 2b: Conditions de règlement (affiché sur le PDF) */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">Conditions de règlement</label>
+            <select
+              value={paymentTerms}
+              onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)}
+              disabled={isStructureLocked}
+              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+            >
+              {PAYMENT_TERMS_OPTIONS.map((t) => (
+                <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
+              ))}
+            </select>
           </div>
 
           {/* Row 3: Notes (full width) */}

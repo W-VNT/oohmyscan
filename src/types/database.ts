@@ -514,6 +514,7 @@ export interface Database {
           status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted' | 'cancelled'
           issued_at: string
           valid_until: string
+          payment_terms: string
           notes: string | null
           client_reference: string | null
           is_archived: boolean
@@ -537,6 +538,7 @@ export interface Database {
           status?: 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted' | 'cancelled'
           issued_at?: string
           valid_until?: string
+          payment_terms?: string
           notes?: string | null
           client_reference?: string | null
           is_archived?: boolean
@@ -559,6 +561,7 @@ export interface Database {
           status?: 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted' | 'cancelled'
           issued_at?: string
           valid_until?: string
+          payment_terms?: string
           notes?: string | null
           client_reference?: string | null
           is_archived?: boolean
@@ -671,7 +674,7 @@ export interface Database {
           deposit_percentage: number | null
           deposit_invoice_id: string | null
           credit_note_for_id: string | null
-          payment_terms: 'on_receipt' | '30_days' | '30_days_eom' | '60_days' | '60_days_eom'
+          payment_terms: string
           client_reference: string | null
           is_archived: boolean
           include_terms: boolean
@@ -692,7 +695,7 @@ export interface Database {
           deposit_percentage?: number | null
           deposit_invoice_id?: string | null
           credit_note_for_id?: string | null
-          payment_terms?: 'on_receipt' | '30_days' | '30_days_eom' | '60_days' | '60_days_eom'
+          payment_terms?: string
           client_reference?: string | null
           is_archived?: boolean
           include_terms?: boolean
@@ -721,7 +724,7 @@ export interface Database {
           deposit_percentage?: number | null
           deposit_invoice_id?: string | null
           credit_note_for_id?: string | null
-          payment_terms?: 'on_receipt' | '30_days' | '30_days_eom' | '60_days' | '60_days_eom'
+          payment_terms?: string
           client_reference?: string | null
           is_archived?: boolean
           include_terms?: boolean

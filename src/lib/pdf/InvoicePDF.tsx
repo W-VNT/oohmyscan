@@ -123,7 +123,7 @@ export interface InvoicePDFProps {
     invoice_type?: 'standard' | 'acompte' | 'solde' | 'avoir'
     deposit_percentage?: number | null
     deposit_invoice_number?: string | null
-    payment_terms?: PaymentTerms
+    payment_terms?: string | null
     client_reference?: string | null
   }
   quoteNumber?: string | null
@@ -187,7 +187,9 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, contactPhone, cl
   }
 
   // Payment terms text
-  const paymentTermsLabel = invoice.payment_terms ? PAYMENT_TERMS_LABELS[invoice.payment_terms] : ''
+  const paymentTermsLabel = invoice.payment_terms
+    ? (PAYMENT_TERMS_LABELS[invoice.payment_terms as PaymentTerms] ?? '')
+    : ''
   const dueDateFormatted = formatDateLongFR(invoice.due_at)
 
   return (
@@ -277,11 +279,14 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, contactPhone, cl
           ))}
         </View>
 
-        {/* === CONDITIONS DE PAIEMENT === */}
+        {/* === CONDITIONS DE RÈGLEMENT === */}
         <View style={s.paymentBox}>
-          <Text style={s.paymentTitle}>Conditions de paiement</Text>
-          <Text style={s.paymentBold}>
-            Échéance : {formatEUR(totalTTC)} € {paymentTermsLabel ? paymentTermsLabel.toLowerCase().replace('paiement ', '') : ''} (le {dueDateFormatted}) par virement
+          <Text style={s.paymentTitle}>Conditions de règlement</Text>
+          {paymentTermsLabel && (
+            <Text style={s.paymentBold}>{paymentTermsLabel}</Text>
+          )}
+          <Text style={[s.paymentBold, { marginTop: 2 }]}>
+            Montant : {formatEUR(totalTTC)} € à échéance le {dueDateFormatted} par virement
           </Text>
           {company.late_penalty_text && (
             <Text style={s.paymentSmall}>
