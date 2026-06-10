@@ -638,7 +638,7 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
             <Card>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Panneaux vacants</p>
+                  <p className="text-xs font-medium">Panneaux vacants</p>
                   <PanelTop className="size-4 text-blue-600" />
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums text-blue-600">{vacantPanels.length}</p>
@@ -648,7 +648,7 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
             <Card>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Emplacements potentiels</p>
+                  <p className="text-xs font-medium">Emplacements potentiels</p>
                   <MapPin className="size-4 text-orange-600" />
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums text-orange-600">{potentialSpots.length}</p>
@@ -657,7 +657,7 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
             </Card>
             <Card>
               <CardContent>
-                <p className="text-xs font-medium text-muted-foreground">Potentiel total</p>
+                <p className="text-xs font-medium">Potentiel total</p>
                 <p className="mt-1 text-2xl font-bold tabular-nums">{vacantPanels.length + potentialSpots.length}</p>
                 <p className="text-xs text-muted-foreground">
                   {radiusKm === 0
@@ -723,11 +723,11 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
                 <h3 className="mb-4 text-sm font-semibold">Panneaux vacants disponibles ({vacantPanels.length})</h3>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 font-medium text-muted-foreground">Référence</th>
-                      <th className="pb-2 font-medium text-muted-foreground">Adresse</th>
-                      <th className="pb-2 font-medium text-muted-foreground">Ville</th>
-                      <th className="pb-2 font-medium text-muted-foreground">Type</th>
+                    <tr className="border-b border-border bg-muted/50 text-left">
+                      <th className="pb-2 font-medium">Référence</th>
+                      <th className="pb-2 font-medium">Adresse</th>
+                      <th className="pb-2 font-medium">Ville</th>
+                      <th className="pb-2 font-medium">Type</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -751,10 +751,10 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
                 <h3 className="mb-4 text-sm font-semibold">Emplacements potentiels ({potentialSpots.length})</h3>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 font-medium text-muted-foreground">Nom du lieu</th>
-                      <th className="pb-2 font-medium text-muted-foreground">Adresse</th>
-                      <th className="pb-2 font-medium text-muted-foreground">Type</th>
+                    <tr className="border-b border-border bg-muted/50 text-left">
+                      <th className="pb-2 font-medium">Nom du lieu</th>
+                      <th className="pb-2 font-medium">Adresse</th>
+                      <th className="pb-2 font-medium">Type</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">

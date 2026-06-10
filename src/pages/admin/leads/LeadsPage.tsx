@@ -181,13 +181,15 @@ export function LeadsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-5">
+      {/* Header — H1 cache sur mobile (le AdminLayout l'affiche deja en topbar) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Leads</h1>
+        <div className="flex items-baseline gap-2 sm:gap-3">
+          <h1 className="text-base font-semibold sm:text-xl">Leads</h1>
           <span className="text-sm text-muted-foreground">
-            {leads?.length ?? 0} demande{(leads?.length ?? 0) !== 1 ? 's' : ''}
+            <span className="sm:hidden">· </span>
+            {leads?.length ?? 0}
+            <span className="hidden sm:inline"> demande{(leads?.length ?? 0) !== 1 ? 's' : ''}</span>
           </span>
         </div>
         <Button
@@ -200,64 +202,87 @@ export function LeadsPage() {
         </Button>
       </div>
 
-      {/* Search + Status filter + Sort — pattern cohérent avec Devis */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      {/* Search + filters */}
+      <div className="space-y-2">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Rechercher par nom, email, société, ville, message..."
-            className="h-9 pl-9 text-sm"
+            placeholder="Rechercher par nom, email, société, ville…"
+            className="h-10 pl-9 text-sm sm:h-9"
           />
         </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            {STATUS_FILTERS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label} ({counts[f.value] ?? 0})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              {STATUS_FILTERS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label} ({counts[f.value] ?? 0})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="relative">
+            <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Table */}
-      <Card>
+      {/* Mobile : cards stack — plus mobile-friendly que la table */}
+      <div className="space-y-2 sm:hidden">
+        {filtered.length === 0 ? (
+          <Card className="py-0">
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              {debouncedSearch || statusFilter !== 'all'
+                ? 'Aucun lead trouvé pour ces critères.'
+                : 'Aucun lead pour le moment. Les demandes envoyées via le formulaire de contact apparaîtront ici.'}
+            </CardContent>
+          </Card>
+        ) : (
+          filtered.map((lead) => (
+            <LeadCardMobile
+              key={lead.id}
+              lead={lead}
+              onClick={() => navigate(`/admin/leads/${lead.id}`)}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Desktop : table */}
+      <Card className="hidden py-0 sm:block">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left">
+                <tr className="border-b border-border bg-muted/50 text-left">
                   <th className="w-10 px-4 py-3" />
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Contact</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">
+                  <th className="px-4 py-3 font-medium">Contact</th>
+                  <th className="hidden px-4 py-3 font-medium md:table-cell">
                     Ville
                   </th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground lg:table-cell">
+                  <th className="hidden px-4 py-3 font-medium lg:table-cell">
                     Famille
                   </th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Statut</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                  <th className="px-4 py-3 font-medium">Statut</th>
+                  <th className="px-4 py-3 text-right font-medium">
                     Reçue
                   </th>
                 </tr>
@@ -300,6 +325,52 @@ export function LeadsPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function LeadCardMobile({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted/70"
+    >
+      {/* Dot non-lu / icone lu */}
+      <div className="mt-1 shrink-0">
+        {!lead.is_read ? (
+          <span
+            className="inline-block h-2 w-2 rounded-full bg-blue-500"
+            aria-label="Non lu"
+          />
+        ) : (
+          <MailOpen className="size-3.5 text-muted-foreground/40" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium">
+              {lead.name}
+              {lead.company && (
+                <span className="ml-1.5 text-sm text-muted-foreground">· {lead.company}</span>
+              )}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{lead.email}</p>
+          </div>
+          <span
+            className={cn(
+              'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap',
+              STATUS_BADGE_STYLE[lead.status],
+            )}
+          >
+            {LEAD_STATUS_LABELS[lead.status]}
+          </span>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span className="truncate">{lead.city ?? '—'}</span>
+          <span className="shrink-0 tabular-nums">{formatRelativeDate(lead.created_at)}</span>
+        </div>
+      </div>
+    </button>
   )
 }
 

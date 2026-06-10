@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone, Download, Upload, X, FileText } from 'lucide-react'
+import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone, Download, Upload, X, FileText, SlidersHorizontal } from 'lucide-react'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 import { saveAs } from 'file-saver'
 import { useCreateClient } from '@/hooks/admin/useClients'
@@ -35,6 +35,7 @@ export function ClientsPage() {
   useListPageHotkeys('/admin/clients/new')
 
   const [search, setSearch] = useState('')
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [importText, setImportText] = useState('')
   const [importing, setImporting] = useState(false)
@@ -247,12 +248,13 @@ export function ClientsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Clients</h1>
+        <div className="flex items-baseline gap-2 sm:gap-3">
+          <h1 className="text-base font-semibold sm:text-xl">Clients</h1>
           <span className="text-sm text-muted-foreground">
+            <span className="sm:hidden">· </span>
             {filtered.length}
-            {hasActiveFilters && ` / ${clients?.length ?? 0}`} client
-            {(hasActiveFilters ? (clients?.length ?? 0) : filtered.length) !== 1 ? 's' : ''}
+            {hasActiveFilters && ` / ${clients?.length ?? 0}`}
+            <span className="hidden sm:inline"> client{(hasActiveFilters ? (clients?.length ?? 0) : filtered.length) !== 1 ? 's' : ''}</span>
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -298,58 +300,112 @@ export function ClientsPage() {
         </Card>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <div className="relative flex-1 sm:min-w-[240px]">
+      {/* Filters — mobile compact (Search + Status + Plus). Desktop : tout visible. */}
+      <div className="space-y-2">
+        {/* Row 1 : Search */}
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom, contact, email, ville..."
-            className="h-9 pl-9 text-sm"
+            className="h-10 pl-9 text-sm sm:h-9 sm:min-w-[240px]"
           />
         </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+        {/* Row 2 : Status + Plus (mobile) ou tous les filtres (desktop) */}
+        <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:flex-wrap">
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              <option value="all">Tous ({clients?.length ?? 0})</option>
+              <option value="active">Actifs ({statusCounts.active})</option>
+              <option value="inactive">Inactifs ({statusCounts.inactive})</option>
+            </select>
+          </div>
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            value={campaignFilter}
+            onChange={(e) => setCampaignFilter(e.target.value as 'all' | 'with' | 'without')}
+            className="hidden h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm sm:flex"
           >
-            <option value="all">Tous ({clients?.length ?? 0})</option>
-            <option value="active">Actifs ({statusCounts.active})</option>
-            <option value="inactive">Inactifs ({statusCounts.inactive})</option>
+            <option value="all">Campagne : tous</option>
+            <option value="with">Avec campagne</option>
+            <option value="without">Sans campagne</option>
           </select>
-        </div>
-        <select
-          value={campaignFilter}
-          onChange={(e) => setCampaignFilter(e.target.value as 'all' | 'with' | 'without')}
-          className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-        >
-          <option value="all">Campagne : tous</option>
-          <option value="with">Avec campagne</option>
-          <option value="without">Sans campagne</option>
-        </select>
-        <select
-          value={soldeFilter}
-          onChange={(e) => setSoldeFilter(e.target.value as 'all' | 'with_solde')}
-          className="flex h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-        >
-          <option value="all">Solde : tous</option>
-          <option value="with_solde">Avec solde dû</option>
-        </select>
-        <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            value={soldeFilter}
+            onChange={(e) => setSoldeFilter(e.target.value as 'all' | 'with_solde')}
+            className="hidden h-9 rounded-lg border border-input bg-background px-3 py-2 text-sm sm:flex"
           >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
+            <option value="all">Solde : tous</option>
+            <option value="with_solde">Avec solde dû</option>
           </select>
+          <div className="relative hidden sm:flex">
+            <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Toggle Plus mobile only */}
+          <button
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            className="relative inline-flex h-10 items-center justify-center gap-1 rounded-lg border border-input bg-background px-3 text-sm hover:bg-muted sm:hidden"
+            aria-expanded={mobileFiltersOpen}
+          >
+            <SlidersHorizontal className="size-4" />
+            {((campaignFilter !== 'all' ? 1 : 0) + (soldeFilter !== 'all' ? 1 : 0)) > 0 && (
+              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                {(campaignFilter !== 'all' ? 1 : 0) + (soldeFilter !== 'all' ? 1 : 0)}
+              </span>
+            )}
+          </button>
         </div>
+
+        {/* Filtres avances mobile */}
+        {mobileFiltersOpen && (
+          <div className="grid grid-cols-2 gap-2 sm:hidden">
+            <select
+              value={campaignFilter}
+              onChange={(e) => setCampaignFilter(e.target.value as 'all' | 'with' | 'without')}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="all">Campagne : tous</option>
+              <option value="with">Avec campagne</option>
+              <option value="without">Sans campagne</option>
+            </select>
+            <select
+              value={soldeFilter}
+              onChange={(e) => setSoldeFilter(e.target.value as 'all' | 'with_solde')}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="all">Solde : tous</option>
+              <option value="with_solde">Avec solde dû</option>
+            </select>
+            <div className="relative col-span-2">
+              <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
@@ -361,19 +417,80 @@ export function ClientsPage() {
         )}
       </div>
 
-      {/* Table -- Columns: Societe | Contact | Ville | CA | Solde | Statut */}
-      <Card>
+      {/* Mobile : cards stack */}
+      <div className="space-y-2 sm:hidden">
+        {filtered.length === 0 ? (
+          <Card className="py-0">
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              {hasActiveFilters ? 'Aucun client trouvé pour ces critères.' : 'Aucun client pour le moment.'}
+            </CardContent>
+          </Card>
+        ) : (
+          filtered.map((client) => {
+            const campCount = campaignCounts.get(client.id) ?? 0
+            const finance = clientFinance?.get(client.id)
+            const ca = finance?.paid ?? 0
+            const solde = finance?.pending ?? 0
+            return (
+              <button
+                key={client.id}
+                onClick={() => navigate(`/admin/clients/${client.id}`)}
+                className={`flex w-full flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted/70 ${!client.is_active ? 'opacity-60' : ''}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span className="truncate font-medium">{client.company_name}</span>
+                    {campCount > 0 && (
+                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+                        <Megaphone className="size-3" />
+                        {campCount}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      client.is_active
+                        ? 'bg-green-500/15 text-green-600'
+                        : 'bg-gray-500/15 text-gray-500'
+                    }`}
+                  >
+                    {client.is_active ? 'Actif' : 'Inactif'}
+                  </span>
+                </div>
+                {(client.contact_name || client.city) && (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {client.contact_name || ''}
+                    {client.contact_name && client.city ? ' · ' : ''}
+                    {client.city || ''}
+                  </p>
+                )}
+                <div className="flex items-center justify-between gap-2 text-[11px] tabular-nums">
+                  <span className="text-muted-foreground">
+                    CA : <span className="font-medium text-foreground">{ca > 0 ? formatCurrency(ca) : '—'}</span>
+                  </span>
+                  {solde > 0 && (
+                    <span className="font-medium text-red-600">Solde : {formatCurrency(solde)}</span>
+                  )}
+                </div>
+              </button>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop : table -- Columns: Societe | Contact | Ville | CA | Solde | Statut */}
+      <Card className="hidden py-0 sm:block">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Société</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground lg:table-cell">Contact</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Ville</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground text-right md:table-cell">CA</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground text-right md:table-cell">Solde</th>
-                  <th className="px-4 py-3 text-center font-medium text-muted-foreground">Statut</th>
+                <tr className="border-b border-border bg-muted/50 text-left">
+                  <th className="px-4 py-3 font-medium">Société</th>
+                  <th className="hidden px-4 py-3 font-medium lg:table-cell">Contact</th>
+                  <th className="hidden px-4 py-3 font-medium md:table-cell">Ville</th>
+                  <th className="hidden px-4 py-3 font-medium text-right md:table-cell">CA</th>
+                  <th className="hidden px-4 py-3 font-medium text-right md:table-cell">Solde</th>
+                  <th className="px-4 py-3 text-center font-medium">Statut</th>
                   <th className="w-12 px-4 py-3" />
                 </tr>
               </thead>
@@ -404,7 +521,7 @@ export function ClientsPage() {
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{client.company_name}</span>
                             {campCount > 0 && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground" title={`${campCount} campagne${campCount !== 1 ? 's' : ''}`}>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium" title={`${campCount} campagne${campCount !== 1 ? 's' : ''}`}>
                                 <Megaphone className="size-3" />
                                 {campCount}
                               </span>
@@ -445,7 +562,7 @@ export function ClientsPage() {
                               </button>
                               <button
                                 onClick={() => setConfirmDeactivate(null)}
-                                className="rounded px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
+                                className="rounded px-2 py-0.5 text-[10px] font-medium hover:bg-muted"
                               >
                                 Non
                               </button>
@@ -473,7 +590,7 @@ export function ClientsPage() {
                               navigate(`/admin/quotes/new?client=${client.id}`)
                             }}
                             title="Créer un devis"
-                            className="inline-flex h-7 items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                            className="inline-flex h-7 items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium transition-colors hover:bg-primary hover:text-primary-foreground"
                           >
                             <FileText className="size-3" />
                             Devis

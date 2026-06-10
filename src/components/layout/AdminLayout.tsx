@@ -128,10 +128,10 @@ export function AdminLayout() {
 
   return (
     <div className="flex h-screen bg-background pt-[env(safe-area-inset-top)]">
-      {/* Sidebar */}
+      {/* Sidebar — full-width sur mobile (pattern PWA modern), 240px sur desktop */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-card pt-[env(safe-area-inset-top)] transition-transform lg:static lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-full flex-col border-r border-border bg-card pt-[env(safe-area-inset-top)] transition-transform lg:static lg:w-60 lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >

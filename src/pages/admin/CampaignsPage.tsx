@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Loader2, Plus, Megaphone, Search, Filter, ArrowUpDown, Download, X, AlertTriangle, Building2 } from 'lucide-react'
+import { Loader2, Plus, Megaphone, Search, Filter, ArrowUpDown, Download, X, AlertTriangle, Building2, SlidersHorizontal } from 'lucide-react'
 import { saveAs } from 'file-saver'
 import { toast } from '@/components/shared/Toast'
 import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_CONFIG, type CampaignStatus } from '@/lib/constants'
@@ -28,6 +28,7 @@ export function CampaignsPage() {
   const navigate = useNavigate()
 
   const [search, setSearch] = useState('')
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'all'>('all')
   const [clientFilter, setClientFilter] = useState<string>('all')
@@ -162,10 +163,12 @@ export function CampaignsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Campagnes</h1>
+        <div className="flex items-baseline gap-2 sm:gap-3">
+          <h1 className="text-base font-semibold sm:text-xl">Campagnes</h1>
           <span className="text-sm text-muted-foreground">
-            {filtered.length}{hasActiveFilters ? ` / ${campaigns?.length ?? 0}` : ''} campagne{(campaigns?.length ?? 0) !== 1 ? 's' : ''}
+            <span className="sm:hidden">· </span>
+            {filtered.length}{hasActiveFilters ? ` / ${campaigns?.length ?? 0}` : ''}
+            <span className="hidden sm:inline"> campagne{(campaigns?.length ?? 0) !== 1 ? 's' : ''}</span>
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -179,57 +182,102 @@ export function CampaignsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <div className="relative flex-1 sm:min-w-[240px]">
+      {/* Filters — mobile compact (Search + Status + Plus). Desktop : tout visible. */}
+      <div className="space-y-2">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom ou client..."
-            className="h-9 pl-9 text-sm"
+            className="h-10 pl-9 text-sm sm:h-9 sm:min-w-[240px]"
           />
         </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as CampaignStatus | 'all')}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+        <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:flex-wrap">
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as CampaignStatus | 'all')}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              <option value="all">Tous statuts ({campaigns?.length ?? 0})</option>
+              {CAMPAIGN_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {CAMPAIGN_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="relative hidden sm:flex">
+            <Building2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            >
+              <option value="all">Tous clients</option>
+              {uniqueClients.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="relative hidden sm:flex">
+            <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            className="relative inline-flex h-10 items-center justify-center gap-1 rounded-lg border border-input bg-background px-3 text-sm hover:bg-muted sm:hidden"
+            aria-expanded={mobileFiltersOpen}
           >
-            <option value="all">Tous statuts ({campaigns?.length ?? 0})</option>
-            {CAMPAIGN_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {CAMPAIGN_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
-              </option>
-            ))}
-          </select>
+            <SlidersHorizontal className="size-4" />
+            {clientFilter !== 'all' && (
+              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                1
+              </span>
+            )}
+          </button>
         </div>
-        <div className="relative">
-          <Building2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={clientFilter}
-            onChange={(e) => setClientFilter(e.target.value)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            <option value="all">Tous clients</option>
-            {uniqueClients.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
+
+        {/* Filtres avances mobile */}
+        {mobileFiltersOpen && (
+          <div className="grid grid-cols-2 gap-2 sm:hidden">
+            <div className="relative col-span-2">
+              <Building2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                value={clientFilter}
+                onChange={(e) => setClientFilter(e.target.value)}
+                className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+              >
+                <option value="all">Tous clients</option>
+                {uniqueClients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative col-span-2">
+              <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
@@ -253,10 +301,66 @@ export function CampaignsPage() {
           action={!debouncedSearch && statusFilter === 'all' ? { label: 'Nouvelle campagne', onClick: () => navigate('/admin/campaigns/new') } : undefined}
         />
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+        <>
+          {/* Mobile : cards stack */}
+          <div className="space-y-2 sm:hidden">
+            {filtered.map((campaign) => {
+              const status = CAMPAIGN_STATUS_CONFIG[campaign.status as CampaignStatus]
+              const clientName = campaign.clients?.company_name ?? ''
+              const panelCount = panelCounts.get(campaign.id) ?? 0
+              const target = campaign.target_panel_count
+              const overdue = isOverdue(campaign)
+              const progress = target && target > 0 ? Math.min(100, Math.round((panelCount / target) * 100)) : null
+              return (
+                <button
+                  key={campaign.id}
+                  onClick={() => navigate(`/admin/campaigns/${campaign.id}`)}
+                  className="flex w-full flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted/70"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <span className="truncate font-medium text-primary">{campaign.name}</span>
+                      {overdue && (
+                        <AlertTriangle className="size-3.5 shrink-0 text-red-500" aria-label="Date de fin dépassée" />
+                      )}
+                    </div>
+                    <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${status.className}`}>
+                      {status.label}
+                    </span>
+                  </div>
+                  {clientName && (
+                    <p className="truncate text-xs text-muted-foreground">{clientName}</p>
+                  )}
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span className={overdue ? 'font-medium text-red-500' : ''}>
+                      {new Date(campaign.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                      {' → '}
+                      {new Date(campaign.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                    </span>
+                    {target ? (
+                      <span className="tabular-nums"><span className="font-medium text-foreground">{panelCount}</span> / {target}</span>
+                    ) : panelCount > 0 ? (
+                      <span className="tabular-nums">{panelCount} panneaux</span>
+                    ) : null}
+                  </div>
+                  {target && progress !== null && (
+                    <div className="h-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full transition-all ${progress >= 100 ? 'bg-green-500' : 'bg-primary'}`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Desktop : table */}
+          <Card className="hidden py-0 sm:block">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/50 text-left">
                     <th className="px-4 py-3 font-medium">Nom</th>
@@ -346,6 +450,7 @@ export function CampaignsPage() {
             </div>
           </CardContent>
         </Card>
+        </>
       )}
     </div>
   )

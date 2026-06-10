@@ -107,14 +107,15 @@ export function DashboardPage() {
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/admin/quotes/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
+        {/* Mobile : grid 3 col full width. Desktop : flex auto width */}
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+          <Link to="/admin/quotes/new" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 sm:h-9">
             <Plus className="size-4" /> Devis
           </Link>
-          <Link to="/admin/invoices/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted">
+          <Link to="/admin/invoices/new" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted sm:h-9">
             <Plus className="size-4" /> Facture
           </Link>
-          <Link to="/admin/campaigns/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted">
+          <Link to="/admin/campaigns/new" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted sm:h-9">
             <Plus className="size-4" /> Campagne
           </Link>
         </div>
@@ -144,8 +145,8 @@ export function DashboardPage() {
         </Card>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+      {/* KPI Cards : slider horizontal sur mobile, grille sur desktop */}
+      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 [&>*]:min-w-[80%] [&>*]:snap-center sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:px-0 sm:py-0 sm:[&>*]:min-w-0 lg:grid-cols-5">
         <Link to="/admin/leads" className="group rounded-xl transition-all hover:ring-2 hover:ring-blue-500/20">
           <Card className={`h-full overflow-hidden ${newLeadsCount > 0 ? 'border-blue-200 dark:border-blue-500/30' : ''}`}>
             <CardContent className="p-5">

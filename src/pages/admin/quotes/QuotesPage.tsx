@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive, ArrowRight, ChevronLeft, ChevronRight, X, Building2, Megaphone } from 'lucide-react'
+import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive, ArrowRight, ChevronLeft, ChevronRight, X, Building2, Megaphone, SlidersHorizontal } from 'lucide-react'
 import { QUOTE_STATUSES, QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 import { useClients } from '@/hooks/admin/useClients'
@@ -30,6 +30,7 @@ export function QuotesPage() {
   const navigate = useNavigate()
   const { data: quotes } = useQuotes() // for status counts
   const [page, setPage] = useState(0)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'all'>('all')
@@ -138,10 +139,12 @@ export function QuotesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Devis</h1>
+        <div className="flex items-baseline gap-2 sm:gap-3">
+          <h1 className="text-base font-semibold sm:text-xl">Devis</h1>
           <span className="text-sm text-muted-foreground">
-            {filtered.length}{hasActiveFilters ? ` / ${quotes?.length ?? 0}` : ''} devis
+            <span className="sm:hidden">· </span>
+            {filtered.length}{hasActiveFilters ? ` / ${quotes?.length ?? 0}` : ''}
+            <span className="hidden sm:inline"> devis</span>
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -155,82 +158,154 @@ export function QuotesPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <div className="relative flex-1 sm:min-w-[240px]">
+      {/* Filters — mobile compact (Search + Status + Plus). Desktop : tout visible. */}
+      <div className="space-y-2">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par numéro ou client..."
-            className="h-9 pl-9 text-sm"
+            className="h-10 pl-9 text-sm sm:h-9 sm:min-w-[240px]"
           />
         </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as QuoteStatus | 'all')}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+        <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:flex-wrap">
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as QuoteStatus | 'all')}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              <option value="all">Tous statuts ({quotes?.length ?? 0})</option>
+              {QUOTE_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {QUOTE_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Desktop only */}
+          <div className="relative hidden sm:flex">
+            <Building2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            >
+              <option value="all">Tous clients</option>
+              {clientsList?.map((c) => (
+                <option key={c.id} value={c.id}>{c.company_name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="relative hidden sm:flex">
+            <Megaphone className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={campaignFilter}
+              onChange={(e) => setCampaignFilter(e.target.value)}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            >
+              <option value="all">Toutes campagnes</option>
+              {campaignsList?.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="relative hidden sm:flex">
+            <Archive className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={archiveMode}
+              onChange={(e) => setArchiveMode(e.target.value as 'active' | 'archived' | 'all')}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            >
+              <option value="active">Actifs</option>
+              <option value="archived">Archivés</option>
+              <option value="all">Tous</option>
+            </select>
+          </div>
+          <div className="relative hidden sm:flex">
+            <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            className="relative inline-flex h-10 items-center justify-center gap-1 rounded-lg border border-input bg-background px-3 text-sm hover:bg-muted sm:hidden"
+            aria-expanded={mobileFiltersOpen}
           >
-            <option value="all">Tous statuts ({quotes?.length ?? 0})</option>
-            {QUOTE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {QUOTE_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
-              </option>
-            ))}
-          </select>
+            <SlidersHorizontal className="size-4" />
+            {((clientFilter !== 'all' ? 1 : 0) + (campaignFilter !== 'all' ? 1 : 0) + (archiveMode !== 'active' ? 1 : 0)) > 0 && (
+              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                {(clientFilter !== 'all' ? 1 : 0) + (campaignFilter !== 'all' ? 1 : 0) + (archiveMode !== 'active' ? 1 : 0)}
+              </span>
+            )}
+          </button>
         </div>
-        <div className="relative">
-          <Building2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={clientFilter}
-            onChange={(e) => setClientFilter(e.target.value)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            <option value="all">Tous clients</option>
-            {clientsList?.map((c) => (
-              <option key={c.id} value={c.id}>{c.company_name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="relative">
-          <Megaphone className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={campaignFilter}
-            onChange={(e) => setCampaignFilter(e.target.value)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            <option value="all">Toutes campagnes</option>
-            {campaignsList?.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="relative">
-          <Archive className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={archiveMode}
-            onChange={(e) => setArchiveMode(e.target.value as 'active' | 'archived' | 'all')}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            <option value="active">Actifs</option>
-            <option value="archived">Archivés</option>
-            <option value="all">Tous</option>
-          </select>
-        </div>
-        <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
+
+        {mobileFiltersOpen && (
+          <div className="grid grid-cols-1 gap-2 sm:hidden">
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                value={clientFilter}
+                onChange={(e) => setClientFilter(e.target.value)}
+                className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+              >
+                <option value="all">Tous clients</option>
+                {clientsList?.map((c) => (
+                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative">
+              <Megaphone className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                value={campaignFilter}
+                onChange={(e) => setCampaignFilter(e.target.value)}
+                className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+              >
+                <option value="all">Toutes campagnes</option>
+                {campaignsList?.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="relative">
+                <Archive className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <select
+                  value={archiveMode}
+                  onChange={(e) => setArchiveMode(e.target.value as 'active' | 'archived' | 'all')}
+                  className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+                >
+                  <option value="active">Actifs</option>
+                  <option value="archived">Archivés</option>
+                  <option value="all">Tous</option>
+                </select>
+              </div>
+              <div className="relative">
+                <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortOption)}
+                  className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+                >
+                  {SORT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
@@ -242,19 +317,66 @@ export function QuotesPage() {
         )}
       </div>
 
-      <Card>
+      {/* Mobile : cards stack */}
+      <div className="space-y-2 sm:hidden">
+        {filtered.length === 0 ? (
+          <Card className="py-0">
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              {hasActiveFilters ? 'Aucun devis trouvé pour ces critères.' : 'Aucun devis pour le moment.'}
+            </CardContent>
+          </Card>
+        ) : (
+          filtered.map((quote) => {
+            const expired = isExpired(quote)
+            const statusCfg = QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]
+            return (
+              <button
+                key={quote.id}
+                onClick={() => navigate(`/admin/quotes/${quote.id}`)}
+                className="flex w-full flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted/70"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="truncate font-medium">{quote.quote_number}</span>
+                  <Badge variant={statusCfg?.variant ?? 'secondary'} className={`shrink-0 ${statusCfg?.className ?? ''}`}>
+                    {statusCfg?.label ?? quote.status}
+                  </Badge>
+                </div>
+                <p className="truncate text-xs text-muted-foreground">
+                  {quote.clients?.company_name ?? '—'}
+                  {quote.campaigns?.name ? ` · ${quote.campaigns.name}` : ''}
+                </p>
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="text-muted-foreground">
+                    {new Date(quote.issued_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                    {quote.valid_until && (
+                      <span className={`ml-2 ${expired ? 'font-medium text-orange-500' : ''}`}>
+                        {expired && '⚠ '}
+                        Exp. {new Date(quote.valid_until).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-semibold tabular-nums">{formatCurrency(quote.total_ttc)}</span>
+                </div>
+              </button>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop : table */}
+      <Card className="hidden py-0 sm:block">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Numéro</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Client</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Campagne</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Date</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground lg:table-cell">Validité</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Statut</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Total TTC</th>
+                <tr className="border-b border-border bg-muted/50 text-left">
+                  <th className="px-4 py-3 font-medium">Numéro</th>
+                  <th className="px-4 py-3 font-medium">Client</th>
+                  <th className="hidden px-4 py-3 font-medium md:table-cell">Campagne</th>
+                  <th className="hidden px-4 py-3 font-medium md:table-cell">Date</th>
+                  <th className="hidden px-4 py-3 font-medium lg:table-cell">Validité</th>
+                  <th className="px-4 py-3 font-medium">Statut</th>
+                  <th className="px-4 py-3 text-right font-medium">Total TTC</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

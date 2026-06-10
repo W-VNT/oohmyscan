@@ -156,7 +156,7 @@ export function ReportsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Rapports</h1>
+        <h1 className="hidden text-xl font-semibold sm:block">Rapports</h1>
         <div className="flex flex-wrap items-center gap-2">
           {/* Export CSV — dropdown */}
           <div className="relative">
@@ -313,10 +313,10 @@ export function ReportsPage() {
                 <h3 className="mb-4 text-sm font-semibold">CA par client</h3>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 font-medium text-muted-foreground">Client</th>
-                      <th className="pb-2 text-right font-medium text-muted-foreground">Factures</th>
-                      <th className="pb-2 text-right font-medium text-muted-foreground">CA TTC</th>
+                    <tr className="border-b border-border bg-muted/50 text-left">
+                      <th className="pb-2 font-medium">Client</th>
+                      <th className="pb-2 text-right font-medium">Factures</th>
+                      <th className="pb-2 text-right font-medium">CA TTC</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -347,7 +347,7 @@ export function ReportsPage() {
             <Card>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Total panneaux</p>
+                  <p className="text-xs font-medium">Total panneaux</p>
                   <PanelTop className="size-4 text-muted-foreground" />
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums">{panelStats?.total ?? 0}</p>
@@ -356,7 +356,7 @@ export function ReportsPage() {
             <Card>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Taux d'occupation</p>
+                  <p className="text-xs font-medium">Taux d'occupation</p>
                   <TrendingUp className="size-4 text-green-600" />
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums text-green-600">{panelStats?.occupationRate ?? 0}%</p>
@@ -365,7 +365,7 @@ export function ReportsPage() {
             <Card>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Campagnes actives</p>
+                  <p className="text-xs font-medium">Campagnes actives</p>
                   <Megaphone className="size-4 text-blue-600" />
                 </div>
                 <p className="mt-1 text-2xl font-bold tabular-nums text-blue-600">{campaignStats?.active ?? 0}</p>
@@ -374,7 +374,7 @@ export function ReportsPage() {
             <Card>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Non vérifiés (30j)</p>
+                  <p className="text-xs font-medium">Non vérifiés (30j)</p>
                   <AlertTriangle className={`size-4 ${(panelStats?.unchecked?.length ?? 0) > 0 ? 'text-orange-600' : 'text-muted-foreground'}`} />
                 </div>
                 <p className={`mt-1 text-2xl font-bold tabular-nums ${(panelStats?.unchecked?.length ?? 0) > 0 ? 'text-orange-600' : ''}`}>{panelStats?.unchecked?.length ?? 0}</p>
@@ -446,11 +446,11 @@ export function ReportsPage() {
                 <h3 className="mb-4 text-sm font-semibold">Par ville</h3>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 font-medium text-muted-foreground">Ville</th>
-                      <th className="pb-2 text-right font-medium text-muted-foreground">Total</th>
-                      <th className="pb-2 text-right font-medium text-muted-foreground">Actifs</th>
-                      <th className="pb-2 text-right font-medium text-muted-foreground">Occupation</th>
+                    <tr className="border-b border-border bg-muted/50 text-left">
+                      <th className="pb-2 font-medium">Ville</th>
+                      <th className="pb-2 text-right font-medium">Total</th>
+                      <th className="pb-2 text-right font-medium">Actifs</th>
+                      <th className="pb-2 text-right font-medium">Occupation</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -562,11 +562,11 @@ export function ReportsPage() {
                   </div>
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border text-left">
-                        <th className="pb-2 font-medium text-muted-foreground">Opérateur</th>
-                        <th className="pb-2 text-right font-medium text-muted-foreground">Installations</th>
-                        <th className="pb-2 text-right font-medium text-muted-foreground">Photos</th>
-                        <th className="pb-2 text-right font-medium text-muted-foreground">Dernière activité</th>
+                      <tr className="border-b border-border bg-muted/50 text-left">
+                        <th className="pb-2 font-medium">Opérateur</th>
+                        <th className="pb-2 text-right font-medium">Installations</th>
+                        <th className="pb-2 text-right font-medium">Photos</th>
+                        <th className="pb-2 text-right font-medium">Dernière activité</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">

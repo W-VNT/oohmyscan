@@ -140,12 +140,13 @@ export function LocationsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Lieux</h1>
+        <div className="flex items-baseline gap-2 sm:gap-3">
+          <h1 className="text-base font-semibold sm:text-xl">Lieux</h1>
           <span className="text-sm text-muted-foreground">
+            <span className="sm:hidden">· </span>
             {filtered.length}
-            {hasActiveFilters && ` / ${locations?.length ?? 0}`} lieu
-            {(hasActiveFilters ? (locations?.length ?? 0) : filtered.length) !== 1 ? 'x' : ''}
+            {hasActiveFilters && ` / ${locations?.length ?? 0}`}
+            <span className="hidden sm:inline"> lieu{(hasActiveFilters ? (locations?.length ?? 0) : filtered.length) !== 1 ? 'x' : ''}</span>
           </span>
         </div>
         <div className="flex gap-2">
@@ -155,40 +156,42 @@ export function LocationsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <div className="relative flex-1 sm:min-w-[240px]">
+      {/* Filters : search + 2 selects en grid 2 cols sur mobile */}
+      <div className="space-y-2">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom, ville, adresse, bailleur..."
-            className="h-9 pl-9 text-sm"
+            className="h-10 pl-9 text-sm sm:h-9 sm:min-w-[240px]"
           />
         </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={contractFilter}
-            onChange={(e) => setContractFilter(e.target.value as ContractFilter)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            <option value="all">Tous ({locations?.length ?? 0})</option>
-            <option value="with_contract">Avec contrat ({statusCounts.withContract})</option>
-            <option value="without_contract">Sans contrat ({statusCounts.withoutContract})</option>
-          </select>
-        </div>
-        <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={contractFilter}
+              onChange={(e) => setContractFilter(e.target.value as ContractFilter)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              <option value="all">Tous ({locations?.length ?? 0})</option>
+              <option value="with_contract">Avec contrat ({statusCounts.withContract})</option>
+              <option value="without_contract">Sans contrat ({statusCounts.withoutContract})</option>
+            </select>
+          </div>
+          <div className="relative">
+            <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
         {hasActiveFilters && (
           <button
@@ -201,18 +204,66 @@ export function LocationsPage() {
         )}
       </div>
 
-      {/* Table */}
-      <Card>
+      {/* Mobile : cards stack */}
+      <div className="space-y-2 sm:hidden">
+        {filtered.length === 0 ? (
+          <Card className="py-0">
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              {hasActiveFilters
+                ? 'Aucun lieu trouvé pour ces critères.'
+                : "Les lieux sont créés sur le terrain par les opérateurs lors de la pose de panneaux."}
+            </CardContent>
+          </Card>
+        ) : (
+          filtered.map((location) => {
+            const panelCount = panelCounts.get(location.id) ?? 0
+            return (
+              <button
+                key={location.id}
+                onClick={() => navigate(`/admin/locations/${location.id}`)}
+                className="flex w-full flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted/70"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="truncate font-medium">{location.name}</span>
+                  {location.has_contract ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-600">
+                      <FileCheck className="size-3" />
+                      Signé
+                    </span>
+                  ) : (
+                    <span className="inline-flex shrink-0 items-center rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-medium text-orange-600">
+                      Non signé
+                    </span>
+                  )}
+                </div>
+                <p className="truncate text-xs text-muted-foreground">
+                  {location.city} {location.postal_code}
+                </p>
+                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                  <span className="truncate">{location.owner_first_name} {location.owner_last_name}</span>
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-medium">
+                    <PanelTop className="size-3" />
+                    {panelCount}
+                  </span>
+                </div>
+              </button>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop : table */}
+      <Card className="hidden py-0 sm:block">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Nom</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground md:table-cell">Ville</th>
-                  <th className="hidden px-4 py-3 font-medium text-muted-foreground lg:table-cell">Bailleur</th>
-                  <th className="px-4 py-3 text-center font-medium text-muted-foreground">Panneaux</th>
-                  <th className="px-4 py-3 text-center font-medium text-muted-foreground">Contrat</th>
+                <tr className="border-b border-border bg-muted/50 text-left">
+                  <th className="px-4 py-3 font-medium">Nom</th>
+                  <th className="hidden px-4 py-3 font-medium md:table-cell">Ville</th>
+                  <th className="hidden px-4 py-3 font-medium lg:table-cell">Bailleur</th>
+                  <th className="px-4 py-3 text-center font-medium">Panneaux</th>
+                  <th className="px-4 py-3 text-center font-medium">Contrat</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -270,7 +321,7 @@ export function LocationsPage() {
                           <Link
                             to={`/admin/panels?location=${location.id}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-primary/10 hover:text-primary"
                           >
                             <PanelTop className="size-3" />
                             {panelCount}

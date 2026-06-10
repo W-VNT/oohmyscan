@@ -8,7 +8,7 @@ import { usePanels } from '@/hooks/usePanels'
 import { supabase } from '@/lib/supabase'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Filter, Loader2, Locate, MapPinOff, Search, X, List, ChevronRight } from 'lucide-react'
+import { Filter, Loader2, Locate, MapPinOff, Search, X, List, ChevronRight, SlidersHorizontal } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import type { Panel, PanelWithLocation } from '@/types'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -57,6 +57,7 @@ export function MapPage() {
   const urlSearch = searchParams.get('q') ?? ''
   const [search, setSearch] = useState(urlSearch)
   const [debouncedSearch, setDebouncedSearch] = useState(urlSearch)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const statusFilter = searchParams.get('status') as PanelStatus | null
@@ -256,12 +257,15 @@ export function MapPage() {
     )
   }
 
+  // Nombre de filtres avances actifs (ville + campagne) pour le badge "Plus"
+  const advancedActiveCount = (cityFilter ? 1 : 0) + (campaignFilter ? 1 : 0)
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4">
+      {/* Header — H1 cache sur mobile (le AdminLayout l'affiche en topbar) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Carte</h1>
+          <h1 className="hidden text-xl font-semibold sm:block">Carte</h1>
           <span className="text-sm text-muted-foreground">
             {filteredPanels.length}
             {hasActiveFilters && ` / ${panels?.length ?? 0}`} panneau
@@ -277,75 +281,143 @@ export function MapPage() {
         </Link>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <div className="relative flex-1 sm:min-w-[200px]">
+      {/* Filters — compact sur mobile : Search + Status + Recentrer en 1-2 rangs.
+          Ville/Campagne caches derriere un toggle "Plus". Sur desktop : tout visible. */}
+      <div className="space-y-2">
+        {/* Row 1 : Search bar — toujours visible */}
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par référence, nom, adresse..."
-            className="flex h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-1 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
           />
         </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+        {/* Row 2 : Status + Plus + Recentrer (mobile compact) */}
+        <div className="grid grid-cols-[1fr_auto_auto] gap-2 sm:flex sm:flex-wrap">
+          {/* Status */}
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={statusFilter ?? ''}
+              onChange={(e) => setFilter('status', e.target.value || null)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-1 text-sm sm:h-9"
+            >
+              <option value="">Tous statuts ({panels?.length ?? 0})</option>
+              {PANEL_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {PANEL_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ville (desktop only — sur mobile derriere "Plus") */}
           <select
-            value={statusFilter ?? ''}
-            onChange={(e) => setFilter('status', e.target.value || null)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-1 text-sm"
+            value={cityFilter ?? ''}
+            onChange={(e) => {
+              setFilter('city', e.target.value || null)
+              if (!panels) return
+              const cityPanels = e.target.value
+                ? panels.filter((p) => p.city === e.target.value)
+                : panels
+              if (cityPanels.length) {
+                const lats = cityPanels.map((p) => p.lat)
+                const lngs = cityPanels.map((p) => p.lng)
+                setViewState({
+                  latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
+                  longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+                  zoom: estimateZoom(cityPanels),
+                })
+              }
+            }}
+            className="hidden h-9 appearance-none rounded-lg border border-input bg-background px-3 py-1 text-sm sm:flex"
           >
-            <option value="">Tous les statuts ({panels?.length ?? 0})</option>
-            {PANEL_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {PANEL_STATUS_CONFIG[s].label} ({statusCounts[s] ?? 0})
-              </option>
+            <option value="">Toutes les villes</option>
+            {cities.map((c) => (
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
+
+          {/* Campagne (desktop only — sur mobile derriere "Plus") */}
+          <select
+            value={campaignFilter ?? ''}
+            onChange={(e) => setFilter('campaign', e.target.value || null)}
+            className="hidden h-9 appearance-none rounded-lg border border-input bg-background px-3 py-1 text-sm sm:flex"
+          >
+            <option value="">Toutes les campagnes</option>
+            <option value="with">Avec campagne</option>
+            <option value="without">Sans campagne</option>
+          </select>
+
+          {/* Toggle "Plus" mobile only */}
+          <button
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            className="relative inline-flex h-10 items-center justify-center gap-1 rounded-lg border border-input bg-background px-3 text-sm hover:bg-muted sm:hidden"
+            aria-expanded={mobileFiltersOpen}
+          >
+            <SlidersHorizontal className="size-4" />
+            {advancedActiveCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                {advancedActiveCount}
+              </span>
+            )}
+          </button>
+
+          {/* Recentrer */}
+          <button
+            onClick={handleCenterOnPanels}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors hover:bg-accent sm:h-9"
+            aria-label="Recentrer la carte"
+          >
+            <Locate className="size-4" />
+            <span className="hidden sm:inline">Recentrer</span>
+          </button>
         </div>
-        <select
-          value={cityFilter ?? ''}
-          onChange={(e) => {
-            setFilter('city', e.target.value || null)
-            // Auto-center on the selected city's panels
-            if (!panels) return
-            const cityPanels = e.target.value
-              ? panels.filter((p) => p.city === e.target.value)
-              : panels
-            if (cityPanels.length) {
-              const lats = cityPanels.map((p) => p.lat)
-              const lngs = cityPanels.map((p) => p.lng)
-              setViewState({
-                latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
-                longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-                zoom: estimateZoom(cityPanels),
-              })
-            }
-          }}
-          className="flex h-9 appearance-none rounded-lg border border-input bg-background px-3 py-1 text-sm"
-        >
-          <option value="">Toutes les villes</option>
-          {cities.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-        <select
-          value={campaignFilter ?? ''}
-          onChange={(e) => setFilter('campaign', e.target.value || null)}
-          className="flex h-9 appearance-none rounded-lg border border-input bg-background px-3 py-1 text-sm"
-        >
-          <option value="">Toutes les campagnes</option>
-          <option value="with">Avec campagne</option>
-          <option value="without">Sans campagne</option>
-        </select>
-        <button
-          onClick={handleCenterOnPanels}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm transition-colors hover:bg-accent"
-        >
-          <Locate className="size-4" />
-          Recentrer
-        </button>
+
+        {/* Filtres avances mobile (ville + campagne) — toggle */}
+        {mobileFiltersOpen && (
+          <div className="grid grid-cols-2 gap-2 sm:hidden">
+            <select
+              value={cityFilter ?? ''}
+              onChange={(e) => {
+                setFilter('city', e.target.value || null)
+                if (!panels) return
+                const cityPanels = e.target.value
+                  ? panels.filter((p) => p.city === e.target.value)
+                  : panels
+                if (cityPanels.length) {
+                  const lats = cityPanels.map((p) => p.lat)
+                  const lngs = cityPanels.map((p) => p.lng)
+                  setViewState({
+                    latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
+                    longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+                    zoom: estimateZoom(cityPanels),
+                  })
+                }
+              }}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-1 text-sm"
+            >
+              <option value="">Toutes les villes</option>
+              {cities.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <select
+              value={campaignFilter ?? ''}
+              onChange={(e) => setFilter('campaign', e.target.value || null)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-1 text-sm"
+            >
+              <option value="">Toutes les campagnes</option>
+              <option value="with">Avec campagne</option>
+              <option value="without">Sans campagne</option>
+            </select>
+          </div>
+        )}
+
         {hasActiveFilters && (
           <button
             onClick={resetFilters}

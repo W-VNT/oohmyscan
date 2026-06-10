@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/shared/Toast'
-import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown } from 'lucide-react'
+import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown, SlidersHorizontal } from 'lucide-react'
 
 type RoleFilter = 'all' | 'admin' | 'operator'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -40,6 +40,7 @@ export function UsersPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [sort, setSort] = useState<SortOption>('name')
   const [page, setPage] = useState(0)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   // Inline edit
@@ -200,12 +201,13 @@ export function UsersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Utilisateurs</h1>
+        <div className="flex items-baseline gap-2 sm:gap-3">
+          <h1 className="text-base font-semibold sm:text-xl">Utilisateurs</h1>
           <span className="text-sm text-muted-foreground">
+            <span className="sm:hidden">· </span>
             {filtered.length}
-            {hasActiveFilters && ` / ${users?.length ?? 0}`} utilisateur
-            {(hasActiveFilters ? (users?.length ?? 0) : filtered.length) !== 1 ? 's' : ''}
+            {hasActiveFilters && ` / ${users?.length ?? 0}`}
+            <span className="hidden sm:inline"> utilisateur{(hasActiveFilters ? (users?.length ?? 0) : filtered.length) !== 1 ? 's' : ''}</span>
           </span>
         </div>
         <Button onClick={() => setShowInvite((v) => !v)}>
@@ -249,55 +251,101 @@ export function UsersPage() {
         </Card>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <div className="relative flex-1 sm:min-w-[240px]">
+      {/* Filters — mobile compact (Search + Rôle + Plus). Desktop : tout visible. */}
+      <div className="space-y-2">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher par nom ou téléphone..."
-            className="h-9 pl-9 text-sm"
+            className="h-10 pl-9 text-sm sm:h-9 sm:min-w-[240px]"
           />
         </div>
-        <div className="relative">
-          <Shield className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+        <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:flex-wrap">
+          <div className="relative">
+            <Shield className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              <option value="all">Tous rôles ({users?.length ?? 0})</option>
+              <option value="admin">Admins ({roleCounts.admin})</option>
+              <option value="operator">Opérateurs ({roleCounts.operator})</option>
+            </select>
+          </div>
+          <div className="relative hidden sm:flex">
+            <CheckCircle2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            >
+              <option value="all">Tous statuts</option>
+              <option value="active">Actifs ({roleCounts.active})</option>
+              <option value="inactive">Inactifs ({roleCounts.inactive})</option>
+            </select>
+          </div>
+          <div className="relative hidden sm:flex">
+            <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+            >
+              <option value="name">Nom A-Z</option>
+              <option value="role">Rôle</option>
+              <option value="activity">Activité</option>
+              <option value="panels">Installations</option>
+              <option value="newest">Plus récents</option>
+            </select>
+          </div>
+          <button
+            onClick={() => setMobileFiltersOpen((v) => !v)}
+            className="relative inline-flex h-10 items-center justify-center gap-1 rounded-lg border border-input bg-background px-3 text-sm hover:bg-muted sm:hidden"
+            aria-expanded={mobileFiltersOpen}
           >
-            <option value="all">Tous rôles ({users?.length ?? 0})</option>
-            <option value="admin">Admins ({roleCounts.admin})</option>
-            <option value="operator">Opérateurs ({roleCounts.operator})</option>
-          </select>
+            <SlidersHorizontal className="size-4" />
+            {(statusFilter !== 'all' ? 1 : 0) > 0 && (
+              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                {statusFilter !== 'all' ? 1 : 0}
+              </span>
+            )}
+          </button>
         </div>
-        <div className="relative">
-          <CheckCircle2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            <option value="all">Tous statuts</option>
-            <option value="active">Actifs ({roleCounts.active})</option>
-            <option value="inactive">Inactifs ({roleCounts.inactive})</option>
-          </select>
-        </div>
-        <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            <option value="name">Nom A-Z</option>
-            <option value="role">Rôle</option>
-            <option value="activity">Activité</option>
-            <option value="panels">Installations</option>
-            <option value="newest">Plus récents</option>
-          </select>
-        </div>
+
+        {mobileFiltersOpen && (
+          <div className="grid grid-cols-2 gap-2 sm:hidden">
+            <div className="relative">
+              <CheckCircle2 className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+              >
+                <option value="all">Tous statuts</option>
+                <option value="active">Actifs ({roleCounts.active})</option>
+                <option value="inactive">Inactifs ({roleCounts.inactive})</option>
+              </select>
+            </div>
+            <div className="relative">
+              <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+              >
+                <option value="name">Nom A-Z</option>
+                <option value="role">Rôle</option>
+                <option value="activity">Activité</option>
+                <option value="panels">Installations</option>
+                <option value="newest">Plus récents</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
@@ -309,19 +357,76 @@ export function UsersPage() {
         )}
       </div>
 
-      {/* Table */}
-      <Card className="overflow-visible">
+      {/* Mobile : cards stack */}
+      <div className="space-y-2 sm:hidden">
+        {paginated.length === 0 ? (
+          <Card className="py-0">
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              {hasActiveFilters ? 'Aucun utilisateur trouvé pour ces critères.' : 'Aucun utilisateur. Invite tes opérateurs.'}
+            </CardContent>
+          </Card>
+        ) : (
+          paginated.map((user) => {
+            const userStats = getStats(user.id)
+            return (
+              <button
+                key={user.id}
+                onClick={() => startEdit(user)}
+                className={`flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted/70 ${!user.is_active ? 'opacity-60' : ''}`}
+              >
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                  {user.full_name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <span className="truncate font-medium">{user.full_name}</span>
+                      {user.status === 'invited' && (
+                        <Badge variant="outline" className="shrink-0 border-amber-500 bg-amber-50 px-1.5 py-0 text-[10px] text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                          Invité
+                        </Badge>
+                      )}
+                    </div>
+                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="shrink-0">
+                      {user.role === 'admin' ? 'Admin' : 'Opérateur'}
+                    </Badge>
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {user.phone || '—'}
+                  </p>
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-2 tabular-nums">
+                      {userStats ? (
+                        <>
+                          <span className="inline-flex items-center gap-0.5"><PanelTop className="size-3" />{userStats.panel_count}</span>
+                          <span className="inline-flex items-center gap-0.5"><Camera className="size-3" />{userStats.photo_count}</span>
+                        </>
+                      ) : null}
+                    </span>
+                    <span className="tabular-nums">
+                      {userStats?.last_activity ? formatRelativeDate(userStats.last_activity) : (user.is_active ? '—' : 'Inactif')}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop : table */}
+      <Card className="hidden overflow-visible py-0 sm:block">
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left">
-                <th className="px-4 py-2.5 font-medium text-muted-foreground">Nom</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground">Rôle</th>
-                <th className="hidden px-4 py-2.5 font-medium text-muted-foreground md:table-cell">Téléphone</th>
-                <th className="hidden px-4 py-2.5 font-medium text-muted-foreground lg:table-cell">Installations</th>
-                <th className="hidden px-4 py-2.5 font-medium text-muted-foreground lg:table-cell">Photos</th>
-                <th className="hidden px-4 py-2.5 font-medium text-muted-foreground md:table-cell">Activité</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground">Statut</th>
+              <tr className="border-b border-border bg-muted/50 text-left">
+                <th className="px-4 py-2.5 font-medium">Nom</th>
+                <th className="px-4 py-2.5 font-medium">Rôle</th>
+                <th className="hidden px-4 py-2.5 font-medium md:table-cell">Téléphone</th>
+                <th className="hidden px-4 py-2.5 font-medium lg:table-cell">Installations</th>
+                <th className="hidden px-4 py-2.5 font-medium lg:table-cell">Photos</th>
+                <th className="hidden px-4 py-2.5 font-medium md:table-cell">Activité</th>
+                <th className="px-4 py-2.5 font-medium">Statut</th>
                 <th className="w-10" />
                 {editingId && <th className="w-16" />}
               </tr>
@@ -393,7 +498,7 @@ export function UsersPage() {
                     <tr key={user.id} onClick={() => startEdit(user)} className={`cursor-pointer transition-colors hover:bg-muted/50 ${!user.is_active ? 'opacity-50' : ''}`}>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
                             {user.full_name.charAt(0).toUpperCase()}
                           </div>
                           <span className="font-medium">{user.full_name}</span>
@@ -427,7 +532,7 @@ export function UsersPage() {
                         {confirmDeactivate === user.id ? (
                           <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => confirmToggle(user)} className="rounded px-2 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-500/10">Confirmer</button>
-                            <button onClick={() => setConfirmDeactivate(null)} className="rounded px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted">Non</button>
+                            <button onClick={() => setConfirmDeactivate(null)} className="rounded px-2 py-0.5 text-[10px] font-medium hover:bg-muted">Non</button>
                           </div>
                         ) : (
                           <button

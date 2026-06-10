@@ -204,7 +204,7 @@ export function QRPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">QR Codes</h1>
+          <h1 className="hidden text-xl font-semibold sm:block">QR Codes</h1>
           <span className="text-sm text-muted-foreground">
             {filtered.length}
             {hasActiveFilters && ` / ${qrItems?.length ?? 0}`} QR code
@@ -280,41 +280,43 @@ export function QRPage() {
         </Card>
       </div>
 
-      {/* Filters — pattern coherent avec les autres pages (search + dropdown) */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <div className="relative flex-1 sm:min-w-[240px]">
+      {/* Filters : search + 2 selects en grid 2 cols sur mobile */}
+      <div className="space-y-2">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Rechercher UUID ou panneau..."
-            className="h-9 pl-9 text-sm"
+            className="h-10 pl-9 text-sm sm:h-9 sm:min-w-[240px]"
           />
         </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as FilterOption)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            <option value="all">Tous ({qrItems?.length ?? 0})</option>
-            <option value="available">Disponibles ({stats?.available ?? 0})</option>
-            <option value="assigned">Assignés ({stats?.assigned ?? 0})</option>
-          </select>
-        </div>
-        <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
-          >
-            <option value="newest">Plus récents</option>
-            <option value="oldest">Plus anciens</option>
-            <option value="uuid">UUID</option>
-            <option value="status">Statut</option>
-          </select>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as FilterOption)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              <option value="all">Tous ({qrItems?.length ?? 0})</option>
+              <option value="available">Disponibles ({stats?.available ?? 0})</option>
+              <option value="assigned">Assignés ({stats?.assigned ?? 0})</option>
+            </select>
+          </div>
+          <div className="relative">
+            <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
+            >
+              <option value="newest">Plus récents</option>
+              <option value="oldest">Plus anciens</option>
+              <option value="uuid">UUID</option>
+              <option value="status">Statut</option>
+            </select>
+          </div>
         </div>
         {hasActiveFilters && (
           <button
@@ -371,18 +373,18 @@ export function QRPage() {
       )}
 
       {/* Table */}
-      <Card>
+      <Card className="py-0">
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left">
+              <tr className="border-b border-border bg-muted/50 text-left">
                 <th className="w-10 px-4 py-2.5">
                   <input type="checkbox" checked={paginated.length > 0 && paginated.every((i) => selected.has(i.id))} onChange={toggleSelectAll} className="size-3.5 rounded border-border" />
                 </th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground">UUID</th>
-                <th className="px-4 py-2.5 font-medium text-muted-foreground">Statut</th>
-                <th className="hidden px-4 py-2.5 font-medium text-muted-foreground md:table-cell">Panneau</th>
-                <th className="hidden px-4 py-2.5 font-medium text-muted-foreground md:table-cell">Généré le</th>
+                <th className="px-4 py-2.5 font-medium">UUID</th>
+                <th className="px-4 py-2.5 font-medium">Statut</th>
+                <th className="hidden px-4 py-2.5 font-medium md:table-cell">Panneau</th>
+                <th className="hidden px-4 py-2.5 font-medium md:table-cell">Généré le</th>
                 <th className="w-10" />
               </tr>
             </thead>

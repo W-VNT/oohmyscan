@@ -160,7 +160,7 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <h1 className="text-xl font-semibold">Profil</h1>
+      <h1 className="hidden text-xl font-semibold sm:block">Profil</h1>
 
       {/* Profile */}
       <Card>
