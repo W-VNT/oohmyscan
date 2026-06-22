@@ -262,14 +262,15 @@ export function MapPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header — H1 cache sur mobile (le AdminLayout l'affiche en topbar) */}
+      {/* Header — Option B (compact sur mobile, full desktop) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="hidden text-xl font-semibold sm:block">Carte</h1>
+        <div className="flex items-baseline gap-2 sm:gap-3">
+          <h1 className="text-base font-semibold sm:text-xl">Carte</h1>
           <span className="text-sm text-muted-foreground">
+            <span className="sm:hidden">· </span>
             {filteredPanels.length}
-            {hasActiveFilters && ` / ${panels?.length ?? 0}`} panneau
-            {filteredPanels.length !== 1 ? 'x' : ''}
+            {hasActiveFilters && ` / ${panels?.length ?? 0}`}
+            <span className="hidden sm:inline"> panneau{filteredPanels.length !== 1 ? 'x' : ''}</span>
           </span>
         </div>
         <Link
@@ -277,7 +278,8 @@ export function MapPage() {
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-sm transition-colors hover:bg-muted"
         >
           <List className="size-4" />
-          Voir en liste
+          <span className="hidden sm:inline">Voir en liste</span>
+          <span className="sm:hidden">Liste</span>
         </Link>
       </div>
 

@@ -129,10 +129,12 @@ export function ClientNewPage() {
     type?: string,
   ) {
     const error = formErrors[key]
+    const fieldId = `client-${key}`
     return (
       <div>
-        <label className="mb-2 block text-sm font-medium">{label}</label>
+        <label htmlFor={fieldId} className="mb-2 block text-sm font-medium">{label}</label>
         <Input
+          id={fieldId}
           value={(form[key] as string) ?? ''}
           onChange={(e) => {
             setForm((f) => ({ ...f, [key]: e.target.value || null }))

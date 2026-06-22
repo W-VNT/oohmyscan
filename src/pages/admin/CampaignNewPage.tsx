@@ -180,8 +180,9 @@ export function CampaignNewPage() {
           {/* Row 1: Nom | Client | Statut */}
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <label className="mb-2 block text-sm font-medium">Nom *</label>
+              <label htmlFor="campaign-name" className="mb-2 block text-sm font-medium">Nom <span className="text-red-500">*</span></label>
               <Input
+                id="campaign-name"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Ex: Campagne été 2026"
@@ -189,8 +190,9 @@ export function CampaignNewPage() {
               />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium">Client *</label>
+              <label htmlFor="campaign-client" className="mb-2 block text-sm font-medium">Client <span className="text-red-500">*</span></label>
               <select
+                id="campaign-client"
                 value={form.client_id}
                 onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
                 className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
@@ -216,8 +218,9 @@ export function CampaignNewPage() {
           {/* Row 2: Date début | Date fin | Budget | Panneaux cible */}
           <div className="grid gap-4 sm:grid-cols-4">
             <div>
-              <label className="mb-2 block text-sm font-medium">Date début *</label>
+              <label htmlFor="campaign-start" className="mb-2 block text-sm font-medium">Date début <span className="text-red-500">*</span></label>
               <Input
+                id="campaign-start"
                 type="date"
                 value={form.start_date}
                 onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
@@ -225,8 +228,9 @@ export function CampaignNewPage() {
               />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium">Date fin *</label>
+              <label htmlFor="campaign-end" className="mb-2 block text-sm font-medium">Date fin <span className="text-red-500">*</span></label>
               <Input
+                id="campaign-end"
                 type="date"
                 value={form.end_date}
                 min={form.start_date || undefined}

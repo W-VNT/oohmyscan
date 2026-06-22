@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/shared/Toast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
 import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive, X, Trash2, Download, ChevronLeft, ChevronRight, Filter, ArrowUpDown, CheckSquare } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 import { pdf } from '@react-pdf/renderer'
@@ -23,6 +24,7 @@ export function QRPage() {
   const { data: stats } = useQRStockStats()
   const generateQR = useGenerateQRCodes()
   const deleteQR = useDeleteQRCodes()
+  const confirm = useConfirm()
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -185,7 +187,13 @@ export function QRPage() {
 
   async function handleDelete() {
     if (selectedUnassigned.length === 0) return
-    if (!window.confirm(`Supprimer ${selectedUnassigned.length} QR code${selectedUnassigned.length !== 1 ? 's' : ''} ?`)) return
+    const ok = await confirm({
+      title: `Supprimer ${selectedUnassigned.length} QR code${selectedUnassigned.length !== 1 ? 's' : ''} ?`,
+      description: 'Les QR codes sélectionnés seront retirés du stock. Cette action est irréversible.',
+      confirmLabel: 'Supprimer',
+      variant: 'destructive',
+    })
+    if (!ok) return
     try {
       await deleteQR.mutateAsync(selectedUnassigned.map((i) => i.id))
       toast(`${selectedUnassigned.length} QR code${selectedUnassigned.length !== 1 ? 's' : ''} supprimé${selectedUnassigned.length !== 1 ? 's' : ''}`)
@@ -243,8 +251,8 @@ export function QRPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* Stats : slider horizontal sur mobile, grille sur desktop */}
+      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 [&>*]:min-w-[80%] [&>*]:snap-center sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0 sm:py-0 sm:[&>*]:min-w-0">
         <Card>
           <CardContent className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-lg bg-muted">

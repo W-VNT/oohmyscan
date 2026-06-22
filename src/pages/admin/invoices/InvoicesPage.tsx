@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Receipt, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Clock, Download, Archive, X, Building2, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
+import { ErrorState } from '@/components/shared/ErrorState'
 import { INVOICE_STATUSES, INVOICE_STATUS_CONFIG, INVOICE_TYPE_LABELS, type InvoiceStatus, type InvoiceType } from '@/lib/constants'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 import { useClients } from '@/hooks/admin/useClients'
@@ -50,7 +51,7 @@ export function InvoicesPage() {
   const [archiveMode, setArchiveMode] = useState<'active' | 'archived' | 'all'>('active')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const { data: clientsList } = useClients()
-  const { data: paginatedData, isLoading } = usePaginatedInvoices(
+  const { data: paginatedData, isLoading, isError, error, refetch } = usePaginatedInvoices(
     page,
     debouncedSearch,
     statusFilter,
@@ -136,6 +137,10 @@ export function InvoicesPage() {
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     )
+  }
+
+  if (isError) {
+    return <ErrorState error={error} onRetry={() => refetch()} title="Impossible de charger les factures" />
   }
 
   return (

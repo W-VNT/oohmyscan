@@ -419,50 +419,54 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
 
   return (
     <div className="space-y-6">
-      {/* Header + Action buttons */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin/potential')}>
-            <ArrowLeft className="size-4" />
-          </Button>
-          <h1 className="text-xl font-semibold">
-            {!savedIdRef.current && isNew ? 'Nouvelle demande de potentiel' : `${existingRequest?.reference ?? 'Potentiel'}`}
-          </h1>
-          {existingRequest && (
-            <Badge variant={POTENTIAL_STATUS_CONFIG[existingRequest.status as PotentialStatus]?.variant ?? 'secondary'}>
-              {POTENTIAL_STATUS_CONFIG[existingRequest.status as PotentialStatus]?.label ?? existingRequest.status}
-            </Badge>
-          )}
+      {/* Header — stack en mobile, ligne unique desktop */}
+      <div className="flex flex-wrap items-start gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/admin/potential')}>
+          <ArrowLeft className="size-4" />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-lg font-semibold sm:text-xl">
+              {!savedIdRef.current && isNew ? 'Nouvelle demande de potentiel' : `${existingRequest?.reference ?? 'Potentiel'}`}
+            </h1>
+            {existingRequest && (
+              <Badge variant={POTENTIAL_STATUS_CONFIG[existingRequest.status as PotentialStatus]?.variant ?? 'secondary'}>
+                {POTENTIAL_STATUS_CONFIG[existingRequest.status as PotentialStatus]?.label ?? existingRequest.status}
+              </Badge>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          {analyzed && (
-            <>
-              <Button variant="outline" size="sm" onClick={runAnalysis} disabled={analyzing}>
-                <Search className="mr-1.5 size-3.5" />
-                Relancer
+        {(analyzed || (existingRequest && (existingRequest.status === 'draft' || existingRequest.status === 'sent'))) && (
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            {analyzed && (
+              <>
+                <Button variant="outline" size="sm" onClick={runAnalysis} disabled={analyzing} className="flex-1 sm:flex-none">
+                  <Search className="mr-1.5 size-3.5" />
+                  Relancer
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleGeneratePDF} disabled={generatingPdf} className="flex-1 sm:flex-none">
+                  {generatingPdf ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Download className="mr-1.5 size-3.5" />}
+                  PDF
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportCSV} className="flex-1 sm:flex-none">
+                  <Download className="mr-1.5 size-3.5" />
+                  CSV
+                </Button>
+              </>
+            )}
+            {existingRequest && existingRequest.status === 'draft' && (
+              <Button variant="outline" size="sm" onClick={() => handleStatusChange('sent')} className="flex-1 sm:flex-none">
+                <Send className="mr-1.5 size-3.5" />
+                <span className="hidden sm:inline">Marquer </span>Envoyé
               </Button>
-              <Button variant="outline" size="sm" onClick={handleGeneratePDF} disabled={generatingPdf}>
-                {generatingPdf ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Download className="mr-1.5 size-3.5" />}
-                PDF
+            )}
+            {existingRequest && existingRequest.status === 'sent' && (
+              <Button variant="outline" size="sm" onClick={() => handleStatusChange('draft')} className="flex-1 sm:flex-none">
+                <span className="hidden sm:inline">Repasser </span>Brouillon
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                <Download className="mr-1.5 size-3.5" />
-                CSV
-              </Button>
-            </>
-          )}
-          {existingRequest && existingRequest.status === 'draft' && (
-            <Button variant="outline" size="sm" onClick={() => handleStatusChange('sent')}>
-              <Send className="mr-1.5 size-3.5" />
-              Marquer envoyé
-            </Button>
-          )}
-          {existingRequest && existingRequest.status === 'sent' && (
-            <Button variant="outline" size="sm" onClick={() => handleStatusChange('draft')}>
-              Repasser brouillon
-            </Button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Form */}
@@ -470,7 +474,7 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="mb-2 block text-sm font-medium">Prospect *</label>
+              <label className="mb-2 block text-sm font-medium">Prospect <span className="text-red-500">*</span></label>
               <Input
                 value={prospectName}
                 onChange={(e) => setProspectName(e.target.value)}
@@ -483,7 +487,7 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
               <select
                 value={businessType}
                 onChange={(e) => setBusinessType(e.target.value as BusinessType)}
-                className="flex h-9 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm sm:h-9"
               >
                 {BUSINESS_TYPES.map((b) => (
                   <option key={b.value} value={b.value}>{b.label}</option>
@@ -495,7 +499,7 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
               <select
                 value={supportType}
                 onChange={(e) => setSupportType(e.target.value as SupportType)}
-                className="flex h-9 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm sm:h-9"
               >
                 {SUPPORT_TYPES.map((s) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
@@ -585,7 +589,7 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
 
           </div>
 
-          <Button onClick={runAnalysis} disabled={!canAnalyze || analyzing}>
+          <Button onClick={runAnalysis} disabled={!canAnalyze || analyzing} className="w-full sm:w-auto">
             {analyzing ? (
               <Loader2 className="mr-1.5 size-4 animate-spin" />
             ) : (
@@ -716,31 +720,51 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
             </Card>
           )}
 
-          {/* Details tables */}
+          {/* Details */}
           {vacantPanels.length > 0 && (
             <Card>
               <CardContent>
                 <h3 className="mb-4 text-sm font-semibold">Panneaux vacants disponibles ({vacantPanels.length})</h3>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50 text-left">
-                      <th className="pb-2 font-medium">Référence</th>
-                      <th className="pb-2 font-medium">Adresse</th>
-                      <th className="pb-2 font-medium">Ville</th>
-                      <th className="pb-2 font-medium">Type</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {vacantPanels.map((p) => (
-                      <tr key={p.id}>
-                        <td className="py-2 font-medium">{p.reference}</td>
-                        <td className="py-2 text-muted-foreground">{p.address ?? '—'}</td>
-                        <td className="py-2 text-muted-foreground">{p.city ?? '—'}</td>
-                        <td className="py-2 text-muted-foreground">{p.type ?? '—'}</td>
+                {/* Mobile : cards */}
+                <div className="space-y-2 sm:hidden">
+                  {vacantPanels.map((p) => (
+                    <div key={p.id} className="space-y-1 rounded-lg border border-border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <code className="font-mono text-xs font-medium">{p.reference}</code>
+                        {p.type && (
+                          <Badge variant="outline" className="shrink-0 text-[10px]">{p.type}</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {p.address ?? '—'}
+                        {p.city ? ` · ${p.city}` : ''}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop : table */}
+                <div className="hidden sm:block">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50 text-left">
+                        <th className="pb-2 font-medium">Référence</th>
+                        <th className="pb-2 font-medium">Adresse</th>
+                        <th className="pb-2 font-medium">Ville</th>
+                        <th className="pb-2 font-medium">Type</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {vacantPanels.map((p) => (
+                        <tr key={p.id}>
+                          <td className="py-2 font-medium">{p.reference}</td>
+                          <td className="py-2 text-muted-foreground">{p.address ?? '—'}</td>
+                          <td className="py-2 text-muted-foreground">{p.city ?? '—'}</td>
+                          <td className="py-2 text-muted-foreground">{p.type ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -749,26 +773,41 @@ toast("Erreur lors de l'enregistrement automatique", 'error')
             <Card>
               <CardContent>
                 <h3 className="mb-4 text-sm font-semibold">Emplacements potentiels ({potentialSpots.length})</h3>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50 text-left">
-                      <th className="pb-2 font-medium">Nom du lieu</th>
-                      <th className="pb-2 font-medium">Adresse</th>
-                      <th className="pb-2 font-medium">Type</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {potentialSpots.map((spot, i) => (
-                      <tr key={i}>
-                        <td className="py-2 font-medium">{spot.name}</td>
-                        <td className="py-2 text-muted-foreground">{spot.address}</td>
-                        <td className="py-2">
-                          <Badge variant="outline" className="text-[10px]">{spot.typeLabel}</Badge>
-                        </td>
+                {/* Mobile : cards */}
+                <div className="space-y-2 sm:hidden">
+                  {potentialSpots.map((spot, i) => (
+                    <div key={i} className="space-y-1 rounded-lg border border-border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="truncate text-sm font-medium">{spot.name}</span>
+                        <Badge variant="outline" className="shrink-0 text-[10px]">{spot.typeLabel}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{spot.address}</p>
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop : table */}
+                <div className="hidden sm:block">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50 text-left">
+                        <th className="pb-2 font-medium">Nom du lieu</th>
+                        <th className="pb-2 font-medium">Adresse</th>
+                        <th className="pb-2 font-medium">Type</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {potentialSpots.map((spot, i) => (
+                        <tr key={i}>
+                          <td className="py-2 font-medium">{spot.name}</td>
+                          <td className="py-2 text-muted-foreground">{spot.address}</td>
+                          <td className="py-2">
+                            <Badge variant="outline" className="text-[10px]">{spot.typeLabel}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           )}

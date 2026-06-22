@@ -147,7 +147,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <main className="flex min-h-screen bg-background">
       {/* Left panel — branding (desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-between bg-foreground p-12 text-background">
         <div>
@@ -276,6 +276,6 @@ export function LoginPage() {
         <div className="flex-[2]" />
         <p className="pb-4 text-center text-[11px] text-muted-foreground">v1.0.0</p>
       </div>
-    </div>
+    </main>
   )
 }

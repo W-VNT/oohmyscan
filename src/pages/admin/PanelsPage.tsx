@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Search, Filter, Loader2, PanelTop, ChevronLeft, ChevronRight, Megaphone, Download, MapPin, X, QrCode, SlidersHorizontal } from 'lucide-react'
+import { ErrorState } from '@/components/shared/ErrorState'
 import { Button } from '@/components/ui/button'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
@@ -112,7 +113,7 @@ export function PanelsPage() {
   const { data: panelStats } = usePanelStats()
 
   const activeCampaignIds = useMemo(() => Array.from(panelCampaigns), [panelCampaigns])
-  const { data, isLoading } = usePaginatedPanels(
+  const { data, isLoading, isError, error, refetch } = usePaginatedPanels(
     page,
     debouncedSearch,
     statusFilter,
@@ -374,6 +375,8 @@ export function PanelsPage() {
         <div className="flex justify-center py-20">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
+      ) : isError ? (
+        <ErrorState error={error} onRetry={() => refetch()} title="Impossible de charger les panneaux" />
       ) : panels.length === 0 ? (
         hasActiveFilters ? (
           <EmptyState icon={PanelTop} title="Aucun panneau trouvé" />

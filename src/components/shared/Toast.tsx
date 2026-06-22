@@ -65,7 +65,7 @@ function ToastNotification({ toast: t, onDismiss }: { toast: ToastItem; onDismis
         <AlertCircle className="size-4 shrink-0 text-destructive" />
       )}
       <p className="flex-1 text-[13px]">{t.message}</p>
-      <button onClick={onDismiss} className="shrink-0 rounded-md p-0.5 hover:bg-muted">
+      <button onClick={onDismiss} className="shrink-0 rounded-md p-0.5 hover:bg-muted" aria-label="Fermer la notification">
         <X className="size-3.5 text-muted-foreground" />
       </button>
     </div>

@@ -9,6 +9,7 @@ import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { ToastContainer } from '@/components/shared/Toast'
+import { ConfirmDialogProvider } from '@/components/shared/ConfirmDialog'
 import { ScrollToTop } from '@/components/shared/ScrollToTop'
 import { DynamicFavicon } from '@/components/shared/DynamicFavicon'
 import { DynamicTheme } from '@/components/shared/DynamicTheme'
@@ -20,6 +21,7 @@ import { InstallBanner } from '@/components/shared/InstallBanner'
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 const PublicDocumentPage = lazy(() => import('@/pages/public/PublicDocumentPage').then((m) => ({ default: m.PublicDocumentPage })))
+const PublicReportPage = lazy(() => import('@/pages/public/PublicReportPage').then((m) => ({ default: m.PublicReportPage })))
 const LandingPage = lazy(() => import('@/pages/landing/LandingPage').then((m) => ({ default: m.LandingPage })))
 const MentionsLegalesPage = lazy(() => import('@/pages/legal/MentionsLegalesPage').then((m) => ({ default: m.MentionsLegalesPage })))
 const ConfidentialitePage = lazy(() => import('@/pages/legal/ConfidentialitePage').then((m) => ({ default: m.ConfidentialitePage })))
@@ -62,7 +64,6 @@ const InvoiceDetailPage = lazy(() => import('@/pages/admin/invoices/InvoiceDetai
 const PotentialPage = lazy(() => import('@/pages/admin/potential/PotentialPage').then((m) => ({ default: m.PotentialPage })))
 const PotentialNewPage = lazy(() => import('@/pages/admin/potential/PotentialNewPage').then((m) => ({ default: m.PotentialNewPage })))
 const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })))
-const ProofOfPostingPage = lazy(() => import('@/pages/admin/reports/ProofOfPostingPage').then((m) => ({ default: m.ProofOfPostingPage })))
 const CampaignReportEditorPage = lazy(() => import('@/pages/admin/reports/CampaignReportEditorPage').then((m) => ({ default: m.CampaignReportEditorPage })))
 const AdminProfilePage = lazy(() => import('@/pages/admin/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
@@ -115,6 +116,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        <ConfirmDialogProvider>
         <BrowserRouter>
           <ScrollToTop />
           <DynamicFavicon />
@@ -182,7 +184,6 @@ export default function App() {
                   <Route path="qr" element={<QRPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="reports" element={<ReportsPage />} />
-                  <Route path="reports/:campaignId" element={<ProofOfPostingPage />} />
                   <Route path="campaigns/:campaignId/report" element={<CampaignReportEditorPage />} />
                   <Route path="profile" element={<AdminProfilePage />} />
                   <Route path="settings" element={<SettingsPage />} />
@@ -191,12 +192,14 @@ export default function App() {
 
               {/* Public portal — accessible directement, pas de gate */}
               <Route path="/view/:token" element={<PublicDocumentPage />} />
+              <Route path="/view/rapport/:token" element={<PublicReportPage />} />
             </Routes>
           </Suspense>
           <ToastContainer />
           <PWAUpdatePrompt />
           <InstallBanner />
         </BrowserRouter>
+        </ConfirmDialogProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   )

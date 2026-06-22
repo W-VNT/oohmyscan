@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Loader2, Plus, Megaphone, Search, Filter, ArrowUpDown, Download, X, AlertTriangle, Building2, SlidersHorizontal } from 'lucide-react'
+import { ErrorState } from '@/components/shared/ErrorState'
 import { saveAs } from 'file-saver'
 import { toast } from '@/components/shared/Toast'
 import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_CONFIG, type CampaignStatus } from '@/lib/constants'
@@ -24,7 +25,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ]
 
 export function CampaignsPage() {
-  const { data: campaigns, isLoading } = useCampaigns()
+  const { data: campaigns, isLoading, isError, error, refetch } = useCampaigns()
   const navigate = useNavigate()
 
   const [search, setSearch] = useState('')
@@ -294,12 +295,25 @@ export function CampaignsPage() {
         <div className="flex justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : isError ? (
+        <ErrorState error={error} onRetry={() => refetch()} title="Impossible de charger les campagnes" />
       ) : !filtered.length ? (
-        <EmptyState
-          icon={Megaphone}
-          title={debouncedSearch || statusFilter !== 'all' ? 'Aucune campagne trouvée' : 'Aucune campagne'}
-          action={!debouncedSearch && statusFilter === 'all' ? { label: 'Nouvelle campagne', onClick: () => navigate('/admin/campaigns/new') } : undefined}
-        />
+        hasActiveFilters ? (
+          <EmptyState
+            icon={Megaphone}
+            title="Aucune campagne trouvée"
+            description="Aucun résultat pour ces critères. Modifie les filtres ou réinitialise la recherche."
+            action={{ label: 'Réinitialiser les filtres', onClick: resetFilters, variant: 'outline' }}
+            size="compact"
+          />
+        ) : (
+          <EmptyState
+            icon={Megaphone}
+            title="Aucune campagne pour le moment"
+            description="Crée ta première campagne pour assigner des panneaux et générer des rapports."
+            action={{ label: 'Nouvelle campagne', onClick: () => navigate('/admin/campaigns/new'), icon: Plus }}
+          />
+        )
       ) : (
         <>
           {/* Mobile : cards stack */}

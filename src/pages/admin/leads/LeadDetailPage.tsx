@@ -170,32 +170,32 @@ export function LeadDetailPage() {
         )}
       </div>
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">{lead.name}</h1>
+      {/* Header — stack en mobile, ligne unique desktop */}
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-xl font-semibold sm:text-2xl">{lead.name}</h1>
             <span
               className={cn(
-                'inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                'inline-flex shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium',
                 STATUS_BADGE_STYLE[lead.status],
               )}
             >
               {LEAD_STATUS_LABELS[lead.status]}
             </span>
           </div>
-          {lead.company && <p className="mt-1 text-sm text-muted-foreground">{lead.company}</p>}
+          {lead.company && <p className="mt-1 truncate text-sm text-muted-foreground">{lead.company}</p>}
           <p className="mt-2 text-xs text-muted-foreground">
             Reçu le {formatFullDate(lead.created_at)}
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <a href={mailto} className={cn(buttonVariants({ size: 'sm' }))}>
-            <Mail className="mr-1.5 size-3.5" /> Répondre par email
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <a href={mailto} className={cn(buttonVariants({ size: 'sm' }), 'flex-1 sm:flex-none')}>
+            <Mail className="mr-1.5 size-3.5" /> <span className="hidden sm:inline">Répondre par email</span><span className="sm:hidden">Répondre</span>
           </a>
-          <Button size="sm" variant="outline" onClick={handleConvertToClient}>
-            <UserPlus className="mr-1.5 size-3.5" /> Convertir en client
+          <Button size="sm" variant="outline" onClick={handleConvertToClient} className="flex-1 sm:flex-none">
+            <UserPlus className="mr-1.5 size-3.5" /> <span className="hidden sm:inline">Convertir en </span>Client
           </Button>
         </div>
       </div>

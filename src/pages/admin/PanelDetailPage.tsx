@@ -11,6 +11,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, PANEL_ZONES } from '@/lib/constants'
 import {
   ArrowLeft,
@@ -28,6 +30,9 @@ import {
   ExternalLink,
   Copy,
   Trash2,
+  Tag,
+  QrCode,
+  PanelTop as PanelTopIcon,
 } from 'lucide-react'
 import Map, { Marker } from 'react-map-gl/mapbox'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -40,6 +45,7 @@ export function PanelDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const { data: panel, isLoading } = usePanel(id)
   const updatePanel = useUpdatePanel()
   const deletePanel = useDeletePanel()
@@ -174,11 +180,12 @@ export function PanelDetailPage() {
 
   async function handleDeletePanel() {
     if (!panel || !id) return
-    const ok = confirm(
-      `Supprimer définitivement le panneau "${panel.name || panel.reference}" ?\n\n` +
-      `Cette action est irréversible. Les photos et assignations campagne associées seront aussi supprimées.\n` +
-      `Les contrats déjà signés conservent l'historique du panneau.`
-    )
+    const ok = await confirm({
+      title: `Supprimer "${panel.name || panel.reference}" ?`,
+      description: `Cette action est irréversible. Les photos et assignations campagne associées seront aussi supprimées.\nLes contrats déjà signés conservent l'historique du panneau.`,
+      confirmLabel: 'Supprimer',
+      variant: 'destructive',
+    })
     if (!ok) return
     try {
       await deletePanel.mutateAsync(id)
@@ -190,7 +197,13 @@ export function PanelDetailPage() {
   }
 
   async function handleDeletePhoto(photo: PanelPhoto) {
-    if (!confirm('Supprimer cette photo ?')) return
+    const ok = await confirm({
+      title: 'Supprimer cette photo ?',
+      description: 'La photo sera retirée du panneau et du stockage. Cette action est irréversible.',
+      confirmLabel: 'Supprimer',
+      variant: 'destructive',
+    })
+    if (!ok) return
     try {
       const { error: storageErr } = await supabase.storage
         .from('panel-photos')
@@ -212,11 +225,22 @@ export function PanelDetailPage() {
 
   if (!panel) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-lg font-medium">Panneau non trouvé</p>
-        <Link to="/admin/panels" className="mt-4 text-sm text-primary underline">
-          Retour à la liste
-        </Link>
+      <div className="flex flex-col items-center justify-center px-4 py-20">
+        <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-xl border border-border bg-card p-6 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted/60">
+            <PanelTopIcon className="size-6 text-muted-foreground" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Panneau introuvable</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ce panneau n'existe pas, a été supprimé ou tu n'y as pas accès.
+            </p>
+          </div>
+          <Link to="/admin/panels" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90">
+            <ArrowLeft className="size-3.5" />
+            Retour aux panneaux
+          </Link>
+        </div>
       </div>
     )
   }
@@ -230,31 +254,36 @@ export function PanelDetailPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+      {/* Header — stack en mobile, ligne unique desktop */}
+      <div className="flex flex-wrap items-start gap-3">
         <Link
           to="/admin/panels"
           className="rounded-md p-1 transition-colors hover:bg-accent"
         >
           <ArrowLeft className="size-5" />
         </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">{displayName}</h1>
-            <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground">{panel.reference}</code>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-lg font-semibold sm:text-xl">{displayName}</h1>
             <StatusBadge status={panel.status as PanelStatus} />
           </div>
-          <p className="mt-1 text-muted-foreground">
-            {panel.city || panel.address || panel.reference}
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{panel.reference}</code>
+            {(panel.city || panel.address) && (
+              <>
+                <span>·</span>
+                <span className="truncate">{panel.city || panel.address}</span>
+              </>
+            )}
+          </div>
         </div>
         {!editing && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={openEdit}>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button variant="outline" size="sm" onClick={openEdit} className="flex-1 sm:flex-none">
               <Pencil className="mr-1.5 size-3.5" />
               Modifier
             </Button>
-            <Button variant="outline" size="sm" onClick={handleDeletePanel} className="text-destructive">
+            <Button variant="outline" size="sm" onClick={handleDeletePanel} className="flex-1 text-destructive sm:flex-none">
               <Trash2 className="mr-1.5 size-3.5" />
               Supprimer
             </Button>
@@ -266,7 +295,7 @@ export function PanelDetailPage() {
         {/* Left column */}
         <div className="space-y-6 lg:col-span-2">
           {/* Info */}
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <h3 className="font-semibold">Informations</h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {/* Row 1: Lieu / Zone */}
@@ -339,7 +368,7 @@ export function PanelDetailPage() {
                   <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nom du panneau" className="text-sm" disabled={!!editForm.location_id} />
                 </div>
               ) : (
-                <InfoRow icon={Calendar} label="Nom" value={panel.name || '—'} />
+                <InfoRow icon={Tag} label="Nom" value={panel.name || '—'} />
               )}
 
               {editing ? (
@@ -357,7 +386,7 @@ export function PanelDetailPage() {
                   </select>
                 </div>
               ) : (
-                <InfoRow icon={Calendar} label="Type" value={panel.type || defaultTypeName || '—'} />
+                <InfoRow icon={Tag} label="Type" value={panel.type || defaultTypeName || '—'} />
               )}
 
               {/* Row 3: Adresse / Ville */}
@@ -379,8 +408,8 @@ export function PanelDetailPage() {
                 <InfoRow icon={MapPin} label="Ville" value={panel.city || '—'} />
               )}
 
-              {/* Row 4: Statut / Date */}
-              {editing ? (
+              {/* Row 4: Statut (edit only — affiche en badge dans le header sinon) */}
+              {editing && (
                 <div>
                   <label className="mb-2 block text-sm font-medium">Statut</label>
                   <select
@@ -393,11 +422,7 @@ export function PanelDetailPage() {
                     ))}
                   </select>
                 </div>
-              ) : (
-                <InfoRow icon={Calendar} label="Statut" value={PANEL_STATUS_CONFIG[panel.status as PanelStatus]?.label ?? panel.status} />
               )}
-
-              <InfoRow icon={Calendar} label="Installé le" value={panel.installed_at ? new Date(panel.installed_at).toLocaleDateString('fr-FR') : '—'} />
 
               {/* GPS — only in edit mode */}
               {editing && (
@@ -436,16 +461,21 @@ export function PanelDetailPage() {
                   <InfoRow icon={Calendar} label="Installé le" value={panel.installed_at ? new Date(panel.installed_at).toLocaleDateString('fr-FR') : '—'} />
                   <InfoRow icon={Calendar} label="Dernière vérification" value={panel.last_checked_at ? new Date(panel.last_checked_at).toLocaleDateString('fr-FR') : '—'} />
                   {panel.qr_code && (
-                    <div className="flex items-center gap-2">
-                      <InfoRow icon={Calendar} label="QR Code" value="" />
-                      <code className="flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">{panel.qr_code}</code>
-                      <button
-                        onClick={() => { navigator.clipboard.writeText(panel.qr_code); toast('QR copié') }}
-                        className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        title="Copier"
-                      >
-                        <Copy className="size-3.5" />
-                      </button>
+                    <div className="flex items-start gap-2 sm:col-span-2">
+                      <QrCode className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground">QR Code</p>
+                        <div className="mt-0.5 flex items-center gap-2">
+                          <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">{panel.qr_code}</code>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(panel.qr_code); toast('QR copié') }}
+                            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Copier"
+                          >
+                            <Copy className="size-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </>
@@ -504,13 +534,13 @@ export function PanelDetailPage() {
           )}
 
           {/* Campaign history */}
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <Megaphone className="h-4 w-4" />
               <h3 className="font-semibold">Historique campagnes</h3>
             </div>
             {!assignments?.length ? (
-              <p className="mt-4 text-sm text-muted-foreground">Aucune campagne assignée</p>
+              <EmptyState icon={Megaphone} title="Aucune campagne assignée" size="inline" />
             ) : (
               <div className="mt-4 divide-y divide-border">
                 {assignments.map((a) => {
@@ -548,13 +578,13 @@ export function PanelDetailPage() {
           </div>
 
           {/* Photos gallery */}
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <Camera className="h-4 w-4" />
               <h3 className="font-semibold">Photos ({photos?.length ?? 0})</h3>
             </div>
             {!photos?.length ? (
-              <p className="mt-4 text-sm text-muted-foreground">Aucune photo</p>
+              <EmptyState icon={Camera} title="Aucune photo" size="inline" />
             ) : (
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {photos.map((photo, idx) => (
@@ -592,7 +622,7 @@ export function PanelDetailPage() {
         <div className="space-y-6">
           {/* Location link */}
           {panel.location_id && (
-            <div className="rounded-xl border border-border bg-card p-6">
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
               <h3 className="mb-4 font-semibold">Lieu</h3>
               <Link
                 to={`/admin/locations/${panel.location_id}`}
@@ -649,11 +679,6 @@ export function PanelDetailPage() {
             </div>
           )}
 
-          {/* Panel reference */}
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h3 className="mb-2 font-semibold">Référence</h3>
-            <p className="font-mono text-sm text-muted-foreground">{panel.reference}</p>
-          </div>
         </div>
       </div>
 

@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/shared/Toast'
-import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown, SlidersHorizontal } from 'lucide-react'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
+import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown, SlidersHorizontal, Pencil } from 'lucide-react'
 
 type RoleFilter = 'all' | 'admin' | 'operator'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -33,6 +34,7 @@ export function UsersPage() {
   const updateUser = useUpdateUser()
   const inviteUser = useInviteUser()
   const currentUserId = useAppStore((s) => s.profile?.id)
+  const confirm = useConfirm()
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -225,11 +227,11 @@ export function UsersPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="mb-2 block text-sm font-medium">Email *</label>
+                <label className="mb-2 block text-sm font-medium">Email <span className="text-red-500">*</span></label>
                 <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="jean@example.com" type="email" className="text-sm" autoFocus />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium">Nom complet *</label>
+                <label className="mb-2 block text-sm font-medium">Nom complet <span className="text-red-500">*</span></label>
                 <Input value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="Jean Dupont" className="text-sm" />
               </div>
               <div>
@@ -368,47 +370,155 @@ export function UsersPage() {
         ) : (
           paginated.map((user) => {
             const userStats = getStats(user.id)
-            return (
-              <button
-                key={user.id}
-                onClick={() => startEdit(user)}
-                className={`flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted/70 ${!user.is_active ? 'opacity-60' : ''}`}
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                  {user.full_name.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                      <span className="truncate font-medium">{user.full_name}</span>
-                      {user.status === 'invited' && (
-                        <Badge variant="outline" className="shrink-0 border-amber-500 bg-amber-50 px-1.5 py-0 text-[10px] text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                          Invité
-                        </Badge>
-                      )}
+            const isEditing = editingId === user.id
+            const canDelete = user.id !== currentUserId
+
+            if (isEditing) {
+              return (
+                <div key={user.id} className="space-y-3 rounded-xl border border-primary/40 bg-primary/5 p-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                      {user.full_name.charAt(0).toUpperCase()}
                     </div>
-                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="shrink-0">
-                      {user.role === 'admin' ? 'Admin' : 'Opérateur'}
-                    </Badge>
+                    <p className="text-xs font-semibold text-muted-foreground">Modification</p>
                   </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {user.phone || '—'}
-                  </p>
-                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-2 tabular-nums">
-                      {userStats ? (
-                        <>
-                          <span className="inline-flex items-center gap-0.5"><PanelTop className="size-3" />{userStats.panel_count}</span>
-                          <span className="inline-flex items-center gap-0.5"><Camera className="size-3" />{userStats.photo_count}</span>
-                        </>
-                      ) : null}
-                    </span>
-                    <span className="tabular-nums">
-                      {userStats?.last_activity ? formatRelativeDate(userStats.last_activity) : (user.is_active ? '—' : 'Inactif')}
-                    </span>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Nom complet</label>
+                    <Input value={editForm.full_name} onChange={(e) => setEditForm((f) => ({ ...f, full_name: e.target.value }))} className="h-10 text-sm" autoFocus />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Rôle</label>
+                      <select
+                        value={editForm.role}
+                        onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as 'admin' | 'operator' }))}
+                        disabled={user.id === currentUserId}
+                        className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+                      >
+                        <option value="operator">Opérateur</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Téléphone</label>
+                      <Input value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} placeholder="06..." type="tel" className="h-10 text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button onClick={() => saveEdit(user.id)} disabled={saving} className="flex-1">
+                      {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                      Sauvegarder
+                    </Button>
+                    <Button variant="outline" onClick={() => setEditingId(null)} className="flex-1">
+                      Annuler
+                    </Button>
                   </div>
                 </div>
-              </button>
+              )
+            }
+
+            return (
+              <div
+                key={user.id}
+                className={`space-y-2 rounded-xl border border-border bg-card p-3.5 ${!user.is_active ? 'opacity-60' : ''}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                    {user.full_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <span className="truncate font-medium">{user.full_name}</span>
+                        {user.status === 'invited' && (
+                          <Badge variant="outline" className="shrink-0 border-amber-500 bg-amber-50 px-1.5 py-0 text-[10px] text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                            Invité
+                          </Badge>
+                        )}
+                      </div>
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="shrink-0">
+                        {user.role === 'admin' ? 'Admin' : 'Opérateur'}
+                      </Badge>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{user.phone || '—'}</p>
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                      <span className="flex items-center gap-2 tabular-nums">
+                        {userStats ? (
+                          <>
+                            <span className="inline-flex items-center gap-0.5"><PanelTop className="size-3" />{userStats.panel_count}</span>
+                            <span className="inline-flex items-center gap-0.5"><Camera className="size-3" />{userStats.photo_count}</span>
+                          </>
+                        ) : null}
+                      </span>
+                      <span className="tabular-nums">
+                        {userStats?.last_activity ? formatRelativeDate(userStats.last_activity) : '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 border-t border-border pt-2">
+                  {confirmDeactivate === user.id ? (
+                    <>
+                      <button
+                        onClick={() => confirmToggle(user)}
+                        className="flex-1 rounded-md bg-red-500/15 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-500/25"
+                      >
+                        Confirmer désactivation
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeactivate(null)}
+                        className="rounded-md px-2 py-1.5 text-xs font-medium hover:bg-muted"
+                      >
+                        Annuler
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleToggleActive(user)}
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${user.is_active ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}
+                      >
+                        {user.is_active ? 'Actif' : 'Inactif'}
+                      </button>
+                      <Button size="sm" variant="outline" onClick={() => startEdit(user)} className="flex-1">
+                        <Pencil className="mr-1.5 size-3.5" />
+                        Modifier
+                      </Button>
+                      {canDelete && (
+                        <div className="relative">
+                          <Button size="sm" variant="outline" onClick={() => setUserMenuId(userMenuId === user.id ? null : user.id)} aria-label="Plus d'actions">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                          {userMenuId === user.id && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setUserMenuId(null)} />
+                              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-border bg-popover py-1 shadow-lg">
+                                <button onClick={() => handleResetPassword(user.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                                  <KeyRound className="size-3.5" /> Réinitialiser le mot de passe
+                                </button>
+                                <button onClick={async () => {
+                                  setUserMenuId(null)
+                                  const ok = await confirm({
+                                    title: `Supprimer le compte de ${user.full_name} ?`,
+                                    description: 'Cette action est irréversible. L\'utilisateur perdra l\'accès à la plateforme.',
+                                    confirmLabel: 'Supprimer le compte',
+                                    variant: 'destructive',
+                                  })
+                                  if (ok) handleDeleteUser(user.id)
+                                }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
+                                  <Trash2 className="size-3.5" /> Supprimer le compte
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
             )
           })
         )}
@@ -556,11 +666,15 @@ export function UsersPage() {
                                   <button onClick={() => handleResetPassword(user.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
                                     <KeyRound className="size-3.5" /> Réinitialiser le mot de passe
                                   </button>
-                                  <button onClick={() => {
+                                  <button onClick={async () => {
                                     setUserMenuId(null)
-                                    if (window.confirm(`Supprimer le compte de ${user.full_name} ? Cette action est irréversible.`)) {
-                                      handleDeleteUser(user.id)
-                                    }
+                                    const ok = await confirm({
+                                      title: `Supprimer le compte de ${user.full_name} ?`,
+                                      description: 'Cette action est irréversible. L\'utilisateur perdra l\'accès à la plateforme.',
+                                      confirmLabel: 'Supprimer le compte',
+                                      variant: 'destructive',
+                                    })
+                                    if (ok) handleDeleteUser(user.id)
                                   }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
                                     <Trash2 className="size-3.5" /> Supprimer le compte
                                   </button>

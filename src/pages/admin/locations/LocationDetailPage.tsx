@@ -5,10 +5,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PANEL_ZONES } from '@/lib/constants'
-import { ArrowLeft, Loader2, PanelTop, Phone, Mail, MapPin, Calendar, Pencil, Eye, X, ExternalLink, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, PanelTop, Phone, Mail, MapPin, Calendar, Pencil, Eye, X, ExternalLink, Trash2, FileText } from 'lucide-react'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/components/shared/Toast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
+import { EmptyState } from '@/components/shared/EmptyState'
 import type { PanelStatus } from '@/lib/constants'
 
 interface EditForm {
@@ -34,6 +36,7 @@ export function LocationDetailPage() {
   const updateLocation = useUpdateLocation()
   const deleteLocation = useDeleteLocation()
   const deleteContract = useDeleteContract()
+  const confirm = useConfirm()
 
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -110,36 +113,35 @@ export function LocationDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+      {/* Header — stack en mobile, ligne unique desktop */}
+      <div className="flex flex-wrap items-start gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/admin/locations')}>
           <ArrowLeft className="size-5" />
         </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">{location.name}</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-semibold sm:text-xl">{location.name}</h1>
+          <p className="mt-1 truncate text-sm text-muted-foreground">
             {location.address}, {location.postal_code} {location.city}
           </p>
         </div>
         {!editing && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={openEdit}>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button variant="outline" size="sm" onClick={openEdit} className="flex-1 sm:flex-none">
               <Pencil className="mr-1.5 size-3.5" />
               Modifier
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="text-destructive"
+              className="flex-1 text-destructive sm:flex-none"
               onClick={async () => {
                 if (!id) return
-                const ok = confirm(
-                  `Supprimer définitivement "${location.name}" ?\n\n` +
-                  `Cette action est irréversible. Les contrats et avenants liés seront supprimés. ` +
-                  `Les panneaux du lieu seront orphelinés (location vidée).`
-                )
+                const ok = await confirm({
+                  title: `Supprimer "${location.name}" ?`,
+                  description: 'Cette action est irréversible. Les contrats et avenants liés seront supprimés. Les panneaux du lieu seront orphelinés (location vidée).',
+                  confirmLabel: 'Supprimer',
+                  variant: 'destructive',
+                })
                 if (!ok) return
                 try {
                   await deleteLocation.mutateAsync(id)
@@ -160,7 +162,7 @@ export function LocationDetailPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Info lieu */}
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Informations
             </h2>
@@ -174,7 +176,7 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.name}
                       onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
 
@@ -184,7 +186,7 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.address}
                       onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
 
@@ -194,7 +196,7 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.postal_code}
                       onChange={(e) => setEditForm((f) => ({ ...f, postal_code: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
                   <div>
@@ -202,7 +204,7 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.city}
                       onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
 
@@ -212,7 +214,7 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.phone}
                       onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
                 </div>
@@ -226,7 +228,7 @@ export function LocationDetailPage() {
                       <Input
                         value={editForm.owner_first_name}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_first_name: e.target.value }))}
-                        className="h-9 rounded-lg text-sm"
+                        className="h-10 rounded-lg text-sm sm:h-9"
                       />
                     </div>
                     <div>
@@ -234,7 +236,7 @@ export function LocationDetailPage() {
                       <Input
                         value={editForm.owner_last_name}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_last_name: e.target.value }))}
-                        className="h-9 rounded-lg text-sm"
+                        className="h-10 rounded-lg text-sm sm:h-9"
                       />
                     </div>
                     <div>
@@ -242,7 +244,7 @@ export function LocationDetailPage() {
                       <Input
                         value={editForm.owner_role}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_role: e.target.value }))}
-                        className="h-9 rounded-lg text-sm"
+                        className="h-10 rounded-lg text-sm sm:h-9"
                       />
                     </div>
                     <div>
@@ -251,7 +253,7 @@ export function LocationDetailPage() {
                         type="email"
                         value={editForm.owner_email}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_email: e.target.value }))}
-                        className="h-9 rounded-lg text-sm"
+                        className="h-10 rounded-lg text-sm sm:h-9"
                       />
                     </div>
                   </div>
@@ -264,17 +266,17 @@ export function LocationDetailPage() {
                     value={editForm.closing_months}
                     onChange={(e) => setEditForm((f) => ({ ...f, closing_months: e.target.value }))}
                     placeholder="ex: Août, Décembre"
-                    className="h-9 rounded-lg text-sm"
+                    className="h-10 rounded-lg text-sm sm:h-9"
                   />
                 </div>
 
                 {/* Save / Cancel buttons */}
                 <div className="flex gap-2 pt-2">
-                  <Button onClick={handleSave} disabled={saving || !editForm.name.trim()}>
+                  <Button onClick={handleSave} disabled={saving || !editForm.name.trim()} className="flex-1 sm:flex-none">
                     {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
                     Sauvegarder
                   </Button>
-                  <Button variant="outline" onClick={() => setEditing(false)}>
+                  <Button variant="outline" onClick={() => setEditing(false)} className="flex-1 sm:flex-none">
                     Annuler
                   </Button>
                 </div>
@@ -324,14 +326,14 @@ export function LocationDetailPage() {
 
         {/* Panneaux */}
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Panneaux ({panels?.length ?? 0})
               </h2>
             </div>
             {!panels?.length ? (
-              <p className="text-sm text-muted-foreground">Aucun panneau rattaché à ce lieu.</p>
+              <EmptyState icon={PanelTop} title="Aucun panneau rattaché" size="inline" />
             ) : (
               <div className="space-y-1.5">
                 {panels.map((panel) => (
@@ -365,12 +367,12 @@ export function LocationDetailPage() {
 
       {/* Contrat */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-4 sm:p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Contrat
           </h2>
           {!contract ? (
-            <p className="text-sm text-muted-foreground">Aucun contrat signé pour ce lieu.</p>
+            <EmptyState icon={FileText} title="Aucun contrat signé" size="inline" />
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -403,11 +405,14 @@ export function LocationDetailPage() {
                   <button
                     onClick={async () => {
                       const amendCount = amendments?.length ?? 0
-                      const ok = confirm(
-                        `Supprimer le contrat ${contract.contract_number} ?\n\n` +
-                        `Cette action est irréversible.` +
-                        (amendCount > 0 ? `\n${amendCount} avenant${amendCount > 1 ? 's seront supprimés' : ' sera supprimé'} aussi.` : '')
-                      )
+                      const ok = await confirm({
+                        title: `Supprimer le contrat ${contract.contract_number} ?`,
+                        description: amendCount > 0
+                          ? `Cette action est irréversible. ${amendCount} avenant${amendCount > 1 ? 's seront supprimés' : ' sera supprimé'} aussi.`
+                          : 'Cette action est irréversible.',
+                        confirmLabel: 'Supprimer',
+                        variant: 'destructive',
+                      })
                       if (!ok) return
                       try {
                         await deleteContract.mutateAsync(contract.id)

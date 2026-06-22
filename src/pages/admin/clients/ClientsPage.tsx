@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Building2, Plus, Search, Loader2, Filter, ArrowUpDown, Megaphone, Download, Upload, X, FileText, SlidersHorizontal } from 'lucide-react'
+import { ErrorState } from '@/components/shared/ErrorState'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 import { saveAs } from 'file-saver'
 import { useCreateClient } from '@/hooks/admin/useClients'
@@ -29,7 +30,7 @@ function formatCurrency(amount: number) {
 
 export function ClientsPage() {
   const navigate = useNavigate()
-  const { data: clients, isLoading } = useClients()
+  const { data: clients, isLoading, isError, error, refetch } = useClients()
   const updateClient = useUpdateClient()
   const createClient = useCreateClient()
   useListPageHotkeys('/admin/clients/new')
@@ -244,6 +245,10 @@ export function ClientsPage() {
     )
   }
 
+  if (isError) {
+    return <ErrorState error={error} onRetry={() => refetch()} title="Impossible de charger les clients" />
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -276,7 +281,7 @@ export function ClientsPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">Importer des clients (CSV)</p>
-              <button onClick={() => setShowImport(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+              <button onClick={() => setShowImport(false)} className="text-muted-foreground hover:text-foreground" aria-label="Fermer l'import"><X className="size-4" /></button>
             </div>
             <p className="text-xs text-muted-foreground">
               Collez votre CSV avec un header. Colonnes reconnues : société/company_name, contact, email, tel/phone, adresse, ville, cp, siret, tva. Séparateur : <code>;</code> ou <code>,</code>

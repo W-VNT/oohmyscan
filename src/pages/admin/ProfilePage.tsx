@@ -210,10 +210,10 @@ export function ProfilePage() {
                     className="text-sm"
                     maxLength={80}
                   />
-                  <Button size="sm" onClick={saveName} disabled={savingName || !fullName.trim()}>
+                  <Button size="sm" onClick={saveName} disabled={savingName || !fullName.trim()} aria-label="Sauvegarder le nom">
                     {savingName ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingName(false)} aria-label="Annuler la modification">
                     <X className="size-3.5" />
                   </Button>
                 </div>
@@ -291,22 +291,26 @@ export function ProfilePage() {
           {showPassword ? (
             <div className="max-w-sm space-y-3">
               <div>
-                <label className="mb-2 block text-sm font-medium">Nouveau mot de passe</label>
+                <label htmlFor="profile-new-password" className="mb-2 block text-sm font-medium">Nouveau mot de passe</label>
                 <Input
+                  id="profile-new-password"
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="8 caractères minimum"
+                  autoComplete="new-password"
                   className="text-sm"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium">Confirmer</label>
+                <label htmlFor="profile-confirm-password" className="mb-2 block text-sm font-medium">Confirmer</label>
                 <Input
+                  id="profile-confirm-password"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirmer le mot de passe"
+                  autoComplete="new-password"
                   className="text-sm"
                 />
               </div>

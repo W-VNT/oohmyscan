@@ -1,3 +1,6 @@
+# Local working files (mailing assets, scratch, etc.)
+.tmp/
+
 # Logs
 logs
 *.log

@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/shared/Toast'
+import { EmptyState } from '@/components/shared/EmptyState'
 import {
   ArrowLeft, Loader2,
-  Megaphone, FileText, TrendingUp, Clock, Pencil, Plus,
+  Megaphone, FileText, Receipt, TrendingUp, Clock, Pencil, Plus,
 } from 'lucide-react'
 import { CAMPAIGN_STATUS_CONFIG, QUOTE_STATUS_CONFIG, INVOICE_STATUS_CONFIG } from '@/lib/constants'
 import type { CampaignStatus, QuoteStatus, InvoiceStatus } from '@/lib/constants'
@@ -162,41 +163,43 @@ export function ClientDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+      {/* Header — stack en mobile, ligne unique desktop */}
+      <div className="flex flex-wrap items-start gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/admin/clients')}>
           <ArrowLeft className="size-5" />
         </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">{client.company_name}</h1>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-lg font-semibold sm:text-xl">{client.company_name}</h1>
             {!client.is_active && (
               <Badge variant="secondary">Inactif</Badge>
             )}
           </div>
           {client.contact_name && (
-            <p className="text-sm text-muted-foreground">{client.contact_name}</p>
+            <p className="mt-1 truncate text-sm text-muted-foreground">{client.contact_name}</p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <Button
             size="sm"
             variant="outline"
             onClick={() => navigate(`/admin/quotes/new?client=${client.id}`)}
+            className="flex-1 sm:flex-none"
           >
             <Plus className="mr-1.5 size-3.5" />
-            Nouveau devis
+            <span className="hidden sm:inline">Nouveau </span>Devis
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => navigate(`/admin/invoices/new?client=${client.id}`)}
+            className="flex-1 sm:flex-none"
           >
             <Plus className="mr-1.5 size-3.5" />
-            Nouvelle facture
+            <span className="hidden sm:inline">Nouvelle </span>Facture
           </Button>
           {!editing && (
-            <Button variant="outline" size="sm" onClick={openEdit}>
+            <Button variant="outline" size="sm" onClick={openEdit} className="flex-1 sm:flex-none">
               <Pencil className="mr-1.5 size-3.5" />
               Modifier
             </Button>
@@ -204,8 +207,8 @@ export function ClientDetailPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* KPI Cards : slider horizontal sur mobile, grille sur desktop */}
+      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 [&>*]:min-w-[80%] [&>*]:snap-center sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:px-0 sm:py-0 sm:[&>*]:min-w-0 lg:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/10">
@@ -256,7 +259,7 @@ export function ClientDetailPage() {
 
       {/* Info client — full width */}
       <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Informations
             </h2>
@@ -266,11 +269,11 @@ export function ClientDetailPage() {
                 {/* Row 1: Société / SIRET / TVA */}
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div>
-                    <label className="mb-2 block text-sm font-medium">Société *</label>
+                    <label className="mb-2 block text-sm font-medium">Société <span className="text-red-500">*</span></label>
                     <Input
                       value={editForm.company_name}
                       onChange={(e) => setEditForm((f) => ({ ...f, company_name: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                       placeholder="Nom de la société"
                     />
                   </div>
@@ -279,7 +282,7 @@ export function ClientDetailPage() {
                     <Input
                       value={editForm.siret}
                       onChange={(e) => setEditForm((f) => ({ ...f, siret: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                       placeholder="123 456 789 00012"
                     />
                   </div>
@@ -288,7 +291,7 @@ export function ClientDetailPage() {
                     <Input
                       value={editForm.tva_number}
                       onChange={(e) => setEditForm((f) => ({ ...f, tva_number: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                       placeholder="FR12345678901"
                     />
                   </div>
@@ -298,11 +301,11 @@ export function ClientDetailPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-sm font-medium">Contact</label>
-                    <Input value={editForm.contact_name} onChange={(e) => setEditForm((f) => ({ ...f, contact_name: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="Nom du contact" />
+                    <Input value={editForm.contact_name} onChange={(e) => setEditForm((f) => ({ ...f, contact_name: e.target.value }))} className="h-10 rounded-lg text-sm sm:h-9" placeholder="Nom du contact" />
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-medium">Téléphone</label>
-                    <Input type="tel" value={editForm.contact_phone} onChange={(e) => setEditForm((f) => ({ ...f, contact_phone: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="06 12 34 56 78" />
+                    <Input type="tel" value={editForm.contact_phone} onChange={(e) => setEditForm((f) => ({ ...f, contact_phone: e.target.value }))} className="h-10 rounded-lg text-sm sm:h-9" placeholder="06 12 34 56 78" />
                   </div>
                 </div>
 
@@ -310,15 +313,15 @@ export function ClientDetailPage() {
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div>
                     <label className="mb-2 block text-sm font-medium">Email principal</label>
-                    <Input type="email" value={editForm.contact_email} onChange={(e) => setEditForm((f) => ({ ...f, contact_email: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="contact@example.com" />
+                    <Input type="email" value={editForm.contact_email} onChange={(e) => setEditForm((f) => ({ ...f, contact_email: e.target.value }))} className="h-10 rounded-lg text-sm sm:h-9" placeholder="contact@example.com" />
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-medium">Email comptable</label>
-                    <Input type="email" value={editForm.billing_email} onChange={(e) => setEditForm((f) => ({ ...f, billing_email: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="compta@example.com" />
+                    <Input type="email" value={editForm.billing_email} onChange={(e) => setEditForm((f) => ({ ...f, billing_email: e.target.value }))} className="h-10 rounded-lg text-sm sm:h-9" placeholder="compta@example.com" />
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-medium">Email commercial</label>
-                    <Input type="email" value={editForm.commercial_email} onChange={(e) => setEditForm((f) => ({ ...f, commercial_email: e.target.value }))} className="h-9 rounded-lg text-sm" placeholder="commercial@example.com" />
+                    <Input type="email" value={editForm.commercial_email} onChange={(e) => setEditForm((f) => ({ ...f, commercial_email: e.target.value }))} className="h-10 rounded-lg text-sm sm:h-9" placeholder="commercial@example.com" />
                   </div>
                 </div>
 
@@ -329,7 +332,7 @@ export function ClientDetailPage() {
                     <Input
                       value={editForm.address}
                       onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                       placeholder="12 rue de la Paix"
                     />
                   </div>
@@ -338,7 +341,7 @@ export function ClientDetailPage() {
                     <Input
                       value={editForm.city}
                       onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                       placeholder="Paris"
                     />
                   </div>
@@ -347,7 +350,7 @@ export function ClientDetailPage() {
                     <Input
                       value={editForm.postal_code}
                       onChange={(e) => setEditForm((f) => ({ ...f, postal_code: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                       placeholder="75001"
                     />
                   </div>
@@ -360,7 +363,7 @@ export function ClientDetailPage() {
                     <select
                       value={editForm.commercial_id}
                       onChange={(e) => setEditForm((f) => ({ ...f, commercial_id: e.target.value }))}
-                      className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm sm:h-9"
                     >
                       <option value="">— Aucun —</option>
                       {admins?.map((a) => (
@@ -384,11 +387,11 @@ export function ClientDetailPage() {
 
                 {/* Save / Cancel buttons */}
                 <div className="flex gap-2 pt-2">
-                  <Button onClick={handleSave} disabled={saving || !editForm.company_name.trim()}>
+                  <Button onClick={handleSave} disabled={saving || !editForm.company_name.trim()} className="flex-1 sm:flex-none">
                     {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
                     Sauvegarder
                   </Button>
-                  <Button variant="outline" onClick={() => setEditing(false)}>
+                  <Button variant="outline" onClick={() => setEditing(false)} className="flex-1 sm:flex-none">
                     Annuler
                   </Button>
                 </div>
@@ -478,14 +481,14 @@ export function ClientDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Campagnes */}
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Campagnes ({campaigns.length})
               </h2>
             </div>
             {campaigns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucune campagne pour ce client.</p>
+              <EmptyState icon={Megaphone} title="Aucune campagne pour ce client" size="inline" />
             ) : (
               <div className="space-y-2">
                 {campaigns.map((c) => (
@@ -512,7 +515,7 @@ export function ClientDetailPage() {
 
         {/* Devis */}
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Devis ({quotes.length})
@@ -526,7 +529,7 @@ export function ClientDetailPage() {
               </Button>
             </div>
             {quotes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun devis.</p>
+              <EmptyState icon={FileText} title="Aucun devis" size="inline" />
             ) : (
               <div className="space-y-2">
                 {quotes.map((q) => (
@@ -558,7 +561,7 @@ export function ClientDetailPage() {
 
         {/* Factures */}
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="p-4 sm:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Factures ({invoices.length})
@@ -572,7 +575,7 @@ export function ClientDetailPage() {
               </Button>
             </div>
             {invoices.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucune facture.</p>
+              <EmptyState icon={Receipt} title="Aucune facture" size="inline" />
             ) : (
               <div className="space-y-2">
                 {invoices.map((inv) => (

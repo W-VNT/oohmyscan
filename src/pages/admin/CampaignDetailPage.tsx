@@ -6,6 +6,7 @@ import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { toast } from '@/components/shared/Toast'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
@@ -13,7 +14,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   PanelTop,
-  FileText,
   Upload,
   Trash2,
   Loader2,
@@ -22,6 +22,7 @@ import {
   Copy,
   Search,
   Sparkles,
+  Megaphone,
 } from 'lucide-react'
 import { GenerateReportModal } from '@/components/admin/reports/GenerateReportModal'
 import {
@@ -275,11 +276,22 @@ export function CampaignDetailPage() {
 
   if (!campaign) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-lg font-medium">Campagne non trouvée</p>
-        <Link to="/admin/campaigns" className="mt-4 text-sm text-primary underline">
-          Retour à la liste
-        </Link>
+      <div className="flex flex-col items-center justify-center px-4 py-20">
+        <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-xl border border-border bg-card p-6 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted/60">
+            <Megaphone className="size-6 text-muted-foreground" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Campagne introuvable</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cette campagne n'existe pas, a été supprimée ou tu n'y as pas accès.
+            </p>
+          </div>
+          <Link to="/admin/campaigns" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90">
+            <ArrowLeft className="size-3.5" />
+            Retour aux campagnes
+          </Link>
+        </div>
       </div>
     )
   }
@@ -291,34 +303,30 @@ export function CampaignDetailPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+      {/* Header — stack en mobile, ligne unique desktop */}
+      <div className="flex flex-wrap items-start gap-3">
         <Link
           to="/admin/campaigns"
           className="rounded-md p-1 transition-colors hover:bg-accent"
         >
           <ArrowLeft className="size-5" />
         </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">{campaign.name}</h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-semibold sm:text-xl">{campaign.name}</h1>
+          {clientName && <p className="mt-1 truncate text-sm text-muted-foreground">{clientName}</p>}
+        </div>
+        {!editing && (
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button variant="outline" size="sm" onClick={handleClone} disabled={cloning} className="flex-1 sm:flex-none">
+              {cloning ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Copy className="mr-1.5 size-3.5" />}
+              Dupliquer
+            </Button>
+            <Button variant="outline" size="sm" onClick={openEdit} className="flex-1 sm:flex-none">
+              <Pencil className="mr-1.5 size-3.5" />
+              Modifier
+            </Button>
           </div>
-          <p className="mt-1 text-muted-foreground">{clientName}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {!editing && (
-            <>
-              <Button variant="outline" size="sm" onClick={handleClone} disabled={cloning}>
-                {cloning ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Copy className="mr-1.5 size-3.5" />}
-                Dupliquer
-              </Button>
-              <Button variant="outline" size="sm" onClick={openEdit}>
-                <Pencil className="mr-1.5 size-3.5" />
-                Modifier
-              </Button>
-            </>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Progress bar */}
@@ -342,7 +350,7 @@ export function CampaignDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main info */}
         <div className="space-y-6 lg:col-span-2">
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <h3 className="font-semibold">Détails</h3>
 
             {editing ? (
@@ -356,7 +364,7 @@ export function CampaignDetailPage() {
                       value={editForm.name}
                       onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                       placeholder="Nom de la campagne"
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
                   <div>
@@ -364,7 +372,7 @@ export function CampaignDetailPage() {
                     <select
                       value={editForm.client_id}
                       onChange={(e) => setEditForm((f) => ({ ...f, client_id: e.target.value }))}
-                      className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm sm:h-9"
                     >
                       <option value="">Aucun client</option>
                       {clients?.filter((c) => c.is_active).map((c) => (
@@ -377,7 +385,7 @@ export function CampaignDetailPage() {
                     <select
                       value={editForm.status}
                       onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value as CampaignStatus }))}
-                      className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm sm:h-9"
                     >
                       {CAMPAIGN_STATUSES.map((s) => (
                         <option key={s} value={s}>{CAMPAIGN_STATUS_CONFIG[s].label}</option>
@@ -394,7 +402,7 @@ export function CampaignDetailPage() {
                       type="date"
                       value={editForm.start_date}
                       onChange={(e) => setEditForm((f) => ({ ...f, start_date: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
                   <div>
@@ -403,7 +411,7 @@ export function CampaignDetailPage() {
                       type="date"
                       value={editForm.end_date}
                       onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))}
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
                   <div>
@@ -415,7 +423,7 @@ export function CampaignDetailPage() {
                       value={editForm.budget}
                       onChange={(e) => setEditForm((f) => ({ ...f, budget: e.target.value }))}
                       placeholder="0.00"
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
                   <div>
@@ -426,7 +434,7 @@ export function CampaignDetailPage() {
                       value={editForm.target_panel_count}
                       onChange={(e) => setEditForm((f) => ({ ...f, target_panel_count: e.target.value }))}
                       placeholder="0"
-                      className="h-9 rounded-lg text-sm"
+                      className="h-10 rounded-lg text-sm sm:h-9"
                     />
                   </div>
                 </div>
@@ -457,11 +465,11 @@ export function CampaignDetailPage() {
 
                 {/* Save / Cancel buttons */}
                 <div className="flex gap-2 pt-2">
-                  <Button onClick={handleSave} disabled={saving}>
+                  <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none">
                     {saving && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
                     Sauvegarder
                   </Button>
-                  <Button variant="outline" onClick={() => setEditing(false)}>
+                  <Button variant="outline" onClick={() => setEditing(false)} className="flex-1 sm:flex-none">
                     Annuler
                   </Button>
                 </div>
@@ -531,7 +539,7 @@ export function CampaignDetailPage() {
           </div>
 
           {/* Assigned panels */}
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <PanelTop className="h-4 w-4" />
               <h3 className="font-semibold">
@@ -556,11 +564,11 @@ export function CampaignDetailPage() {
             )}
 
             {!filteredAssignments.length ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                {panelSearch
-                  ? 'Aucun panneau ne correspond à la recherche'
-                  : 'Aucun panneau assigné à cette campagne'}
-              </p>
+              <EmptyState
+                icon={PanelTop}
+                title={panelSearch ? 'Aucun panneau ne correspond' : 'Aucun panneau assigné'}
+                size="inline"
+              />
             ) : (
               <>
                 <div className="mt-4 divide-y divide-border">
@@ -613,7 +621,7 @@ export function CampaignDetailPage() {
           </div>
 
           {/* Campaign visuals */}
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ImageIcon className="h-4 w-4" />
@@ -648,9 +656,7 @@ export function CampaignDetailPage() {
               </div>
             </div>
             {!visuals?.length ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Aucun visuel uploadé
-              </p>
+              <EmptyState icon={ImageIcon} title="Aucun visuel uploadé" size="inline" />
             ) : (
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {visuals.map((v) => (
@@ -681,7 +687,7 @@ export function CampaignDetailPage() {
 
         {/* Side actions */}
         <div className="space-y-6">
-          <div className="rounded-xl border border-border bg-card p-6">
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <h3 className="mb-4 font-semibold">Actions</h3>
             <div className="space-y-2">
               {campaign.status === 'draft' && (
@@ -712,22 +718,13 @@ export function CampaignDetailPage() {
                 </button>
               )}
               {(campaign.status === 'active' || campaign.status === 'completed') && (
-                <>
-                  <button
-                    onClick={() => setReportModalOpen(true)}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
-                  >
-                    <Sparkles className="size-4" />
-                    Generer rapport campagne
-                  </button>
-                  <Link
-                    to={`/admin/reports/${id}`}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                  >
-                    <FileText className="size-4" />
-                    Editeur libre (legacy)
-                  </Link>
-                </>
+                <button
+                  onClick={() => setReportModalOpen(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
+                >
+                  <Sparkles className="size-4" />
+                  Generer rapport campagne
+                </button>
               )}
             </div>
           </div>

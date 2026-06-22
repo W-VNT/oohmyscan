@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
 import { Loader2, Plus, Upload, Pencil, Check, X, Star, Mail, Trash2, Save } from 'lucide-react'
 import { MiniRichEditor } from '@/components/shared/MiniRichEditor'
 import { CgvPdfUploader } from '@/components/admin/CgvPdfUploader'
@@ -33,12 +34,16 @@ type TabKey = (typeof TABS)[number]['key']
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<TabKey>((searchParams.get('tab') as TabKey) || 'entreprise')
+  const confirm = useConfirm()
 
-  function switchTab(tab: TabKey) {
+  async function switchTab(tab: TabKey) {
     if (isDirty) {
-      const ok = window.confirm(
-        'Tu as des modifications non enregistrées. Changer d\'onglet va les perdre. Continuer ?',
-      )
+      const ok = await confirm({
+        title: 'Modifications non enregistrées',
+        description: 'Changer d\'onglet va perdre tes modifications. Continuer ?',
+        confirmLabel: 'Quitter sans sauver',
+        variant: 'destructive',
+      })
       if (!ok) return
       // Reset le form aux valeurs settings actuelles
       if (settings) setForm(settings)
@@ -387,8 +392,8 @@ export function SettingsPage() {
                           <Input value={editServiceForm.default_tva_rate} onChange={(e) => setEditServiceForm((f) => ({ ...f, default_tva_rate: e.target.value }))} className="h-7 w-16 text-sm" type="number" step="0.1" />
                           <span className="text-xs text-muted-foreground">%</span>
                         </div>
-                        <button onClick={() => saveEditService(s.id)} className="text-green-600 hover:text-green-500"><Check className="size-4" /></button>
-                        <button onClick={() => setEditingServiceId(null)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+                        <button onClick={() => saveEditService(s.id)} className="text-green-600 hover:text-green-500" aria-label="Sauvegarder le service"><Check className="size-4" /></button>
+                        <button onClick={() => setEditingServiceId(null)} className="text-muted-foreground hover:text-foreground" aria-label="Annuler la modification"><X className="size-4" /></button>
                       </div>
                     </div>
                   ) : (
@@ -399,7 +404,7 @@ export function SettingsPage() {
                       <span className={`flex-1 text-sm [&_p]:my-0 ${!s.is_active ? 'text-muted-foreground line-through' : ''}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(s.name) }} />
                       <span className="text-xs text-muted-foreground">{s.unit}</span>
                       <span className="text-xs text-muted-foreground">{s.default_tva_rate}%</span>
-                      <button onClick={() => startEditService(s)} className="text-muted-foreground hover:text-foreground" title="Modifier"><Pencil className="size-3.5" /></button>
+                      <button onClick={() => startEditService(s)} className="text-muted-foreground hover:text-foreground" title="Modifier" aria-label="Modifier le service"><Pencil className="size-3.5" /></button>
                       {confirmDeleteService === s.id ? (
                         <div className="flex items-center gap-1">
                           <button
@@ -429,6 +434,7 @@ export function SettingsPage() {
                           onClick={() => setConfirmDeleteService(s.id)}
                           className="text-muted-foreground hover:text-red-600"
                           title="Supprimer"
+                          aria-label="Supprimer le service"
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -476,11 +482,11 @@ export function SettingsPage() {
                 const isDefault = settings?.default_panel_type_id === t.id
                 return (
                   <div key={t.id} className="group relative flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium transition-colors hover:border-foreground/30">
-                    <button onClick={() => setDefaultType(isDefault ? null : t.id)} className="mr-0.5" title={isDefault ? 'Retirer le défaut' : 'Définir par défaut'}>
+                    <button onClick={() => setDefaultType(isDefault ? null : t.id)} className="mr-0.5" title={isDefault ? 'Retirer le défaut' : 'Définir par défaut'} aria-label={isDefault ? 'Retirer le défaut' : 'Définir comme type par défaut'}>
                       <Star className={`size-3 ${isDefault ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/40 hover:text-yellow-400'}`} />
                     </button>
                     <span>{t.name}</span>
-                    <button onClick={() => handleDeleteType(t.id)} className="ml-0.5 hidden text-red-500 hover:text-red-400 group-hover:inline-flex" title="Supprimer ce type">
+                    <button onClick={() => handleDeleteType(t.id)} className="ml-0.5 hidden text-red-500 hover:text-red-400 group-hover:inline-flex" title="Supprimer ce type" aria-label={`Supprimer le type ${t.name}`}>
                       <X className="size-3" />
                     </button>
                   </div>
