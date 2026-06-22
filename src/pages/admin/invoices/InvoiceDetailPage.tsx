@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
 import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText, Eye, X, MoreHorizontal, Archive } from 'lucide-react'
 import { LineDescriptionEditor } from '@/components/shared/LineDescriptionEditor'
 import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
@@ -60,6 +61,7 @@ export function InvoiceDetailPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const isNew = id === 'new'
   const fromQuoteId = searchParams.get('from_quote')
 
@@ -107,6 +109,15 @@ export function InvoiceDetailPage() {
   const { data: clientData } = useClient(clientId || undefined)
   const { data: depositInvoices } = useCampaignDepositInvoices(campaignId || undefined)
 
+  // Auto-link solde au premier acompte trouvé pour la campagne (si pas déjà lié)
+  useEffect(() => {
+    if (!isNew) return
+    if (invoiceType !== 'solde') return
+    if (depositInvoiceId) return
+    if (!depositInvoices?.length) return
+    setDepositInvoiceId(depositInvoices[0].id)
+  }, [isNew, invoiceType, depositInvoiceId, depositInvoices])
+
   // Lock levels:
   // - isCancelled: fully locked, nothing editable
   // - isStructureLocked: prices, client, campaign, number locked — descriptions/notes still editable
@@ -144,7 +155,7 @@ export function InvoiceDetailPage() {
     }
   }, [existingLines])
 
-  // Pre-fill from quote
+  // Pre-fill from quote + URL params (invoice_type & deposit_pct)
   useEffect(() => {
     if (sourceQuote && isNew) {
       setClientId(sourceQuote.client_id)
@@ -155,8 +166,17 @@ export function InvoiceDetailPage() {
       if (sourceQuote.payment_terms) {
         setPaymentTerms(sourceQuote.payment_terms as PaymentTerms)
       }
+      // Type via URL : ?invoice_type=acompte&deposit_pct=50
+      const typeParam = searchParams.get('invoice_type')
+      if (typeParam === 'acompte' || typeParam === 'solde') {
+        setInvoiceType(typeParam)
+        const pct = parseInt(searchParams.get('deposit_pct') ?? '', 10)
+        if (typeParam === 'acompte' && !isNaN(pct) && pct > 0 && pct <= 100) {
+          setDepositPercentage(pct)
+        }
+      }
     }
-  }, [sourceQuote, isNew])
+  }, [sourceQuote, isNew, searchParams])
 
   useEffect(() => {
     if (sourceQuoteLines && sourceQuoteLines.length > 0 && isNew) {
@@ -609,7 +629,11 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
 
   async function handleMarkAsSent() {
     if (!invoice) return
-    const ok = window.confirm(`Marquer la facture ${invoice.invoice_number} comme envoyée ?`)
+    const ok = await confirm({
+      title: `Marquer la facture ${invoice.invoice_number} comme envoyée ?`,
+      description: 'La facture ne pourra plus être modifiée structurellement (sauf descriptions et notes).',
+      confirmLabel: 'Marquer envoyée',
+    })
     if (!ok) return
     await handleStatusChange('sent')
   }
@@ -703,14 +727,14 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+      {/* Header — stack en mobile (titre + badge sur row 1, actions full-width sur row 2) */}
+      <div className="flex flex-wrap items-start gap-3">
         <button onClick={() => navigate('/admin/invoices')} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-5" />
         </button>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="truncate text-xl font-semibold">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-lg font-semibold sm:text-xl">
               {isNew ? 'Nouvelle facture' : invoice?.invoice_number ?? ''}
             </h1>
             {!isNew && invoice?.invoice_type && invoice.invoice_type !== 'standard' && (
@@ -718,9 +742,14 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
                 {INVOICE_TYPE_LABELS[invoice.invoice_type as InvoiceType]}{invoice.invoice_type === 'acompte' && invoice.deposit_percentage ? ` ${invoice.deposit_percentage}%` : ''}
               </span>
             )}
+            {!isNew && invoice && (
+              <Badge variant={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.variant ?? 'secondary'} className={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.className}>
+                {INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.label ?? invoice.status}
+              </Badge>
+            )}
           </div>
           {linkedQuoteId && sourceQuote && (
-            <Link to={`/admin/quotes/${linkedQuoteId}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+            <Link to={`/admin/quotes/${linkedQuoteId}`} className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline">
               <FileText className="size-3" /> Depuis devis {sourceQuote.quote_number}
             </Link>
           )}
@@ -728,20 +757,17 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
 
         {/* Header actions */}
         {!isNew && invoice && (
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             {invoice.status === 'draft' && (
-              <Button size="sm" onClick={handleMarkAsSent}>
+              <Button size="sm" onClick={handleMarkAsSent} className="flex-1 sm:flex-none">
                 <Send className="mr-1.5 size-3.5" /> Marquer envoyée <Kbd>E</Kbd>
               </Button>
             )}
             {(invoice.status === 'sent' || invoice.status === 'overdue') && (
-              <Button size="sm" onClick={() => handleStatusChange('paid')}>
+              <Button size="sm" onClick={() => handleStatusChange('paid')} className="flex-1 sm:flex-none">
                 <Check className="mr-1.5 size-3.5" /> Payée
               </Button>
             )}
-            <Badge variant={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.variant ?? 'secondary'} className={INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.className}>
-              {INVOICE_STATUS_CONFIG[invoice.status as InvoiceStatus]?.label ?? invoice.status}
-            </Badge>
             <div className="relative">
               <Button size="sm" variant="outline" onClick={() => setShowActionsMenu((v) => !v)}>
                 <MoreHorizontal className="size-4" />
@@ -839,7 +865,7 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
           {/* Row 1: Client | Campagne | Type */}
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <label className="mb-2 block text-sm font-medium">Client *</label>
+              <label className="mb-2 block text-sm font-medium">Client <span className="text-red-500">*</span></label>
               <select
                 value={clientId}
                 onChange={(e) => { setClientId(e.target.value); setValidationErrors((v) => ({ ...v, clientId: false })) }}
@@ -858,7 +884,7 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
                 value={campaignId}
                 onChange={(e) => setCampaignId(e.target.value)}
                 disabled={isStructureLocked || !clientId}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50 sm:h-9"
               >
                 <option value="">{!clientId ? 'Client d\u2019abord' : campaignsLoading ? 'Chargement...' : 'Aucune (optionnel)'}</option>
                 {clientCampaigns?.map((c) => (
@@ -888,15 +914,44 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
             </div>
           </div>
 
-          {/* Conditional: Acompte % */}
+          {/* Conditional: Acompte % avec presets */}
           {invoiceType === 'acompte' && (
-            <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 px-4 py-2.5">
-              <label className="text-xs font-medium">Acompte</label>
-              <div className="flex items-center gap-1">
-                <Input type="number" min={1} max={100} step={1} value={depositPercentage} onChange={(e) => setDepositPercentage(Math.max(1, Math.min(100, parseFloat(e.target.value) || 1)))} disabled={isStructureLocked} className="h-7 w-16 text-sm" />
-                <span className="text-xs text-muted-foreground">%</span>
+            <div className="space-y-2 rounded-md border border-border bg-muted/30 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-xs font-medium">Acompte</label>
+                <div className="flex gap-1">
+                  {[30, 50, 70].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => !isStructureLocked && setDepositPercentage(preset)}
+                      disabled={isStructureLocked}
+                      className={`h-7 rounded-md border px-2 text-xs font-medium transition-colors disabled:opacity-50 ${
+                        depositPercentage === preset
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:border-foreground/30'
+                      }`}
+                    >
+                      {preset}%
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={depositPercentage}
+                    onChange={(e) => setDepositPercentage(Math.max(1, Math.min(100, parseFloat(e.target.value) || 1)))}
+                    disabled={isStructureLocked}
+                    className="h-7 w-16 text-sm"
+                    aria-label="Pourcentage personnalisé"
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                </div>
+                <span className="ml-auto text-xs font-medium tabular-nums">{formatCurrency(baseTotals.totalTtc * (depositPercentage || 0) / 100)} TTC</span>
               </div>
-              <span className="ml-auto text-xs text-muted-foreground">{formatCurrency(baseTotals.totalTtc * (depositPercentage || 0) / 100)} TTC</span>
             </div>
           )}
 
@@ -943,7 +998,7 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
                 value={selectedContactEmail}
                 onChange={(e) => setSelectedContactEmail(e.target.value)}
                 disabled={isStructureLocked}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50 sm:h-9"
               >
                 <option value="">Sélectionner un contact...</option>
                 {clientData.contact_email && <option value={clientData.contact_email}>{clientData.contact_name ? `${clientData.contact_name} — ` : ''}{clientData.contact_email} (principal)</option>}
@@ -960,7 +1015,7 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
               value={commercialId}
               onChange={(e) => setCommercialId(e.target.value)}
               disabled={isStructureLocked}
-              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50 sm:h-9"
             >
               <option value="">— Utilisateur connecté ({profile?.full_name}) —</option>
               {admins?.map((a) => (
@@ -973,11 +1028,11 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
           <div className="grid gap-4 sm:grid-cols-4">
             <div>
               <label className="mb-2 block text-sm font-medium">Date d'émission</label>
-              <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
+              <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="h-10 text-sm sm:h-9" />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium">Conditions de règlement</label>
-              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)} disabled={isStructureLocked} className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50">
+              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)} disabled={isStructureLocked} className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50 sm:h-9">
                 {PAYMENT_TERMS_OPTIONS.map((t) => (
                   <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
                 ))}
@@ -985,11 +1040,11 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium">Échéance</label>
-              <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
+              <Input type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} disabled={isStructureLocked} className="h-10 text-sm sm:h-9" />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium">Réf. dossier</label>
-              <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isCancelled} placeholder="Ex: 25090548" className="h-9 text-sm" />
+              <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isCancelled} placeholder="Ex: 25090548" className="h-10 text-sm sm:h-9" />
             </div>
           </div>
 
@@ -1013,8 +1068,85 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
             )}
           </div>
 
-          {/* Lines table */}
-          <table className="w-full text-sm">
+          {/* Mobile : cards par ligne — table inutilisable sur mobile */}
+          <div className="space-y-3 sm:hidden">
+            {lines.map((line, idx) => (
+              <div key={line._key} className="space-y-2 rounded-lg border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Ligne {idx + 1}</span>
+                  {!isStructureLocked && (
+                    <div className="flex gap-1">
+                      <button onClick={() => duplicateLine(line._key)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Dupliquer" aria-label="Dupliquer la ligne"><Copy className="size-3.5" /></button>
+                      <button onClick={() => removeLine(line._key)} className="rounded p-1 text-muted-foreground hover:text-destructive" title="Supprimer" aria-label="Supprimer la ligne"><Trash2 className="size-3.5" /></button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Désignation</label>
+                  <LineDescriptionEditor
+                    value={line.description}
+                    onChange={(v) => updateLine(line._key, 'description', v)}
+                    onSelectCatalog={isStructureLocked ? undefined : (sel) => updateLineFromCatalog(line._key, sel)}
+                    services={isStructureLocked ? undefined : (services ?? undefined)}
+                    disabled={isCancelled}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Qté</label>
+                    <Input type="number" min={0} step={1} value={line.quantity || ''} onChange={(e) => updateLine(line._key, 'quantity', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} placeholder="0" className="h-10 text-center text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Unité</label>
+                    <Input value={line.unit} onChange={(e) => updateLine(line._key, 'unit', e.target.value)} disabled={isStructureLocked} className="h-10 text-center text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PU HT</label>
+                    <Input type="number" min={0} step={1} value={line.unit_price || ''} onChange={(e) => updateLine(line._key, 'unit_price', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} placeholder="0,00" className="h-10 text-right text-sm" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">TVA</label>
+                    <select value={line.tva_rate} onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))} disabled={isStructureLocked} className="flex h-10 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50">
+                      <option value={0}>0%</option>
+                      <option value={5.5}>5,5%</option>
+                      <option value={10}>10%</option>
+                      <option value={20}>20%</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Montant HT</label>
+                    <div className="flex h-10 items-center justify-end rounded-lg bg-muted/50 px-3 text-sm font-semibold tabular-nums">
+                      {formatCurrency(line.total_ht)}
+                    </div>
+                  </div>
+                </div>
+                {line.discount_type ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Remise :</span>
+                    <Input type="number" min={0} step={1} value={line.discount_value || ''} onChange={(e) => updateLine(line._key, 'discount_value', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} className="h-8 flex-1 text-sm" placeholder="0" />
+                    <select value={line.discount_type} onChange={(e) => updateLine(line._key, 'discount_type', e.target.value)} disabled={isStructureLocked} className="h-8 rounded border border-input bg-background px-2 text-xs disabled:opacity-50">
+                      <option value="percent">%</option>
+                      <option value="amount">€</option>
+                    </select>
+                    {!isStructureLocked && (
+                      <button onClick={() => { updateLine(line._key, 'discount_value', 0); updateLine(line._key, 'discount_type', null) }} className="text-muted-foreground hover:text-destructive">
+                        <X className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ) : !isStructureLocked && (
+                  <button onClick={() => updateLine(line._key, 'discount_type', 'percent')} className="text-xs text-muted-foreground/60 hover:text-primary">
+                    + Ajouter une remise
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop : table */}
+          <table className="hidden w-full text-sm sm:table">
             <thead>
               <tr className="bg-muted/50">
                 <th className="rounded-l-md py-2 text-left text-xs font-semibold text-muted-foreground">Désignation</th>
@@ -1080,8 +1212,8 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
                   {!isStructureLocked && (
                     <td className="px-1 py-1.5">
                       <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button onClick={() => duplicateLine(line._key)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Dupliquer"><Copy className="size-3" /></button>
-                        <button onClick={() => removeLine(line._key)} className="rounded p-1 text-muted-foreground hover:text-destructive" title="Supprimer"><Trash2 className="size-3" /></button>
+                        <button onClick={() => duplicateLine(line._key)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Dupliquer" aria-label="Dupliquer la ligne"><Copy className="size-3" /></button>
+                        <button onClick={() => removeLine(line._key)} className="rounded p-1 text-muted-foreground hover:text-destructive" title="Supprimer" aria-label="Supprimer la ligne"><Trash2 className="size-3" /></button>
                       </div>
                     </td>
                   )}
@@ -1100,7 +1232,7 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
 
           {/* Totals */}
           <div className="flex justify-end">
-            <div className="w-72 space-y-2 text-sm">
+            <div className="w-full space-y-2 text-sm sm:w-72">
               {invoiceType !== 'standard' && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>Base HT (lignes)</span>
@@ -1177,7 +1309,7 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
               <div className="rounded-md border border-border bg-muted/30 p-4 space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <label className="mb-2 block text-sm font-medium">Montant *</label>
+                    <label className="mb-2 block text-sm font-medium">Montant <span className="text-red-500">*</span></label>
                     <Input
                       type="number"
                       min={0}
@@ -1264,16 +1396,16 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
 
       {/* Sticky save bar */}
       {!isCancelled && (
-        <div className="flex items-center justify-between pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
           <div className="text-sm">
             <span className="text-muted-foreground">Total TTC :</span>{' '}
             <span className="text-lg font-bold tabular-nums">{formatCurrency(totals.totalTtc)}</span>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => navigate('/admin/invoices')}>
+          <div className="flex w-full gap-3 sm:w-auto">
+            <Button variant="outline" onClick={() => navigate('/admin/invoices')} className="flex-1 sm:flex-none">
               Annuler
             </Button>
-            <Button onClick={handleSave} disabled={saving || !clientId}>
+            <Button onClick={handleSave} disabled={saving || !clientId} className="flex-1 sm:flex-none">
               {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
               {isNew ? 'Créer le brouillon' : 'Enregistrer'}
             </Button>

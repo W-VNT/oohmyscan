@@ -160,6 +160,24 @@ export function useUpdateInvoice() {
 }
 
 /** Fetch deposit (acompte) invoices for a given campaign — used to compute balance for solde invoices */
+/** Toutes les factures liées à un devis (acomptes + solde + standard). */
+export function useQuoteInvoices(quoteId: string | undefined) {
+  return useQuery({
+    queryKey: ['quote-invoices', quoteId],
+    queryFn: async (): Promise<Invoice[]> => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('quote_id', quoteId!)
+        .neq('status', 'cancelled')
+        .order('created_at')
+      if (error) throw error
+      return data as Invoice[]
+    },
+    enabled: !!quoteId,
+  })
+}
+
 export function useCampaignDepositInvoices(campaignId: string | undefined) {
   return useQuery({
     queryKey: ['campaign-deposit-invoices', campaignId],

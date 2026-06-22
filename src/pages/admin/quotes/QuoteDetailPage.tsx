@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useQuote, useQuoteLines, useCreateQuote, useUpdateQuote, useSaveQuoteLines, type QuoteLine } from '@/hooks/admin/useQuotes'
+import { useQuoteInvoices } from '@/hooks/admin/useInvoices'
 import { useClients, useClient } from '@/hooks/admin/useClients'
 import { useAdmins } from '@/hooks/admin/useUsers'
 import { useClientCampaigns } from '@/hooks/useCampaigns'
@@ -16,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
 import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, X, Package, Receipt, Download, Copy, Ban, Eye, Bookmark, BookmarkPlus, MoreHorizontal } from 'lucide-react'
 import { LineDescriptionEditor } from '@/components/shared/LineDescriptionEditor'
 import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
@@ -58,6 +60,7 @@ export function QuoteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const isNew = id === 'new'
 
   // Prefill client si ?client=<uuid> dans l'URL (raccourci depuis ClientsPage par ex)
@@ -91,6 +94,18 @@ export function QuoteDetailPage() {
   const [saving, setSaving] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const [showConvertMenu, setShowConvertMenu] = useState(false)
+  const [showAcompteModal, setShowAcompteModal] = useState(false)
+  const [acomptePct, setAcomptePct] = useState(50)
+  const { data: quoteInvoices } = useQuoteInvoices(isNew ? undefined : id)
+  const existingAcomptes = useMemo(
+    () => (quoteInvoices ?? []).filter((inv) => (inv as Record<string, unknown>).invoice_type === 'acompte'),
+    [quoteInvoices],
+  )
+  const hasSolde = useMemo(
+    () => (quoteInvoices ?? []).some((inv) => (inv as Record<string, unknown>).invoice_type === 'solde'),
+    [quoteInvoices],
+  )
 
   const { data: clientData } = useClient(clientId || undefined)
 
@@ -387,7 +402,11 @@ export function QuoteDetailPage() {
 
   async function handleMarkAsSent() {
     if (!quote) return
-    const ok = window.confirm(`Marquer le devis ${quote.quote_number} comme envoyé ?`)
+    const ok = await confirm({
+      title: `Marquer le devis ${quote.quote_number} comme envoyé ?`,
+      description: 'Le devis ne pourra plus être modifié structurellement (sauf descriptions et notes).',
+      confirmLabel: 'Marquer envoyé',
+    })
     if (!ok) return
     await handleStatusChange('sent')
   }
@@ -507,48 +526,132 @@ export function QuoteDetailPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
+      {/* Header — stack en mobile (titre + badge sur row 1, actions full-width sur row 2) */}
+      <div className="flex flex-wrap items-start gap-3">
         <button onClick={() => navigate('/admin/quotes')} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-5" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold">
-            {isNew ? 'Nouveau devis' : quote?.quote_number ?? ''}
-          </h1>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-lg font-semibold sm:text-xl">
+              {isNew ? 'Nouveau devis' : quote?.quote_number ?? ''}
+            </h1>
+            {!isNew && quote && (
+              <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'} className={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.className}>
+                {QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.label ?? quote.status}
+              </Badge>
+            )}
+          </div>
         </div>
         {!isNew && quote && (
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             {/* Status action buttons */}
             {quote.status === 'draft' && (
               <>
-                <Button size="sm" onClick={handleMarkAsSent}>
+                <Button size="sm" onClick={handleMarkAsSent} className="flex-1 sm:flex-none">
                   <Send className="mr-1.5 size-3.5" /> Marquer envoyé <Kbd>E</Kbd>
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')}>
+                <Button size="sm" variant="outline" onClick={() => handleStatusChange('cancelled')} className="flex-1 sm:flex-none">
                   <Ban className="mr-1.5 size-3.5" /> Annuler
                 </Button>
               </>
             )}
             {quote.status === 'sent' && (
               <>
-                <Button size="sm" onClick={() => handleStatusChange('accepted')}>
+                <Button size="sm" onClick={() => handleStatusChange('accepted')} className="flex-1 sm:flex-none">
                   <Check className="mr-1.5 size-3.5" /> Accepter
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => handleStatusChange('rejected')}>
+                <Button size="sm" variant="destructive" onClick={() => handleStatusChange('rejected')} className="flex-1 sm:flex-none">
                   Refuser
                 </Button>
               </>
             )}
             {quote.status === 'accepted' && (
-              <Button size="sm" onClick={() => navigate(`/admin/invoices/new?from_quote=${id}`)}>
-                <Receipt className="mr-1.5 size-3.5" /> Convertir en facture
-              </Button>
-            )}
+              <div className="relative flex-1 sm:flex-none">
+                <Button size="sm" onClick={() => setShowConvertMenu((v) => !v)} className="w-full">
+                  <Receipt className="mr-1.5 size-3.5" /> Convertir en facture
+                </Button>
+                {showConvertMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowConvertMenu(false)} />
+                    <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-md border border-border bg-popover py-1 shadow-lg">
+                      {/* Standard */}
+                      <button
+                        onClick={() => {
+                          setShowConvertMenu(false)
+                          navigate(`/admin/invoices/new?from_quote=${id}`)
+                        }}
+                        className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted"
+                      >
+                        <Receipt className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">Facture standard</p>
+                          <p className="text-[11px] text-muted-foreground">100 % du devis en une fois</p>
+                        </div>
+                      </button>
 
-            <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'} className={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.className}>
-              {QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.label ?? quote.status}
-            </Badge>
+                      {/* Acompte */}
+                      <button
+                        onClick={() => {
+                          setShowConvertMenu(false)
+                          setShowAcompteModal(true)
+                        }}
+                        className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted"
+                      >
+                        <Package className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">Facture d'acompte</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {existingAcomptes.length > 0
+                              ? `⚠ ${existingAcomptes.length} acompte${existingAcomptes.length > 1 ? 's' : ''} déjà créé${existingAcomptes.length > 1 ? 's' : ''}`
+                              : 'Facturer un pourcentage avant prestation'}
+                          </p>
+                        </div>
+                      </button>
+
+                      <div className="my-1 border-t border-border" />
+
+                      {/* Solde */}
+                      <button
+                        onClick={async () => {
+                          setShowConvertMenu(false)
+                          if (existingAcomptes.length === 0) {
+                            await confirm({
+                              title: 'Aucun acompte trouvé',
+                              description: "Pour créer une facture de solde, il faut d'abord créer une facture d'acompte sur ce devis.",
+                              confirmLabel: 'OK',
+                            })
+                            return
+                          }
+                          if (hasSolde) {
+                            const ok = await confirm({
+                              title: 'Solde déjà créé',
+                              description: 'Une facture de solde existe déjà pour ce devis. En créer une autre ?',
+                              confirmLabel: 'Créer quand même',
+                              variant: 'destructive',
+                            })
+                            if (!ok) return
+                          }
+                          navigate(`/admin/invoices/new?from_quote=${id}&invoice_type=solde`)
+                        }}
+                        disabled={existingAcomptes.length === 0}
+                        className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted disabled:opacity-50 disabled:hover:bg-transparent"
+                      >
+                        <Check className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">Facture de solde</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {existingAcomptes.length === 0
+                              ? 'Crée d\'abord un acompte'
+                              : `Déduit ${existingAcomptes.length} acompte${existingAcomptes.length > 1 ? 's' : ''} déjà émis`}
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Menu ⋯ */}
             <div className="relative">
@@ -585,6 +688,88 @@ export function QuoteDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Modal acompte : choix du pourcentage */}
+      {showAcompteModal && quote && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center"
+          onClick={() => setShowAcompteModal(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-background p-5 shadow-xl sm:rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Acompte sur devis</p>
+              <h2 className="mt-0.5 text-base font-semibold">{quote.quote_number}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Total devis : <span className="font-medium tabular-nums text-foreground">{formatCurrency(totals.totalTtc)}</span> TTC
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pourcentage à facturer</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[30, 50, 70].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setAcomptePct(preset)}
+                    className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                      acomptePct === preset
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-foreground/30'
+                    }`}
+                  >
+                    {preset}%
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <label htmlFor="acompte-custom" className="text-xs text-muted-foreground">Ou perso :</label>
+                <Input
+                  id="acompte-custom"
+                  type="number"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={acomptePct}
+                  onChange={(e) => setAcomptePct(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                  className="h-9 w-20 text-sm"
+                />
+                <span className="text-xs text-muted-foreground">%</span>
+                <span className="ml-auto text-sm font-semibold tabular-nums">
+                  {formatCurrency(totals.totalTtc * acomptePct / 100)} TTC
+                </span>
+              </div>
+            </div>
+
+            {existingAcomptes.length > 0 && (
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-xs text-orange-700 dark:text-orange-400">
+                ⚠ {existingAcomptes.length} acompte{existingAcomptes.length > 1 ? 's' : ''} déjà créé{existingAcomptes.length > 1 ? 's' : ''} sur ce devis (
+                {existingAcomptes.map((inv) => inv.invoice_number).join(', ')}).
+              </div>
+            )}
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowAcompteModal(false)}>
+                Annuler
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setShowAcompteModal(false)
+                  navigate(`/admin/invoices/new?from_quote=${id}&invoice_type=acompte&deposit_pct=${acomptePct}`)
+                }}
+              >
+                Créer la facture d'acompte
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PDF Preview Dialog */}
       {previewUrl && (
@@ -624,12 +809,12 @@ export function QuoteDetailPage() {
           {/* Row 1: Client | Campagne */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-medium">Client *</label>
+              <label className="mb-2 block text-sm font-medium">Client <span className="text-red-500">*</span></label>
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 disabled={isStructureLocked}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50 sm:h-9"
               >
                 <option value="">Sélectionner un client...</option>
                 {activeClients.map((c) => (
@@ -643,7 +828,7 @@ export function QuoteDetailPage() {
                 value={campaignId}
                 onChange={(e) => setCampaignId(e.target.value)}
                 disabled={isStructureLocked || !clientId}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50 sm:h-9"
               >
                 <option value="">
                   {!clientId ? 'Sélectionner un client d\u2019abord' : 'Aucune (optionnel)'}
@@ -663,7 +848,7 @@ export function QuoteDetailPage() {
                 value={selectedContactEmail}
                 onChange={(e) => setSelectedContactEmail(e.target.value)}
                 disabled={isStructureLocked}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50 sm:h-9"
               >
                 <option value="">Sélectionner un contact...</option>
                 {clientData.contact_email && <option value={clientData.contact_email}>{clientData.contact_name ? `${clientData.contact_name} — ` : ''}{clientData.contact_email} (principal)</option>}
@@ -680,7 +865,7 @@ export function QuoteDetailPage() {
               value={commercialId}
               onChange={(e) => setCommercialId(e.target.value)}
               disabled={isStructureLocked}
-              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50 sm:h-9"
             >
               <option value="">— Utilisateur connecté ({profile?.full_name}) —</option>
               {admins?.map((a) => (
@@ -693,15 +878,15 @@ export function QuoteDetailPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-2 block text-sm font-medium">Date d'émission</label>
-              <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
+              <Input type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} disabled={isStructureLocked} className="h-10 text-sm sm:h-9" />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium">Valide jusqu'au</label>
-              <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} disabled={isStructureLocked} className="h-9 text-sm" />
+              <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} disabled={isStructureLocked} className="h-10 text-sm sm:h-9" />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium">Réf. dossier</label>
-              <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isStructureLocked} placeholder="Ex: 25090548" className="h-9 text-sm" />
+              <Input value={clientReference} onChange={(e) => setClientReference(e.target.value)} disabled={isStructureLocked} placeholder="Ex: 25090548" className="h-10 text-sm sm:h-9" />
             </div>
           </div>
 
@@ -712,7 +897,7 @@ export function QuoteDetailPage() {
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)}
               disabled={isStructureLocked}
-              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
+              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50 sm:h-9"
             >
               {PAYMENT_TERMS_OPTIONS.map((t) => (
                 <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
@@ -745,7 +930,8 @@ export function QuoteDetailPage() {
                 {templates && templates.length > 0 && (
                   <select
                     onChange={(e) => { if (e.target.value) handleLoadTemplate(e.target.value); e.target.value = '' }}
-                    className="h-7 rounded-lg border border-input bg-background px-2 text-xs"
+                    className="h-9 rounded-lg border border-input bg-background px-2 text-xs sm:h-8"
+                    aria-label="Charger un modèle de devis"
                   >
                     <option value="">
                       <Bookmark className="inline size-3" /> Modèles...
@@ -756,8 +942,8 @@ export function QuoteDetailPage() {
                   </select>
                 )}
                 {lines.some((l) => l.description.trim()) && (
-                  <Button size="sm" variant="ghost" onClick={handleSaveAsTemplate} className="h-7 text-xs">
-                    <BookmarkPlus className="mr-1 size-3" /> Sauver modèle
+                  <Button size="sm" variant="ghost" onClick={handleSaveAsTemplate}>
+                    <BookmarkPlus className="mr-1 size-3.5" /> Sauver modèle
                   </Button>
                 )}
                 <Button size="sm" variant="outline" onClick={addLine}>
@@ -767,8 +953,86 @@ export function QuoteDetailPage() {
             )}
           </div>
 
-          {/* Lines table */}
-          <table className="w-full text-sm">
+          {/* Mobile : cards par ligne — table inutilisable sur mobile */}
+          <div className="space-y-3 sm:hidden">
+            {lines.map((line, idx) => (
+              <div key={line._key} className="space-y-2 rounded-lg border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Ligne {idx + 1}</span>
+                  {!isStructureLocked && (
+                    <div className="flex gap-1">
+                      <button onClick={() => duplicateLine(line._key)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Dupliquer" aria-label="Dupliquer la ligne"><Copy className="size-3.5" /></button>
+                      <button onClick={() => removeLine(line._key)} className="rounded p-1 text-muted-foreground hover:text-destructive" title="Supprimer" aria-label="Supprimer la ligne"><Trash2 className="size-3.5" /></button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Désignation</label>
+                  <LineDescriptionEditor
+                    value={line.description}
+                    onChange={(v) => updateLine(line._key, 'description', v)}
+                    onSelectCatalog={(sel) => updateLineFromCatalog(line._key, sel)}
+                    services={services ?? undefined}
+                    disabled={isCancelled}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Qté</label>
+                    <Input type="number" min={0} step={1} value={line.quantity || ''} onChange={(e) => updateLine(line._key, 'quantity', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} placeholder="0" className="h-10 text-center text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Unité</label>
+                    <Input value={line.unit} onChange={(e) => updateLine(line._key, 'unit', e.target.value)} disabled={isStructureLocked} className="h-10 text-center text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PU HT</label>
+                    <Input type="number" min={0} step={1} value={line.unit_price || ''} onChange={(e) => updateLine(line._key, 'unit_price', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} placeholder="0,00" className="h-10 text-right text-sm" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">TVA</label>
+                    <select value={line.tva_rate} onChange={(e) => updateLine(line._key, 'tva_rate', parseFloat(e.target.value))} disabled={isStructureLocked} className="flex h-10 w-full rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50">
+                      <option value={0}>0%</option>
+                      <option value={5.5}>5,5%</option>
+                      <option value={10}>10%</option>
+                      <option value={20}>20%</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Montant HT</label>
+                    <div className="flex h-10 items-center justify-end rounded-lg bg-muted/50 px-3 text-sm font-semibold tabular-nums">
+                      {formatCurrency(line.total_ht)}
+                    </div>
+                  </div>
+                </div>
+                {/* Remise mobile */}
+                {line.discount_type ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Remise :</span>
+                    <Input type="number" min={0} step={1} value={line.discount_value || ''} onChange={(e) => updateLine(line._key, 'discount_value', parseFloat(e.target.value) || 0)} disabled={isStructureLocked} className="h-8 flex-1 text-sm" placeholder="0" />
+                    <select value={line.discount_type} onChange={(e) => updateLine(line._key, 'discount_type', e.target.value)} disabled={isStructureLocked} className="h-8 rounded border border-input bg-background px-2 text-xs disabled:opacity-50">
+                      <option value="percent">%</option>
+                      <option value="amount">€</option>
+                    </select>
+                    {!isStructureLocked && (
+                      <button onClick={() => { updateLine(line._key, 'discount_value', 0); updateLine(line._key, 'discount_type', null) }} className="text-muted-foreground hover:text-destructive">
+                        <X className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ) : !isStructureLocked && (
+                  <button onClick={() => updateLine(line._key, 'discount_type', 'percent')} className="text-xs text-muted-foreground/60 hover:text-primary">
+                    + Ajouter une remise
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop : table */}
+          <table className="hidden w-full text-sm sm:table">
             <thead>
               <tr className="bg-muted/50">
                 <th className="rounded-l-md py-2 text-left text-xs font-semibold text-muted-foreground">Désignation</th>
@@ -835,8 +1099,8 @@ export function QuoteDetailPage() {
                   {!isStructureLocked && (
                     <td className="px-1 py-1.5">
                       <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button onClick={() => duplicateLine(line._key)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Dupliquer"><Copy className="size-3" /></button>
-                        <button onClick={() => removeLine(line._key)} className="rounded p-1 text-muted-foreground hover:text-destructive" title="Supprimer"><Trash2 className="size-3" /></button>
+                        <button onClick={() => duplicateLine(line._key)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" title="Dupliquer" aria-label="Dupliquer la ligne"><Copy className="size-3" /></button>
+                        <button onClick={() => removeLine(line._key)} className="rounded p-1 text-muted-foreground hover:text-destructive" title="Supprimer" aria-label="Supprimer la ligne"><Trash2 className="size-3" /></button>
                       </div>
                     </td>
                   )}
@@ -855,7 +1119,7 @@ export function QuoteDetailPage() {
 
           {/* Totals */}
           <div className="flex justify-end">
-            <div className="w-64 space-y-2 text-sm">
+            <div className="w-full space-y-2 text-sm sm:w-64">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total HT</span>
                 <span className="font-medium tabular-nums">{formatCurrency(totals.totalHt)}</span>
@@ -882,11 +1146,11 @@ export function QuoteDetailPage() {
       {/* Save */}
       {!isCancelled && (
         <div className="flex gap-3">
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none">
             {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
             {isNew ? 'Créer le brouillon' : 'Enregistrer'}
           </Button>
-          <Button variant="outline" onClick={() => navigate('/admin/quotes')}>
+          <Button variant="outline" onClick={() => navigate('/admin/quotes')} className="flex-1 sm:flex-none">
             Annuler
           </Button>
         </div>
