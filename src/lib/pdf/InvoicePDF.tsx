@@ -171,7 +171,7 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, contactPhone, cl
     : base.groups
 
   const docLabel = invoiceType === 'acompte'
-    ? `Facture d'acompte (${depositPct}%)`
+    ? `Facture d'acompte`
     : invoiceType === 'solde'
       ? 'Facture de solde'
       : invoiceType === 'avoir'
