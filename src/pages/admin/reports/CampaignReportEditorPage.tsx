@@ -13,6 +13,9 @@ import {
   Save,
   Image as ImageIcon,
   GripVertical,
+  Share2,
+  Link as LinkIcon,
+  CircleOff,
 } from 'lucide-react'
 import {
   DndContext,
@@ -31,11 +34,14 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
 import {
   useCampaignReport,
   useAutosaveCampaignReport,
   useDeleteCampaignReport,
   useCreateOrReplaceCampaignReport,
+  usePublishCampaignReport,
+  useUnpublishCampaignReport,
 } from '@/hooks/admin/useCampaignReport'
 import { useCampaignReportData } from '@/hooks/admin/useCampaignReportData'
 import { useCampaign } from '@/hooks/useCampaigns'
@@ -60,6 +66,9 @@ export function CampaignReportEditorPage() {
   const { data: reportData } = useCampaignReportData(campaignId)
   const createReport = useCreateOrReplaceCampaignReport()
   const deleteReport = useDeleteCampaignReport()
+  const publishReport = usePublishCampaignReport()
+  const unpublishReport = useUnpublishCampaignReport()
+  const confirm = useConfirm()
 
   const [slides, setSlides] = useState<BrandedSlide[]>([])
   const [activeIdx, setActiveIdx] = useState(0)
@@ -67,6 +76,7 @@ export function CampaignReportEditorPage() {
   const [brandColor, setBrandColor] = useState<string>(BRAND_RED)
   const [exporting, setExporting] = useState(false)
   const [previewScale, setPreviewScale] = useState(PREVIEW_SCALE_BASE)
+  const [mobilePreviewScale, setMobilePreviewScale] = useState(0.25)
 
   // Charge les slides depuis le rapport en DB
   // Cascade brand color : override rapport > default settings > BRAND_RED
@@ -80,15 +90,22 @@ export function CampaignReportEditorPage() {
 
   // Resize : ajuste le scale de la preview pour rentrer dans la zone visible
   const previewContainerRef = useRef<HTMLDivElement>(null)
+  const mobilePreviewContainerRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     function adjustScale() {
       const el = previewContainerRef.current
-      if (!el) return
-      const targetW = el.clientWidth - 64
-      const targetH = el.clientHeight - 64
-      const scaleW = targetW / 1414
-      const scaleH = targetH / 1000
-      setPreviewScale(Math.max(0.2, Math.min(0.9, Math.min(scaleW, scaleH))))
+      if (el) {
+        const targetW = el.clientWidth - 64
+        const targetH = el.clientHeight - 64
+        const scaleW = targetW / 1414
+        const scaleH = targetH / 1000
+        setPreviewScale(Math.max(0.2, Math.min(0.9, Math.min(scaleW, scaleH))))
+      }
+      const mEl = mobilePreviewContainerRef.current
+      if (mEl) {
+        const targetW = mEl.clientWidth - 16
+        setMobilePreviewScale(Math.max(0.18, Math.min(0.5, targetW / 1414)))
+      }
     }
     adjustScale()
     window.addEventListener('resize', adjustScale)
@@ -189,9 +206,12 @@ export function CampaignReportEditorPage() {
 
   async function handleRegenerate() {
     if (!reportData || !campaignId) return
-    const ok = window.confirm(
-      'Regenerer le rapport depuis le modele va ecraser toutes les modifications manuelles. Continuer ?',
-    )
+    const ok = await confirm({
+      title: 'Régénérer le rapport ?',
+      description: 'Régénérer depuis le modèle va écraser toutes les modifications manuelles. Cette action est irréversible.',
+      confirmLabel: 'Régénérer',
+      variant: 'destructive',
+    })
     if (!ok) return
     try {
       const newSlides = generateReportFromTemplate(reportData, {
@@ -212,7 +232,12 @@ export function CampaignReportEditorPage() {
 
   async function handleDelete() {
     if (!report) return
-    const ok = window.confirm('Supprimer definitivement ce rapport ?')
+    const ok = await confirm({
+      title: 'Supprimer le rapport ?',
+      description: 'Toutes les slides et le PDF publié seront supprimés. Cette action est irréversible.',
+      confirmLabel: 'Supprimer',
+      variant: 'destructive',
+    })
     if (!ok) return
     try {
       await deleteReport.mutateAsync({ id: report.id, campaign_id: report.campaign_id })
@@ -220,6 +245,51 @@ export function CampaignReportEditorPage() {
       navigate(`/admin/campaigns/${campaignId}`)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erreur', 'error')
+    }
+  }
+
+  const publicReportUrl = report?.public_token
+    ? `${window.location.origin}/view/rapport/${report.public_token}`
+    : null
+  const isPublished = !!report?.published_pdf_path
+
+  async function handlePublish() {
+    if (!report) return
+    try {
+      await publishReport.mutateAsync({ report, slides, brandColor })
+      if (publicReportUrl) {
+        await navigator.clipboard.writeText(publicReportUrl).catch(() => {})
+      }
+      toast('Rapport publié — lien copié')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur de publication', 'error')
+    }
+  }
+
+  async function handleUnpublish() {
+    if (!report) return
+    const ok = await confirm({
+      title: 'Dépublier le rapport ?',
+      description: 'Le lien public cessera de fonctionner immédiatement. Le rapport reste éditable en interne.',
+      confirmLabel: 'Dépublier',
+      variant: 'destructive',
+    })
+    if (!ok) return
+    try {
+      await unpublishReport.mutateAsync(report)
+      toast('Rapport dépublié')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur', 'error')
+    }
+  }
+
+  async function handleCopyLink() {
+    if (!publicReportUrl) return
+    try {
+      await navigator.clipboard.writeText(publicReportUrl)
+      toast('Lien copié')
+    } catch {
+      toast('Impossible de copier — copie manuelle requise', 'error')
     }
   }
 
@@ -297,6 +367,27 @@ export function CampaignReportEditorPage() {
           <div className="hidden items-center gap-3 lg:flex">
             <SaveIndicator status={saveStatus} />
             <BrandColorPicker value={brandColor} onChange={setBrandColor} />
+            {isPublished ? (
+              <>
+                <Button variant="outline" size="sm" onClick={handleCopyLink}>
+                  <LinkIcon className="mr-1.5 size-3.5" />
+                  Copier le lien
+                </Button>
+                <Button variant="outline" size="sm" onClick={handlePublish} disabled={publishReport.isPending}>
+                  {publishReport.isPending ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Share2 className="mr-1.5 size-3.5" />}
+                  Mettre à jour
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleUnpublish} disabled={unpublishReport.isPending} className="text-destructive">
+                  <CircleOff className="mr-1.5 size-3.5" />
+                  Dépublier
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" onClick={handlePublish} disabled={publishReport.isPending}>
+                {publishReport.isPending ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Share2 className="mr-1.5 size-3.5" />}
+                Publier
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleRegenerate}>
               <Sparkles className="mr-1.5 size-3.5" />
               Regenerer
@@ -314,29 +405,131 @@ export function CampaignReportEditorPage() {
         </div>
       </div>
 
-      {/* MOBILE fallback : l'editeur 3 colonnes est inutilisable < lg */}
-      <div className="flex flex-1 items-center justify-center overflow-y-auto p-6 lg:hidden">
-        <div className="max-w-sm space-y-4 rounded-xl border border-border bg-background p-6 text-center shadow-sm">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
-            <ImageIcon className="size-6 text-muted-foreground" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold">Editeur disponible sur grand ecran</h2>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              L'edition complete du rapport ({slides.length} slides) necessite un ecran &gt;= 1024px.
-              Tu peux exporter le PDF des maintenant.
+      {/* MOBILE editor : thumbnails scrollables → preview → actions → édition */}
+      <div className="flex flex-1 flex-col overflow-y-auto lg:hidden">
+        {/* Thumbnails strip sticky */}
+        <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
+          <div className="flex items-center gap-2 px-2 py-2">
+            <p className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              {slides.length} slide{slides.length !== 1 ? 's' : ''}
             </p>
+            <div className="flex flex-1 gap-1.5 overflow-x-auto pb-1">
+              {slides.map((slide, idx) => (
+                <button
+                  key={slide.id}
+                  onClick={() => setActiveIdx(idx)}
+                  className={`relative shrink-0 overflow-hidden rounded border-2 transition-colors ${
+                    idx === activeIdx ? 'border-primary' : 'border-border'
+                  }`}
+                  style={{ width: 80, height: 56 }}
+                >
+                  <div className="absolute inset-0 overflow-hidden bg-white">
+                    <SlideCanvas scale={80 / 1414}>
+                      <SlideView slide={slide} />
+                    </SlideCanvas>
+                  </div>
+                  <span className="absolute bottom-0 right-0 rounded-tl bg-black/60 px-1 text-[9px] font-medium text-white">
+                    {idx + 1}
+                  </span>
+                  {slide.customized && (
+                    <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-orange-500" />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
-          <Button onClick={handleExport} disabled={exporting} className="w-full">
-            {exporting ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Download className="mr-1.5 size-3.5" />}
-            Exporter le PDF
+        </div>
+
+        {/* Preview mobile */}
+        <div ref={mobilePreviewContainerRef} className="flex justify-center p-2">
+          {activeSlide ? (
+            <div className="overflow-hidden rounded-md shadow-lg ring-1 ring-black/10">
+              <SlideCanvas scale={mobilePreviewScale}>
+                <SlideView slide={activeSlide} />
+              </SlideCanvas>
+            </div>
+          ) : (
+            <div className="py-12 text-center text-muted-foreground">
+              <ImageIcon className="mx-auto size-10" />
+              <p className="mt-2 text-sm">Aucune slide</p>
+            </div>
+          )}
+        </div>
+
+        {/* Actions slide active */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 border-t border-border bg-background px-3 py-2">
+          <Button size="sm" variant="outline" onClick={() => move(activeIdx, -1)} disabled={activeIdx === 0} aria-label="Monter">
+            <ChevronUp className="size-3.5" />
           </Button>
-          <Link
-            to={`/admin/campaigns/${campaignId}`}
-            className="block text-xs text-muted-foreground hover:text-foreground"
-          >
-            ← Retour a la campagne
-          </Link>
+          <Button size="sm" variant="outline" onClick={() => move(activeIdx, 1)} disabled={activeIdx === slides.length - 1} aria-label="Descendre">
+            <ChevronDown className="size-3.5" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => duplicate(activeIdx)}>
+            <Copy className="mr-1 size-3.5" /> Dupliquer
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => remove(activeIdx)} className="text-destructive">
+            <Trash2 className="mr-1 size-3.5" /> Suppr.
+          </Button>
+          <Button size="sm" onClick={addPhotoSlide}>
+            <Plus className="mr-1 size-3.5" /> Photo
+          </Button>
+        </div>
+
+        {/* Éditeur de la slide active */}
+        {activeSlide && (
+          <div className="border-t border-border bg-background px-3 py-3">
+            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Édition · {getSlideLabel(activeSlide)}
+            </p>
+            <SlideEditor slide={activeSlide} onChange={patchActive} />
+          </div>
+        )}
+
+        {/* Actions globales en bas */}
+        <div className="space-y-3 border-t border-border bg-background px-3 py-3 pb-6">
+          <div className="flex items-center justify-between gap-3">
+            <SaveIndicator status={saveStatus} />
+            <BrandColorPicker value={brandColor} onChange={setBrandColor} />
+          </div>
+          {/* Publication */}
+          {isPublished ? (
+            <div className="space-y-2 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
+              <div className="flex items-center gap-2 text-xs font-medium text-green-700 dark:text-green-400">
+                <Share2 className="size-3.5" />
+                Rapport publié
+                {report?.published_at && (
+                  <span className="text-muted-foreground">· {new Date(report.published_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleCopyLink} className="flex-1">
+                  <LinkIcon className="mr-1.5 size-3.5" />
+                  Copier le lien
+                </Button>
+                <Button size="sm" variant="outline" onClick={handlePublish} disabled={publishReport.isPending}>
+                  {publishReport.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleUnpublish} disabled={unpublishReport.isPending} className="text-destructive">
+                  <CircleOff className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button size="sm" onClick={handlePublish} disabled={publishReport.isPending} className="w-full">
+              {publishReport.isPending ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Share2 className="mr-1.5 size-3.5" />}
+              Publier &amp; copier le lien
+            </Button>
+          )}
+          <div className="flex w-full gap-2">
+            <Button variant="outline" size="sm" onClick={handleRegenerate} className="flex-1">
+              <Sparkles className="mr-1.5 size-3.5" />
+              Régénérer
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDelete} className="flex-1 text-destructive">
+              <Trash2 className="mr-1.5 size-3.5" />
+              Supprimer
+            </Button>
+          </div>
         </div>
       </div>
 

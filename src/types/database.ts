@@ -472,6 +472,9 @@ export interface Database {
           template_version: number
           generated_at: string
           updated_at: string
+          public_token: string
+          published_pdf_path: string | null
+          published_at: string | null
         }
         Insert: {
           id?: string
@@ -487,6 +490,9 @@ export interface Database {
           template_version?: number
           generated_at?: string
           updated_at?: string
+          public_token?: string
+          published_pdf_path?: string | null
+          published_at?: string | null
         }
         Update: {
           id?: string
@@ -502,6 +508,9 @@ export interface Database {
           template_version?: number
           generated_at?: string
           updated_at?: string
+          public_token?: string
+          published_pdf_path?: string | null
+          published_at?: string | null
         }
         Relationships: []
       }

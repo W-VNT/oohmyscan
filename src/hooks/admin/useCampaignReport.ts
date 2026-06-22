@@ -4,6 +4,63 @@ import { supabase } from '@/lib/supabase'
 import type { CampaignReport, BrandedSlide } from '@/lib/campaign-report-types'
 
 /**
+ * Liste tous les rapports de campagne avec les infos de campagne et client
+ * pour l'affichage en page liste.
+ */
+export interface CampaignReportListItem {
+  id: string
+  campaign_id: string
+  generated_at: string
+  updated_at: string
+  slides_count: number
+  brand_color: string | null
+  campaign: {
+    name: string
+    status: string
+    start_date: string
+    end_date: string
+    client: { company_name: string } | null
+  } | null
+}
+
+export function useAllCampaignReports() {
+  return useQuery({
+    queryKey: ['campaign-reports', 'all'],
+    queryFn: async (): Promise<CampaignReportListItem[]> => {
+      const { data, error } = await supabase
+        .from('campaign_reports')
+        .select('id, campaign_id, generated_at, updated_at, slides, brand_color, campaigns(name, status, start_date, end_date, clients(company_name))')
+        .order('updated_at', { ascending: false })
+      if (error) throw error
+      return ((data ?? []) as unknown as Array<{
+        id: string
+        campaign_id: string
+        generated_at: string
+        updated_at: string
+        slides: BrandedSlide[] | null
+        brand_color: string | null
+        campaigns: { name: string; status: string; start_date: string; end_date: string; clients: { company_name: string } | null } | null
+      }>).map((r) => ({
+        id: r.id,
+        campaign_id: r.campaign_id,
+        generated_at: r.generated_at,
+        updated_at: r.updated_at,
+        slides_count: Array.isArray(r.slides) ? r.slides.length : 0,
+        brand_color: r.brand_color,
+        campaign: r.campaigns ? {
+          name: r.campaigns.name,
+          status: r.campaigns.status,
+          start_date: r.campaigns.start_date,
+          end_date: r.campaigns.end_date,
+          client: r.campaigns.clients,
+        } : null,
+      }))
+    },
+    staleTime: 60_000,
+  })
+}
+
+/**
  * Charge le rapport de campagne. Retourne null si aucun rapport n'existe encore
  * (la generation est declenchee separement via useCreateCampaignReport).
  */
@@ -91,6 +148,109 @@ export function useUpdateCampaignReport() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['campaign-report', data.campaign_id] })
     },
+  })
+}
+
+/**
+ * Publie le rapport : génère le PDF, upload dans campaign-reports-public,
+ * met à jour published_pdf_path + published_at. Le public_token existe déjà
+ * (auto-généré à la création).
+ */
+export function usePublishCampaignReport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      report: CampaignReport
+      slides: BrandedSlide[]
+      brandColor: string
+    }): Promise<CampaignReport> => {
+      const { exportBrandedReport } = await import('@/lib/pdf/BrandedReportPDF')
+      const blob = await exportBrandedReport(input.slides, input.brandColor)
+
+      const path = `${input.report.public_token}.pdf`
+      const { error: uploadError } = await supabase.storage
+        .from('campaign-reports-public')
+        .upload(path, blob, {
+          contentType: 'application/pdf',
+          upsert: true,
+          cacheControl: 'public, max-age=300',
+        })
+      if (uploadError) throw uploadError
+
+      const { data, error } = await supabase
+        .from('campaign_reports')
+        .update({
+          published_pdf_path: path,
+          published_at: new Date().toISOString(),
+        })
+        .eq('id', input.report.id)
+        .select()
+        .single()
+      if (error) throw error
+
+      return data as CampaignReport
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-report', data.campaign_id] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-reports', 'all'] })
+    },
+  })
+}
+
+/** Dépublie : supprime le PDF du bucket public + clear published_pdf_path. */
+export function useUnpublishCampaignReport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (report: CampaignReport): Promise<CampaignReport> => {
+      if (report.published_pdf_path) {
+        await supabase.storage
+          .from('campaign-reports-public')
+          .remove([report.published_pdf_path])
+      }
+      const { data, error } = await supabase
+        .from('campaign_reports')
+        .update({ published_pdf_path: null, published_at: null })
+        .eq('id', report.id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as CampaignReport
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-report', data.campaign_id] })
+      queryClient.invalidateQueries({ queryKey: ['campaign-reports', 'all'] })
+    },
+  })
+}
+
+/** Récupère un rapport publié via son token public (accès anonyme). */
+export function usePublicCampaignReport(token: string | undefined) {
+  return useQuery({
+    queryKey: ['public-report', token],
+    queryFn: async () => {
+      if (!token) return null
+      const { data, error } = await supabase
+        .from('campaign_reports')
+        .select('id, public_token, published_pdf_path, published_at, campaigns(name, start_date, end_date, clients(company_name))')
+        .eq('public_token', token)
+        .not('published_pdf_path', 'is', null)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return null
+
+      const { data: pub } = supabase.storage
+        .from('campaign-reports-public')
+        .getPublicUrl((data as unknown as { published_pdf_path: string }).published_pdf_path)
+
+      return {
+        pdfUrl: pub.publicUrl,
+        publishedAt: (data as unknown as { published_at: string }).published_at,
+        campaign: (data as unknown as { campaigns: { name: string; start_date: string; end_date: string; clients: { company_name: string } | null } | null }).campaigns,
+      }
+    },
+    enabled: !!token,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   })
 }
 

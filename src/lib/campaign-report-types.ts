@@ -204,4 +204,10 @@ export interface CampaignReport {
   template_version: number
   generated_at: string
   updated_at: string
+  /** Token UUID stable utilisé dans les URLs publiques. */
+  public_token: string
+  /** Chemin du PDF dans campaign-reports-public (null = non publié). */
+  published_pdf_path: string | null
+  /** Timestamp de la dernière publication. */
+  published_at: string | null
 }
