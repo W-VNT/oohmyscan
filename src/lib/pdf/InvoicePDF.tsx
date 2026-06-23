@@ -319,9 +319,19 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, contactPhone, cl
             <View style={s.totalsBox}>
               {/* Total lignes HT */}
               <View style={[s.totalsRow, { borderBottomWidth: 0.5, borderBottomColor: c.border }]}>
-                <Text style={s.totalsBold}>Montant total lignes HT</Text>
+                <Text style={s.totalsBold}>
+                  {invoiceType === 'standard' ? 'Montant total lignes HT' : 'Base HT (lignes)'}
+                </Text>
                 <Text style={s.totalsBoldValue}>{formatEUR(base.totalHT)} €</Text>
               </View>
+
+              {/* Acompte percentage row */}
+              {invoiceType === 'acompte' && (
+                <View style={[s.totalsRow, { borderBottomWidth: 0.5, borderBottomColor: c.border, backgroundColor: c.lightBg }]}>
+                  <Text style={s.totalsBold}>Acompte {depositPct}% HT</Text>
+                  <Text style={s.totalsBoldValue}>{formatEUR(Math.round(base.totalHT * ratio * 100) / 100)} €</Text>
+                </View>
+              )}
 
               {/* TVA recap */}
               <View style={s.tvaHeaderRow}>
