@@ -190,11 +190,13 @@ export function OperatorCampaignDetailPage() {
                   year: 'numeric',
                 })}
                 {' → '}
-                {new Date(campaign.end_date).toLocaleDateString('fr-FR', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+                {campaign.end_date
+                  ? new Date(campaign.end_date).toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })
+                  : 'en cours'}
               </span>
             </div>
 

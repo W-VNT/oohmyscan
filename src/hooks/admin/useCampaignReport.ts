@@ -18,7 +18,7 @@ export interface CampaignReportListItem {
     name: string
     status: string
     start_date: string
-    end_date: string
+    end_date: string | null
     client: { company_name: string } | null
   } | null
 }
@@ -39,7 +39,7 @@ export function useAllCampaignReports() {
         updated_at: string
         slides: BrandedSlide[] | null
         brand_color: string | null
-        campaigns: { name: string; status: string; start_date: string; end_date: string; clients: { company_name: string } | null } | null
+        campaigns: { name: string; status: string; start_date: string; end_date: string | null; clients: { company_name: string } | null } | null
       }>).map((r) => ({
         id: r.id,
         campaign_id: r.campaign_id,
@@ -245,7 +245,7 @@ export function usePublicCampaignReport(token: string | undefined) {
       return {
         pdfUrl: pub.publicUrl,
         publishedAt: (data as unknown as { published_at: string }).published_at,
-        campaign: (data as unknown as { campaigns: { name: string; start_date: string; end_date: string; clients: { company_name: string } | null } | null }).campaigns,
+        campaign: (data as unknown as { campaigns: { name: string; start_date: string; end_date: string | null; clients: { company_name: string } | null } | null }).campaigns,
       }
     },
     enabled: !!token,

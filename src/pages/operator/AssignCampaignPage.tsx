@@ -176,7 +176,7 @@ export function AssignCampaignPage() {
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {new Date(campaign.start_date).toLocaleDateString('fr-FR')} →{' '}
-                          {new Date(campaign.end_date).toLocaleDateString('fr-FR')}
+                          {campaign.end_date ? new Date(campaign.end_date).toLocaleDateString('fr-FR') : 'en cours'}
                         </p>
                       </div>
                     </div>

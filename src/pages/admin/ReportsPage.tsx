@@ -796,7 +796,7 @@ function CampaignReportsList() {
                           <>
                             {new Date(r.campaign.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
                             {' → '}
-                            {new Date(r.campaign.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                            {r.campaign.end_date ? new Date(r.campaign.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'en cours'}
                           </>
                         )}
                       </td>

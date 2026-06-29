@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useCreateCampaign } from '@/hooks/useCampaigns'
 import { useClients } from '@/hooks/admin/useClients'
 import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
+import { useUsers } from '@/hooks/admin/useUsers'
 import { useAuth } from '@/hooks/useAuth'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -44,11 +45,14 @@ export function CampaignNewPage() {
   const navigate = useNavigate()
   const { data: clients } = useClients()
   const { data: panelTypes } = usePanelTypes()
+  const { data: allUsers } = useUsers()
+  const operators = allUsers?.filter((u) => u.role === 'operator' && u.is_active) ?? []
   const createCampaign = useCreateCampaign()
   const queryClient = useQueryClient()
   const { session } = useAuth()
 
   const [form, setForm] = useState<CampaignForm>(emptyForm)
+  const [assignedOperators, setAssignedOperators] = useState<string[]>([])
   const [stagedVisuals, setStagedVisuals] = useState<StagedVisual[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -98,11 +102,11 @@ export function CampaignNewPage() {
       setError('Le client est requis')
       return
     }
-    if (!form.start_date || !form.end_date) {
-      setError('Les dates de début et fin sont requises')
+    if (!form.start_date) {
+      setError('La date de début est requise')
       return
     }
-    if (form.end_date < form.start_date) {
+    if (form.end_date && form.end_date < form.start_date) {
       setError('La date de fin doit être après la date de début')
       return
     }
@@ -115,12 +119,13 @@ export function CampaignNewPage() {
         client_id: form.client_id || null,
         description: form.description || null,
         start_date: form.start_date,
-        end_date: form.end_date,
+        end_date: form.end_date || null,
         budget: form.budget ? parseFloat(form.budget) : null,
         target_panel_count: form.target_panel_count ? parseInt(form.target_panel_count, 10) : null,
         notes: form.notes || null,
         status: 'draft',
         created_by: session?.user?.id,
+        operator_user_ids: assignedOperators,
       })
 
       // 2. Upload staged visuals
@@ -228,7 +233,10 @@ export function CampaignNewPage() {
               />
             </div>
             <div>
-              <label htmlFor="campaign-end" className="mb-2 block text-sm font-medium">Date fin <span className="text-red-500">*</span></label>
+              <label htmlFor="campaign-end" className="mb-2 block text-sm font-medium">
+                Date fin
+                <span className="ml-2 text-xs font-normal text-muted-foreground">(optionnel)</span>
+              </label>
               <Input
                 id="campaign-end"
                 type="date"
@@ -273,6 +281,50 @@ export function CampaignNewPage() {
               rows={2}
               className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
             />
+          </div>
+
+          {/* Row 3b: Opérateurs assignés */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Opérateurs assignés
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                (visible dans leur app dès la création)
+              </span>
+            </label>
+            {operators.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Aucun opérateur actif. Invite-en un depuis Utilisateurs.</p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {operators.map((op) => {
+                  const checked = assignedOperators.includes(op.id)
+                  return (
+                    <label
+                      key={op.id}
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        checked
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-foreground/30'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          setAssignedOperators((prev) =>
+                            e.target.checked ? [...prev, op.id] : prev.filter((id) => id !== op.id),
+                          )
+                        }
+                        className="size-4 rounded border-border"
+                      />
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                        {op.full_name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="truncate font-medium">{op.full_name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Row 4: Notes */}

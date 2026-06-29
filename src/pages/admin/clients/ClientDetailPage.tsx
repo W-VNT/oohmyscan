@@ -500,7 +500,7 @@ export function ClientDetailPage() {
                     <div>
                       <p className="text-sm font-medium">{c.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(c.start_date).toLocaleDateString('fr-FR')} — {new Date(c.end_date).toLocaleDateString('fr-FR')}
+                        {new Date(c.start_date).toLocaleDateString('fr-FR')} — {c.end_date ? new Date(c.end_date).toLocaleDateString('fr-FR') : 'en cours'}
                       </p>
                     </div>
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium ${CAMPAIGN_STATUS_CONFIG[c.status as CampaignStatus]?.className ?? ''}`}>

@@ -2,6 +2,7 @@ import { useState, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useCampaign, useCreateCampaign } from '@/hooks/useCampaigns'
 import { useClients } from '@/hooks/admin/useClients'
+import { useUsers } from '@/hooks/admin/useUsers'
 import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -23,6 +24,8 @@ import {
   Search,
   Sparkles,
   Megaphone,
+  CheckCircle2,
+  Flag,
 } from 'lucide-react'
 import { GenerateReportModal } from '@/components/admin/reports/GenerateReportModal'
 import {
@@ -58,6 +61,10 @@ export function CampaignDetailPage() {
   const { data: panelTypes } = usePanelTypes()
   const { data: visuals } = useCampaignVisuals(id)
   const { data: clients } = useClients()
+  const { data: allUsers } = useUsers()
+  const operators = allUsers?.filter((u) => u.role === 'operator' && u.is_active) ?? []
+  const assignedOperatorIds = ((campaign as Record<string, unknown> | undefined)?.operator_user_ids as string[]) ?? []
+  const assignedOperators = operators.filter((u) => assignedOperatorIds.includes(u.id))
   const createCampaign = useCreateCampaign()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -77,6 +84,7 @@ export function CampaignDetailPage() {
     description: '',
     notes: '',
     status: '' as CampaignStatus | '',
+    operator_user_ids: [] as string[],
   })
 
   // Cloning state
@@ -166,6 +174,7 @@ export function CampaignDetailPage() {
       description: campaign.description ?? '',
       notes: campaign.notes ?? '',
       status: campaign.status as CampaignStatus,
+      operator_user_ids: (campaign as Record<string, unknown>).operator_user_ids as string[] ?? [],
     })
     setEditing(true)
   }
@@ -177,8 +186,12 @@ export function CampaignDetailPage() {
       toast('Le nom de la campagne est obligatoire', 'error')
       return
     }
-    if (!editForm.start_date || !editForm.end_date) {
-      toast('Les dates de début et fin sont obligatoires', 'error')
+    if (!editForm.start_date) {
+      toast('La date de début est obligatoire', 'error')
+      return
+    }
+    if (editForm.end_date && editForm.end_date < editForm.start_date) {
+      toast('La date de fin doit être après la date de début', 'error')
       return
     }
 
@@ -190,12 +203,13 @@ export function CampaignDetailPage() {
           name: editForm.name.trim(),
           client_id: editForm.client_id || null,
           start_date: editForm.start_date,
-          end_date: editForm.end_date,
+          end_date: editForm.end_date || null,
           budget: editForm.budget ? Number(editForm.budget) : null,
           target_panel_count: editForm.target_panel_count ? Number(editForm.target_panel_count) : null,
           description: editForm.description.trim() || null,
           notes: editForm.notes.trim() || null,
           status: (editForm.status || campaign.status) as CampaignStatus,
+          operator_user_ids: editForm.operator_user_ids,
         })
         .eq('id', id)
       if (error) throw error
@@ -220,7 +234,7 @@ export function CampaignDetailPage() {
         name: `${campaign.name} (copie)`,
         client_id: campaign.client_id ?? null,
         start_date: campaign.start_date,
-        end_date: campaign.end_date,
+        end_date: campaign.end_date ?? null,
         budget: campaign.budget ?? null,
         target_panel_count: campaign.target_panel_count ?? null,
         description: campaign.description ?? null,
@@ -316,7 +330,13 @@ export function CampaignDetailPage() {
           {clientName && <p className="mt-1 truncate text-sm text-muted-foreground">{clientName}</p>}
         </div>
         {!editing && (
-          <div className="flex w-full gap-2 sm:w-auto">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            {campaign.status === 'active' && (
+              <Button size="sm" onClick={() => updateStatus.mutate('completed')} disabled={updateStatus.isPending} className="flex-1 sm:flex-none">
+                <Flag className="mr-1.5 size-3.5" />
+                Marquer terminée
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleClone} disabled={cloning} className="flex-1 sm:flex-none">
               {cloning ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Copy className="mr-1.5 size-3.5" />}
               Dupliquer
@@ -328,6 +348,27 @@ export function CampaignDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Auto-suggestion : cible atteinte */}
+      {campaign.status === 'active' && target && assignedCount >= target && (
+        <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-green-600" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                Objectif atteint — {assignedCount}/{target} panneaux posés
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Tu peux marquer cette campagne comme terminée pour libérer les panneaux et générer le rapport.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => updateStatus.mutate('completed')} disabled={updateStatus.isPending} className="shrink-0">
+              <Flag className="mr-1.5 size-3.5" />
+              Terminer
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Progress bar */}
       {progressPct !== null && (
@@ -406,7 +447,9 @@ export function CampaignDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium">Date fin</label>
+                    <label className="mb-2 block text-sm font-medium">
+                      Date fin <span className="text-xs font-normal text-muted-foreground">(optionnel)</span>
+                    </label>
                     <Input
                       type="date"
                       value={editForm.end_date}
@@ -439,7 +482,54 @@ export function CampaignDetailPage() {
                   </div>
                 </div>
 
-                {/* Row 3: Description (full width) */}
+                {/* Row 3a: Opérateurs assignés */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Opérateurs assignés
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      (visible dans leur app)
+                    </span>
+                  </label>
+                  {operators.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Aucun opérateur actif.</p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {operators.map((op) => {
+                        const checked = editForm.operator_user_ids.includes(op.id)
+                        return (
+                          <label
+                            key={op.id}
+                            className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                              checked
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-foreground/30'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  operator_user_ids: e.target.checked
+                                    ? [...f.operator_user_ids, op.id]
+                                    : f.operator_user_ids.filter((id) => id !== op.id),
+                                }))
+                              }
+                              className="size-4 rounded border-border"
+                            />
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                              {op.full_name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="truncate font-medium">{op.full_name}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Row 3b: Description (full width) */}
                 <div>
                   <label className="mb-2 block text-sm font-medium">Description</label>
                   <textarea
@@ -502,7 +592,7 @@ export function CampaignDetailPage() {
                     <p className="text-xs text-muted-foreground">Période</p>
                     <p className="mt-1 text-sm">
                       {new Date(campaign.start_date).toLocaleDateString('fr-FR')} →{' '}
-                      {new Date(campaign.end_date).toLocaleDateString('fr-FR')}
+                      {campaign.end_date ? new Date(campaign.end_date).toLocaleDateString('fr-FR') : 'en cours'}
                     </p>
                   </div>
                   <div>
@@ -519,6 +609,24 @@ export function CampaignDetailPage() {
                       {target != null ? `${assignedCount} / ${target}` : assignedCount > 0 ? `${assignedCount}` : '—'}
                     </p>
                   </div>
+                </div>
+                {/* Row 2b: Opérateurs assignés */}
+                <div className="mt-4">
+                  <p className="text-xs text-muted-foreground">Opérateurs assignés</p>
+                  {assignedOperators.length === 0 ? (
+                    <p className="mt-1 text-sm text-muted-foreground italic">Aucun (les opérateurs verront la campagne seulement après avoir posé un panneau)</p>
+                  ) : (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {assignedOperators.map((op) => (
+                        <span key={op.id} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs">
+                          <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+                            {op.full_name.charAt(0).toUpperCase()}
+                          </span>
+                          {op.full_name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {/* Row 3: Description */}
                 {campaign.description && (

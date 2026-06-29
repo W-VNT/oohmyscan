@@ -317,10 +317,12 @@ export function OperatorPanelsPage() {
                                 month: 'short',
                               })}
                               {' → '}
-                              {new Date(campaign.end_date).toLocaleDateString('fr-FR', {
-                                day: 'numeric',
-                                month: 'short',
-                              })}
+                              {campaign.end_date
+                                ? new Date(campaign.end_date).toLocaleDateString('fr-FR', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                  })
+                                : 'en cours'}
                             </span>
                           </div>
                         </div>

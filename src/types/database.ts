@@ -183,13 +183,14 @@ export interface Database {
           client_id: string | null
           description: string | null
           start_date: string
-          end_date: string
+          end_date: string | null
           status: 'draft' | 'active' | 'completed' | 'cancelled'
           budget: number | null
           target_panel_count: number | null
           notes: string | null
           created_by: string | null
           created_at: string
+          operator_user_ids: string[]
         }
         Insert: {
           id?: string
@@ -197,13 +198,14 @@ export interface Database {
           client_id?: string | null
           description?: string | null
           start_date: string
-          end_date: string
+          end_date?: string | null
           status?: 'draft' | 'active' | 'completed' | 'cancelled'
           budget?: number | null
           target_panel_count?: number | null
           notes?: string | null
           created_by?: string | null
           created_at?: string
+          operator_user_ids?: string[]
         }
         Update: {
           id?: string
@@ -211,13 +213,14 @@ export interface Database {
           client_id?: string | null
           description?: string | null
           start_date?: string
-          end_date?: string
+          end_date?: string | null
           status?: 'draft' | 'active' | 'completed' | 'cancelled'
           budget?: number | null
           target_panel_count?: number | null
           notes?: string | null
           created_by?: string | null
           created_at?: string
+          operator_user_ids?: string[]
         }
         Relationships: []
       }

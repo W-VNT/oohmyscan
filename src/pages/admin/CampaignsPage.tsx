@@ -125,7 +125,7 @@ export function CampaignsPage() {
         case 'oldest': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         case 'name': return a.name.localeCompare(b.name, 'fr')
         case 'start_date': return new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
-        case 'end_date': return new Date(a.end_date).getTime() - new Date(b.end_date).getTime()
+        case 'end_date': return new Date(a.end_date ?? '9999-12-31').getTime() - new Date(b.end_date ?? '9999-12-31').getTime()
         default: return 0
       }
     })
@@ -133,8 +133,9 @@ export function CampaignsPage() {
     return result
   }, [campaigns, statusFilter, clientFilter, debouncedSearch, sort])
 
-  function isOverdue(c: { end_date: string; status: string }): boolean {
+  function isOverdue(c: { end_date: string | null; status: string }): boolean {
     if (c.status === 'completed' || c.status === 'archived' || c.status === 'cancelled') return false
+    if (!c.end_date) return false
     return new Date(c.end_date).getTime() < Date.now()
   }
 
@@ -146,7 +147,7 @@ export function CampaignsPage() {
       c.clients?.company_name ?? '',
       CAMPAIGN_STATUS_CONFIG[c.status as CampaignStatus]?.label ?? c.status,
       new Date(c.start_date).toLocaleDateString('fr-FR'),
-      new Date(c.end_date).toLocaleDateString('fr-FR'),
+      c.end_date ? new Date(c.end_date).toLocaleDateString('fr-FR') : 'en cours',
       String(panelCounts.get(c.id) ?? 0),
       c.target_panel_count != null ? String(c.target_panel_count) : '',
       c.budget != null ? String(c.budget) : '',
@@ -349,7 +350,9 @@ export function CampaignsPage() {
                     <span className={overdue ? 'font-medium text-red-500' : ''}>
                       {new Date(campaign.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
                       {' → '}
-                      {new Date(campaign.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                      {campaign.end_date
+                        ? new Date(campaign.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                        : 'en cours'}
                     </span>
                     {target ? (
                       <span className="tabular-nums"><span className="font-medium text-foreground">{panelCount}</span> / {target}</span>
@@ -421,7 +424,7 @@ export function CampaignsPage() {
                         </td>
                         <td className="hidden px-4 py-3 text-xs md:table-cell">
                           <span className={overdue ? 'font-medium text-red-500' : 'text-muted-foreground'}>
-                            {new Date(campaign.start_date).toLocaleDateString('fr-FR')} → {new Date(campaign.end_date).toLocaleDateString('fr-FR')}
+                            {new Date(campaign.start_date).toLocaleDateString('fr-FR')} → {campaign.end_date ? new Date(campaign.end_date).toLocaleDateString('fr-FR') : 'en cours'}
                           </span>
                         </td>
                         <td className="px-4 py-3">

@@ -28,7 +28,7 @@ interface CampaignWithStats {
   clients: { company_name: string } | null
   status: string
   start_date: string
-  end_date: string
+  end_date: string | null
   myPanels: number
   totalPanels: number
 }
@@ -40,15 +40,27 @@ export function MyCampaignsPage() {
   const { data: campaigns, isLoading } = useQuery({
     queryKey: ['my-campaigns-list', session?.user.id],
     queryFn: async () => {
-      // Get all campaigns where this operator has assigned panels
-      const { data: assignments, error } = await supabase
-        .from('panel_campaigns')
-        .select('campaign_id')
-        .eq('assigned_by', session!.user.id)
-      if (error) throw error
-      if (!assignments?.length) return []
+      // Union de deux sources :
+      // 1. Campagnes où l'opérateur a déjà posé un panneau (panel_campaigns.assigned_by)
+      // 2. Campagnes où l'admin l'a assigné explicitement (campaigns.operator_user_ids)
+      const [assignmentsRes, explicitRes] = await Promise.all([
+        supabase
+          .from('panel_campaigns')
+          .select('campaign_id')
+          .eq('assigned_by', session!.user.id),
+        supabase
+          .from('campaigns')
+          .select('id')
+          .contains('operator_user_ids', [session!.user.id]),
+      ])
+      if (assignmentsRes.error) throw assignmentsRes.error
+      if (explicitRes.error) throw explicitRes.error
 
-      const campaignIds = [...new Set(assignments.map((a) => a.campaign_id))]
+      const campaignIdsFromPanels = (assignmentsRes.data ?? []).map((a) => a.campaign_id)
+      const campaignIdsFromAssign = (explicitRes.data ?? []).map((c) => c.id)
+      const campaignIds = [...new Set([...campaignIdsFromPanels, ...campaignIdsFromAssign])]
+
+      if (!campaignIds.length) return []
 
       const { data: campaignData, error: cErr } = await supabase
         .from('campaigns')
@@ -61,7 +73,7 @@ export function MyCampaignsPage() {
       const typed = campaignData as unknown as {
         id: string; name: string; client_id: string | null;
         clients: { company_name: string } | null;
-        status: string; start_date: string; end_date: string;
+        status: string; start_date: string; end_date: string | null;
       }[]
 
       // Count panels per campaign (total + mine)
@@ -183,11 +195,13 @@ export function MyCampaignsPage() {
                       year: 'numeric',
                     })}
                     {' → '}
-                    {new Date(campaign.end_date).toLocaleDateString('fr-FR', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+                    {campaign.end_date
+                      ? new Date(campaign.end_date).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })
+                      : 'en cours'}
                   </p>
                 </CardContent>
               </Card>
