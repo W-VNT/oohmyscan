@@ -1,11 +1,11 @@
 import { Document, Page, View, Image, StyleSheet } from '@react-pdf/renderer'
 
-// Dymo 450 label: 36mm x 89mm (landscape)
+// Dymo label: 57mm x 32mm (landscape)
 // QR code centered, no text
 
-const LABEL_W = 89 // mm → points: 89 * 2.835 ≈ 252
-const LABEL_H = 36 // mm → points: 36 * 2.835 ≈ 102
-const QR_SIZE = 28 // mm — leaves ~4mm margin top/bottom
+const LABEL_W = 57 // mm → points: 57 * 2.835 ≈ 162
+const LABEL_H = 32 // mm → points: 32 * 2.835 ≈ 91
+const QR_SIZE = 26 // mm — leaves ~3mm margin top/bottom
 
 const s = StyleSheet.create({
   page: {
