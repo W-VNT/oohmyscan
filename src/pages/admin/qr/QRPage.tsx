@@ -239,7 +239,7 @@ export function QRPage() {
                     autoFocus
                     onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
                   />
-                  <p className="mt-1.5 text-xs text-muted-foreground">Étiquettes Dymo (57 × 32 mm)</p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">Étiquettes Dymo 450 (36 × 89 mm)</p>
                 </div>
                 <Button onClick={handleGenerate} disabled={generateQR.isPending} className="w-full">
                   {generateQR.isPending && <Loader2 className="mr-2 size-3.5 animate-spin" />}
