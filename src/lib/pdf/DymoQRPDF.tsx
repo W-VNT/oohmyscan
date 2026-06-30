@@ -1,12 +1,13 @@
 import { Document, Page, View, Image, StyleSheet } from '@react-pdf/renderer'
 
-// Dymo label: 57mm x 32mm (landscape)
-// QR code centered, no text
-// QR au maximum possible : 32mm (= hauteur du label, fill 100% en H)
+// Dymo label: 32mm x 57mm (portrait natif — matche l'orientation par défaut
+// du driver Dymo LabelWriter 450 sur Mac qui propose ce papier en Portrait).
+// Pas de rotation automatique nécessaire → impression fidèle.
+// QR = 32mm (fill 100% en largeur), centré verticalement (12.5mm margin)
 
-const LABEL_W = 57 // mm → points: 57 * 2.835 ≈ 162
-const LABEL_H = 32 // mm → points: 32 * 2.835 ≈ 91
-const QR_SIZE = 32 // mm — pas de marge verticale · ~12.5mm horizontale
+const LABEL_W = 32 // mm — largeur (côté court, alimentation rouleau)
+const LABEL_H = 57 // mm — hauteur (côté long, sens d'impression)
+const QR_SIZE = 32 // mm — fill largeur · ~12.5mm margin haut/bas
 
 const s = StyleSheet.create({
   page: {
