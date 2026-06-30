@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useCompanySettings, useUpdateCompanySettings, type CompanySettings } from '@/hooks/admin/useCompanySettings'
-import { usePanelTypes, useCreatePanelType, useDeletePanelType } from '@/hooks/admin/usePanelTypes'
+import { usePanelTypes, useCreatePanelType, useDeletePanelType, useUpdatePanelType } from '@/hooks/admin/usePanelTypes'
 import { useServiceCatalog, useCreateServiceItem, useUpdateServiceItem, useDeleteServiceItem } from '@/hooks/admin/useServiceCatalog'
 import { sanitizeHtml } from '@/lib/sanitize'
 import { supabase } from '@/lib/supabase'
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
 import { useConfirm } from '@/components/shared/ConfirmDialog'
-import { Loader2, Plus, Upload, Pencil, Check, X, Star, Mail, Trash2, Save } from 'lucide-react'
+import { Loader2, Plus, Upload, Pencil, Check, X, Star, Mail, Trash2, Save, QrCode, Package } from 'lucide-react'
 import { MiniRichEditor } from '@/components/shared/MiniRichEditor'
 import { CgvPdfUploader } from '@/components/admin/CgvPdfUploader'
 import { cn } from '@/lib/utils'
@@ -56,6 +56,7 @@ export function SettingsPage() {
   const updateSettings = useUpdateCompanySettings()
   const { data: panelTypes } = usePanelTypes()
   const createType = useCreatePanelType()
+  const updateType = useUpdatePanelType()
   const deleteType = useDeletePanelType()
   const { data: services } = useServiceCatalog()
   const createService = useCreateServiceItem()
@@ -178,11 +179,12 @@ export function SettingsPage() {
 
   // Panel types
   const [newTypeName, setNewTypeName] = useState('')
+  const [newTypeHasQr, setNewTypeHasQr] = useState(true)
   const activeTypes = useMemo(() => panelTypes?.filter((t) => t.is_active).sort((a, b) => a.name.localeCompare(b.name)) ?? [], [panelTypes])
 
   async function addType() {
     if (!newTypeName.trim()) return
-    try { await createType.mutateAsync({ name: newTypeName.trim() }); setNewTypeName(''); toast('Type ajouté') }
+    try { await createType.mutateAsync({ name: newTypeName.trim(), has_qr_code: newTypeHasQr }); setNewTypeName(''); setNewTypeHasQr(true); toast('Type ajouté') }
     catch { toast('Erreur (nom peut-être déjà utilisé)', 'error') }
   }
   async function handleDeleteType(id: string) {
@@ -192,6 +194,19 @@ export function SettingsPage() {
   async function setDefaultType(id: string | null) {
     try { await updateSettings.mutateAsync({ default_panel_type_id: id }); toast(id ? 'Type par défaut défini' : 'Type par défaut retiré') }
     catch { toast('Erreur', 'error') }
+  }
+  async function toggleHasQr(t: { id: string; name: string; has_qr_code: boolean }) {
+    const next = !t.has_qr_code
+    const ok = await confirm({
+      title: next ? `Activer le QR sur "${t.name}" ?` : `Désactiver le QR sur "${t.name}" ?`,
+      description: next
+        ? 'Ce format utilisera le workflow installation/scan QR.'
+        : 'Ce format utilisera le workflow dépôt (sous-bocks, sets de table, etc.) — l\'opérateur indiquera quantité + lieu + photo, sans scanner de QR.',
+      confirmLabel: next ? 'Activer le QR' : 'Désactiver le QR',
+    })
+    if (!ok) return
+    try { await updateType.mutateAsync({ id: t.id, has_qr_code: next }); toast(next ? 'QR activé' : 'QR désactivé — workflow dépôt') }
+    catch { toast('Erreur lors de la mise à jour', 'error') }
   }
 
   // Service catalog
@@ -473,17 +488,29 @@ export function SettingsPage() {
       {/* === TAB: Types de panneaux === */}
       {activeTab === 'types' && (
         <Card>
-          <CardContent className="space-y-4">
-            <p className="text-sm font-semibold">Types de panneaux <span className="font-normal text-muted-foreground">({activeTypes.length})</span></p>
-            <p className="text-xs text-muted-foreground">Cliquez sur l'étoile pour définir le type par défaut. Survolez pour supprimer.</p>
+          <CardContent className="space-y-5">
+            <div>
+              <p className="text-sm font-semibold">Types de supports <span className="font-normal text-muted-foreground">({activeTypes.length})</span></p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                <QrCode className="mr-1 inline size-3" />avec QR (workflow install/scan) — <Package className="mx-1 inline size-3" />sans QR (workflow dépôt : sous-bocks, sets de table…). Étoile = défaut. Survolez pour supprimer.
+              </p>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               {activeTypes.map((t) => {
                 const isDefault = settings?.default_panel_type_id === t.id
                 return (
-                  <div key={t.id} className="group relative flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium transition-colors hover:border-foreground/30">
+                  <div key={t.id} className={`group relative flex items-center gap-1 rounded-full border bg-background px-3 py-1 text-xs font-medium transition-colors hover:border-foreground/30 ${t.has_qr_code ? 'border-border' : 'border-emerald-500/30 bg-emerald-500/5'}`}>
                     <button onClick={() => setDefaultType(isDefault ? null : t.id)} className="mr-0.5" title={isDefault ? 'Retirer le défaut' : 'Définir par défaut'} aria-label={isDefault ? 'Retirer le défaut' : 'Définir comme type par défaut'}>
                       <Star className={`size-3 ${isDefault ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/40 hover:text-yellow-400'}`} />
+                    </button>
+                    <button
+                      onClick={() => toggleHasQr(t)}
+                      title={t.has_qr_code ? 'Workflow QR — cliquer pour basculer en workflow dépôt' : 'Workflow dépôt (sans QR) — cliquer pour basculer en workflow QR'}
+                      aria-label={t.has_qr_code ? `${t.name} — avec QR` : `${t.name} — sans QR (dépôt)`}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      {t.has_qr_code ? <QrCode className="size-3" /> : <Package className="size-3 text-emerald-600" />}
                     </button>
                     <span>{t.name}</span>
                     <button onClick={() => handleDeleteType(t.id)} className="ml-0.5 hidden text-red-500 hover:text-red-400 group-hover:inline-flex" title="Supprimer ce type" aria-label={`Supprimer le type ${t.name}`}>
@@ -494,11 +521,28 @@ export function SettingsPage() {
               })}
             </div>
 
-            <div className="flex gap-2">
-              <Input value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} placeholder="Nouveau type..." className="max-w-xs text-sm" onKeyDown={(e) => e.key === 'Enter' && addType()} />
-              <Button size="sm" variant="outline" onClick={addType} disabled={createType.isPending}>
-                <Plus className="mr-1 size-3.5" /> Ajouter
-              </Button>
+            <Separator />
+
+            <div>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Ajouter un type</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} placeholder="Nouveau type..." className="max-w-xs text-sm" onKeyDown={(e) => e.key === 'Enter' && addType()} />
+                <label className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newTypeHasQr}
+                    onChange={(e) => setNewTypeHasQr(e.target.checked)}
+                    className="size-3.5 rounded border-border"
+                  />
+                  Avec QR code
+                </label>
+                <Button size="sm" variant="outline" onClick={addType} disabled={createType.isPending}>
+                  <Plus className="mr-1 size-3.5" /> Ajouter
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Décoche "Avec QR code" pour les supports en masse type sous-bocks, sets de table, flyers…
+              </p>
             </div>
           </CardContent>
         </Card>

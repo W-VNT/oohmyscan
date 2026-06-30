@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Loader2, Upload, Trash2, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, Loader2, Upload, Trash2, Image as ImageIcon, Package, QrCode, AlertTriangle } from 'lucide-react'
 import { toast } from '@/components/shared/Toast'
 
 interface CampaignForm {
@@ -82,6 +82,15 @@ export function CampaignNewPage() {
       prev.map((v, i) => (i === index ? { ...v, formatId } : v)),
     )
   }
+
+  // Détecte le workflow de la campagne en fonction des formats des visuels
+  const formatsByVisual = stagedVisuals.map((v) =>
+    v.formatId ? panelTypes?.find((t) => t.id === v.formatId) : null,
+  )
+  const hasQrVisuals = formatsByVisual.some((f) => f?.has_qr_code === true)
+  const hasNonQrVisuals = formatsByVisual.some((f) => f?.has_qr_code === false)
+  const isDepositOnly = hasNonQrVisuals && !hasQrVisuals
+  const isMixed = hasQrVisuals && hasNonQrVisuals
 
   // Cleanup previews on unmount
   useEffect(() => {
@@ -220,8 +229,8 @@ export function CampaignNewPage() {
             </div>
           </div>
 
-          {/* Row 2: Date début | Date fin | Budget | Panneaux cible */}
-          <div className="grid gap-4 sm:grid-cols-4">
+          {/* Row 2: Date début | Date fin | Budget | Panneaux cible (caché si dépôt) */}
+          <div className={`grid gap-4 ${isDepositOnly ? 'sm:grid-cols-3' : 'sm:grid-cols-4'}`}>
             <div>
               <label htmlFor="campaign-start" className="mb-2 block text-sm font-medium">Date début <span className="text-red-500">*</span></label>
               <Input
@@ -258,17 +267,19 @@ export function CampaignNewPage() {
                 className="h-9 rounded-lg text-sm"
               />
             </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium">Panneaux cible</label>
-              <Input
-                type="number"
-                min="0"
-                value={form.target_panel_count}
-                onChange={(e) => setForm((f) => ({ ...f, target_panel_count: e.target.value }))}
-                placeholder="0"
-                className="h-9 rounded-lg text-sm"
-              />
-            </div>
+            {!isDepositOnly && (
+              <div>
+                <label className="mb-2 block text-sm font-medium">Panneaux cible</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={form.target_panel_count}
+                  onChange={(e) => setForm((f) => ({ ...f, target_panel_count: e.target.value }))}
+                  placeholder="0"
+                  className="h-9 rounded-lg text-sm"
+                />
+              </div>
+            )}
           </div>
 
           {/* Row 3: Description */}
@@ -344,6 +355,43 @@ export function CampaignNewPage() {
       {/* Visuals card */}
       <Card>
         <CardContent className="p-6">
+          {/* Bandeau workflow auto-détecté */}
+          {stagedVisuals.length > 0 && (hasQrVisuals || hasNonQrVisuals) && (
+            <div className={`mb-4 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
+              isMixed
+                ? 'border-orange-500/30 bg-orange-500/5 text-orange-700 dark:text-orange-400'
+                : isDepositOnly
+                  ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
+                  : 'border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-400'
+            }`}>
+              {isMixed ? (
+                <>
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  <div>
+                    <p className="font-medium">Visuels mélangés (QR + dépôt)</p>
+                    <p className="mt-0.5 opacity-80">Une campagne doit utiliser un seul type de workflow. Choisis soit des formats avec QR (panneaux), soit sans QR (sous-bocks, sets de table…).</p>
+                  </div>
+                </>
+              ) : isDepositOnly ? (
+                <>
+                  <Package className="mt-0.5 size-3.5 shrink-0" />
+                  <div>
+                    <p className="font-medium">Workflow dépôt</p>
+                    <p className="mt-0.5 opacity-80">Pas de QR à scanner. L'opérateur indique le lieu, la quantité déposée et prend une photo.</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <QrCode className="mt-0.5 size-3.5 shrink-0" />
+                  <div>
+                    <p className="font-medium">Workflow QR</p>
+                    <p className="mt-0.5 opacity-80">L'opérateur scanne le QR du panneau pour valider la pose.</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm font-semibold">
               Visuels ({stagedVisuals.length})

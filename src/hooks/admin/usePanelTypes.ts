@@ -8,6 +8,7 @@ export interface PanelType {
   height_cm: number | null
   description: string | null
   is_active: boolean
+  has_qr_code: boolean
   created_at: string
 }
 
@@ -45,7 +46,7 @@ export function useActivePanelTypes() {
 export function useCreatePanelType() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (panelType: { name: string; width_cm?: number; height_cm?: number; description?: string }) => {
+    mutationFn: async (panelType: { name: string; width_cm?: number; height_cm?: number; description?: string; has_qr_code?: boolean }) => {
       const { data, error } = await supabase
         .from('panel_formats')
         .insert(panelType)

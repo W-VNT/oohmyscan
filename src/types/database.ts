@@ -322,6 +322,7 @@ export interface Database {
           height_cm: number | null
           description: string | null
           is_active: boolean
+          has_qr_code: boolean
           created_at: string
         }
         Insert: {
@@ -331,6 +332,7 @@ export interface Database {
           height_cm?: number | null
           description?: string | null
           is_active?: boolean
+          has_qr_code?: boolean
           created_at?: string
         }
         Update: {
@@ -340,6 +342,52 @@ export interface Database {
           height_cm?: number | null
           description?: string | null
           is_active?: boolean
+          has_qr_code?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      campaign_deposits: {
+        Row: {
+          id: string
+          campaign_id: string
+          operator_id: string
+          quantity: number
+          photo_path: string
+          place_id: string | null
+          place_name: string
+          place_address: string | null
+          lat: number | null
+          lng: number | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          operator_id: string
+          quantity: number
+          photo_path: string
+          place_id?: string | null
+          place_name: string
+          place_address?: string | null
+          lat?: number | null
+          lng?: number | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          operator_id?: string
+          quantity?: number
+          photo_path?: string
+          place_id?: string | null
+          place_name?: string
+          place_address?: string | null
+          lat?: number | null
+          lng?: number | null
+          notes?: string | null
           created_at?: string
         }
         Relationships: []

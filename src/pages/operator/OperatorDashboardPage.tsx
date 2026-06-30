@@ -227,7 +227,7 @@ export function OperatorDashboardPage() {
           </div>
           <span className="text-[13px] font-medium">Installer</span>
         </Link>
-        <Link to="/app/scan?mode=campaign" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
+        <Link to="/app/diffuse" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
           <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500/10">
             <Megaphone className="size-5 text-emerald-500" strokeWidth={1.5} />
           </div>

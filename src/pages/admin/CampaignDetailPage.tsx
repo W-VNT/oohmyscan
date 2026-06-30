@@ -4,6 +4,7 @@ import { useCampaign, useCreateCampaign } from '@/hooks/useCampaigns'
 import { useClients } from '@/hooks/admin/useClients'
 import { useUsers } from '@/hooks/admin/useUsers'
 import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
+import { useCampaignDeposits } from '@/hooks/admin/useCampaignDeposits'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { toast } from '@/components/shared/Toast'
@@ -26,6 +27,9 @@ import {
   Megaphone,
   CheckCircle2,
   Flag,
+  Package,
+  MapPin,
+  User as UserIcon,
 } from 'lucide-react'
 import { GenerateReportModal } from '@/components/admin/reports/GenerateReportModal'
 import {
@@ -42,11 +46,11 @@ function useCampaignVisuals(campaignId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaign_visuals')
-        .select('*, panel_formats(name)')
+        .select('*, panel_formats(name, has_qr_code)')
         .eq('campaign_id', campaignId!)
         .order('sort_order')
       if (error) throw error
-      return data as (typeof data[number] & { panel_formats: { name: string } | null })[]
+      return data as (typeof data[number] & { panel_formats: { name: string; has_qr_code: boolean } | null })[]
     },
     enabled: !!campaignId,
   })
@@ -94,6 +98,9 @@ export function CampaignDetailPage() {
   const [panelsExpanded, setPanelsExpanded] = useState(false)
   const [panelSearch, setPanelSearch] = useState('')
   const [reportModalOpen, setReportModalOpen] = useState(false)
+
+  // Campaign deposits (sous-bocks, sets de table)
+  const { data: deposits } = useCampaignDeposits(id)
 
   const { data: assignments } = useQuery({
     queryKey: ['campaign-panels', id],
@@ -314,6 +321,9 @@ export function CampaignDetailPage() {
   const assignedCount = assignments?.length ?? 0
   const target = campaign.target_panel_count
   const progressPct = target && target > 0 ? Math.min((assignedCount / target) * 100, 100) : null
+
+  // Workflow : si tous les visuels sont sur des formats sans QR, c'est une campagne dépôt
+  const isDepositCampaign = !!visuals?.length && visuals.every((v) => v.panel_formats?.has_qr_code === false)
 
   return (
     <div className="space-y-8">
@@ -646,7 +656,80 @@ export function CampaignDetailPage() {
             )}
           </div>
 
-          {/* Assigned panels */}
+          {/* Dépôts (campagnes sous-bocks / sets de table) */}
+          {isDepositCampaign && (
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-emerald-600" />
+                <h3 className="font-semibold">
+                  Dépôts ({deposits?.length ?? 0})
+                </h3>
+              </div>
+
+              {/* KPI */}
+              {deposits && deposits.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Total déposé</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums">
+                      {deposits.reduce((sum, d) => sum + d.quantity, 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Lieux uniques</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums">
+                      {new Set(deposits.map((d) => d.place_id || d.place_name)).size}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Passages</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums">
+                      {deposits.length}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!deposits?.length ? (
+                <EmptyState
+                  icon={Package}
+                  title="Aucun dépôt enregistré"
+                  description="Les dépôts apparaîtront ici dès que les opérateurs commenceront la diffusion sur le terrain."
+                  size="inline"
+                />
+              ) : (
+                <div className="mt-4 divide-y divide-border">
+                  {deposits.map((d) => (
+                    <div key={d.id} className="flex items-start gap-3 py-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
+                        <MapPin className="size-4 text-emerald-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{d.place_name}</p>
+                        {d.place_address && (
+                          <p className="truncate text-xs text-muted-foreground">{d.place_address}</p>
+                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <UserIcon className="size-3" />
+                            {d.operator?.full_name ?? '—'}
+                          </span>
+                          <span>{new Date(d.created_at).toLocaleDateString('fr-FR')}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-base font-semibold tabular-nums">{d.quantity}</p>
+                        <p className="text-[10px] text-muted-foreground">unités</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Assigned panels (campagnes QR) */}
+          {!isDepositCampaign && (
           <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <PanelTop className="h-4 w-4" />
@@ -727,6 +810,7 @@ export function CampaignDetailPage() {
               </>
             )}
           </div>
+          )}
 
           {/* Campaign visuals */}
           <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
