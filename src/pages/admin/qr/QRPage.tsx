@@ -143,7 +143,9 @@ export function QRPage() {
           const qrDataUrl = await QRCodeLib.toDataURL(`${appUrl}/scan?id=${item.uuid_code}`, {
             width: 300, margin: 1, color: { dark: '#000000', light: '#FFFFFF' },
           })
-          return { qrDataUrl }
+          // Code lisible : 8 premiers + 4 derniers chars de l'UUID (identique à l'affichage admin)
+          const code = `${item.uuid_code.slice(0, 8)}-${item.uuid_code.slice(-4)}`
+          return { qrDataUrl, code }
         }),
       )
       const blob = await pdf(<DymoQRPDF labels={labels} />).toBlob()
