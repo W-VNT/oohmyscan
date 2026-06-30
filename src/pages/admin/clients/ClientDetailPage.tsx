@@ -208,8 +208,8 @@ export function ClientDetailPage() {
       </div>
 
       {/* KPI Cards : slider horizontal sur mobile, grille sur desktop */}
-      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 [&>*]:min-w-[80%] [&>*]:snap-center sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:px-0 sm:py-0 sm:[&>*]:min-w-0 lg:grid-cols-4">
-        <Card>
+      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:py-0 lg:grid-cols-4">
+        <Card className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/10">
               <Megaphone className="size-5 text-blue-500" />
@@ -222,7 +222,7 @@ export function ClientDetailPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex size-10 items-center justify-center rounded-lg bg-purple-500/10">
               <FileText className="size-5 text-purple-500" />
@@ -233,7 +233,7 @@ export function ClientDetailPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex size-10 items-center justify-center rounded-lg bg-green-500/10">
               <TrendingUp className="size-5 text-green-500" />
@@ -244,7 +244,7 @@ export function ClientDetailPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex size-10 items-center justify-center rounded-lg bg-orange-500/10">
               <Clock className="size-5 text-orange-500" />

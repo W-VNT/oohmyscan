@@ -146,8 +146,8 @@ export function DashboardPage() {
       )}
 
       {/* KPI Cards : slider horizontal sur mobile, grille sur desktop */}
-      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 [&>*]:min-w-[80%] [&>*]:snap-center sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:px-0 sm:py-0 sm:[&>*]:min-w-0 lg:grid-cols-5">
-        <Link to="/admin/leads" className="group rounded-xl transition-all hover:ring-2 hover:ring-blue-500/20">
+      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:py-0 lg:grid-cols-5">
+        <Link to="/admin/leads" className="group min-w-[80%] shrink-0 snap-center rounded-xl transition-all hover:ring-2 hover:ring-blue-500/20 sm:min-w-0 sm:shrink">
           <Card className={`h-full overflow-hidden ${newLeadsCount > 0 ? 'border-blue-200 dark:border-blue-500/30' : ''}`}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
@@ -168,7 +168,7 @@ export function DashboardPage() {
           </Card>
         </Link>
 
-        <Link to="/admin/panels" className="group rounded-xl transition-all hover:ring-2 hover:ring-primary/20">
+        <Link to="/admin/panels" className="group min-w-[80%] shrink-0 snap-center rounded-xl transition-all hover:ring-2 hover:ring-primary/20 sm:min-w-0 sm:shrink">
           <Card className="h-full overflow-hidden">
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
@@ -189,7 +189,7 @@ export function DashboardPage() {
           </Card>
         </Link>
 
-        <Link to="/admin/campaigns" className="group rounded-xl transition-all hover:ring-2 hover:ring-blue-500/20">
+        <Link to="/admin/campaigns" className="group min-w-[80%] shrink-0 snap-center rounded-xl transition-all hover:ring-2 hover:ring-blue-500/20 sm:min-w-0 sm:shrink">
           <Card className="h-full overflow-hidden">
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
@@ -208,7 +208,7 @@ export function DashboardPage() {
           </Card>
         </Link>
 
-        <Link to="/admin/invoices" className="group rounded-xl transition-all hover:ring-2 hover:ring-green-500/20">
+        <Link to="/admin/invoices" className="group min-w-[80%] shrink-0 snap-center rounded-xl transition-all hover:ring-2 hover:ring-green-500/20 sm:min-w-0 sm:shrink">
           <Card className="h-full overflow-hidden">
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
@@ -235,7 +235,7 @@ export function DashboardPage() {
           </Card>
         </Link>
 
-        <Link to="/admin/invoices" className="group rounded-xl transition-all hover:ring-2 hover:ring-orange-500/20">
+        <Link to="/admin/invoices" className="group min-w-[80%] shrink-0 snap-center rounded-xl transition-all hover:ring-2 hover:ring-orange-500/20 sm:min-w-0 sm:shrink">
           <Card className="h-full overflow-hidden">
             <CardContent className="p-5">
               <div className="flex items-start justify-between">

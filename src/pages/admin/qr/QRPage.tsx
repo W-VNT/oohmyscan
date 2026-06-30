@@ -252,40 +252,46 @@ export function QRPage() {
       </div>
 
       {/* Stats : slider horizontal sur mobile, grille sur desktop */}
-      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 [&>*]:min-w-[80%] [&>*]:snap-center sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0 sm:py-0 sm:[&>*]:min-w-0">
-        <Card>
-          <CardContent className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-              <Hash className="size-5 text-foreground" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold tabular-nums">{stats?.total ?? 0}</p>
-              <p className="text-xs text-muted-foreground">Total générés</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-green-500/10">
-              <CheckCircle2 className="size-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold tabular-nums">{stats?.assigned ?? 0}</p>
-              <p className="text-xs text-muted-foreground">Assignés</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/10">
-              <Circle className="size-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold tabular-nums">{stats?.available ?? 0}</p>
-              <p className="text-xs text-muted-foreground">Disponibles</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:py-0">
+        <div className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
+          <Card>
+            <CardContent className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
+                <Hash className="size-5 text-foreground" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums">{stats?.total ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Total générés</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
+          <Card>
+            <CardContent className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-green-500/10">
+                <CheckCircle2 className="size-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums">{stats?.assigned ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Assignés</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
+          <Card>
+            <CardContent className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/10">
+                <Circle className="size-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums">{stats?.available ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Disponibles</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Filters : search + 2 selects en grid 2 cols sur mobile */}

@@ -327,21 +327,21 @@ export function ReportsPage() {
           </Card>
 
           {/* KPIs : slider horizontal sur mobile, grille sur desktop */}
-          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 [&>*]:min-w-[80%] [&>*]:snap-center sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0 sm:py-0 sm:[&>*]:min-w-0">
-            <Card>
+          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:py-0">
+            <Card className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
               <CardContent>
                 <p className="text-xs text-muted-foreground">CA encaissé</p>
                 <p className="mt-1 text-xl font-bold tabular-nums text-green-600">{formatCurrency(financialStats?.totalPaid ?? 0)}</p>
                 <p className="text-xs text-muted-foreground">{financialStats?.paidCount ?? 0} factures</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
               <CardContent>
                 <p className="text-xs text-muted-foreground">En attente</p>
                 <p className="mt-1 text-xl font-bold tabular-nums text-orange-500">{formatCurrency(financialStats?.totalPending ?? 0)}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
               <CardContent>
                 <p className="text-xs text-muted-foreground">Total période</p>
                 <p className="mt-1 text-xl font-bold tabular-nums">{formatCurrency((financialStats?.totalPaid ?? 0) + (financialStats?.totalPending ?? 0))}</p>
@@ -415,8 +415,8 @@ export function ReportsPage() {
       {activeTab === 'panneaux' && (
         <>
           {/* KPIs : slider mobile, grille desktop */}
-          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 [&>*]:min-w-[70%] [&>*]:snap-center sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:px-0 sm:py-0 sm:[&>*]:min-w-0 lg:grid-cols-4">
-            <Card>
+          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:py-0 lg:grid-cols-4">
+            <Card className="min-w-[70%] shrink-0 snap-center sm:min-w-0 sm:shrink">
               <CardContent>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium">Total panneaux</p>
@@ -425,7 +425,7 @@ export function ReportsPage() {
                 <p className="mt-1 text-2xl font-bold tabular-nums">{panelStats?.total ?? 0}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="min-w-[70%] shrink-0 snap-center sm:min-w-0 sm:shrink">
               <CardContent>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium">Taux d'occupation</p>
@@ -434,7 +434,7 @@ export function ReportsPage() {
                 <p className="mt-1 text-2xl font-bold tabular-nums text-green-600">{panelStats?.occupationRate ?? 0}%</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="min-w-[70%] shrink-0 snap-center sm:min-w-0 sm:shrink">
               <CardContent>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium">Campagnes actives</p>
@@ -443,7 +443,7 @@ export function ReportsPage() {
                 <p className="mt-1 text-2xl font-bold tabular-nums text-blue-600">{campaignStats?.active ?? 0}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="min-w-[70%] shrink-0 snap-center sm:min-w-0 sm:shrink">
               <CardContent>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium">Non vérifiés (30j)</p>
