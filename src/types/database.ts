@@ -982,6 +982,7 @@ export interface Database {
         Row: {
           id: string
           uuid_code: string
+          serial_number: number
           is_assigned: boolean
           panel_id: string | null
           generated_at: string
@@ -990,6 +991,7 @@ export interface Database {
         Insert: {
           id?: string
           uuid_code?: string
+          serial_number?: number
           is_assigned?: boolean
           panel_id?: string | null
           generated_at?: string
@@ -998,6 +1000,7 @@ export interface Database {
         Update: {
           id?: string
           uuid_code?: string
+          serial_number?: number
           is_assigned?: boolean
           panel_id?: string | null
           generated_at?: string

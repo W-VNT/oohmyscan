@@ -88,6 +88,14 @@ function HostnameRedirect() {
 }
 
 /**
+ * Redirige /scan?id=... vers /app/scan?id=... (anciens QR pré-fix path).
+ */
+function ScanRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/app/scan${search}`} replace />
+}
+
+/**
  * Layout qui protège les routes landing par un mot de passe (phase beta).
  * Désactivable en ne mettant pas VITE_LANDING_PASSWORD dans .env.
  */
@@ -135,6 +143,9 @@ export default function App() {
 
               {/* App login — accessible directement, pas de gate */}
               <Route path="/login" element={<LoginPage />} />
+
+              {/* Backward-compat : anciens QR avec /scan → /app/scan en préservant query */}
+              <Route path="/scan" element={<ScanRedirect />} />
 
               {/* Operator routes (mobile-first) — admin can also access */}
               <Route element={<ProtectedRoute role="operator" />}>

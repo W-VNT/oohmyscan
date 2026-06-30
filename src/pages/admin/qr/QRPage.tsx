@@ -14,7 +14,7 @@ import { DymoQRPDF } from '@/lib/pdf/DymoQRPDF'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 
-type SortOption = 'newest' | 'oldest' | 'uuid' | 'status'
+type SortOption = 'serial-desc' | 'serial-asc' | 'newest' | 'oldest' | 'status'
 type FilterOption = 'all' | 'available' | 'assigned'
 
 const PAGE_SIZE = 25
@@ -29,7 +29,7 @@ export function QRPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filter, setFilter] = useState<FilterOption>('all')
-  const [sort, setSort] = useState<SortOption>('newest')
+  const [sort, setSort] = useState<SortOption>('serial-desc')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [exporting, setExporting] = useState(false)
   const [page, setPage] = useState(0)
@@ -68,17 +68,20 @@ export function QRPage() {
     if (filter === 'assigned') result = result.filter((q) => q.is_assigned)
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase()
+      const qNum = q.replace(/^#/, '').trim()
       result = result.filter(
         (item) =>
           item.uuid_code.toLowerCase().includes(q) ||
-          item.panels?.reference?.toLowerCase().includes(q),
+          item.panels?.reference?.toLowerCase().includes(q) ||
+          (qNum && String(item.serial_number).includes(qNum)),
       )
     }
     return [...result].sort((a, b) => {
       switch (sort) {
+        case 'serial-desc': return b.serial_number - a.serial_number
+        case 'serial-asc': return a.serial_number - b.serial_number
         case 'newest': return new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime()
         case 'oldest': return new Date(a.generated_at).getTime() - new Date(b.generated_at).getTime()
-        case 'uuid': return a.uuid_code.localeCompare(b.uuid_code)
         case 'status': return Number(a.is_assigned) - Number(b.is_assigned)
         default: return 0
       }
@@ -140,12 +143,10 @@ export function QRPage() {
       const appUrl = import.meta.env.VITE_APP_URL || 'https://oohmyscan.vercel.app'
       const labels = await Promise.all(
         items.map(async (item) => {
-          const qrDataUrl = await QRCodeLib.toDataURL(`${appUrl}/scan?id=${item.uuid_code}`, {
+          const qrDataUrl = await QRCodeLib.toDataURL(`${appUrl}/app/scan?id=${item.uuid_code}`, {
             width: 300, margin: 1, color: { dark: '#000000', light: '#FFFFFF' },
           })
-          // Code lisible : 8 premiers + 4 derniers chars de l'UUID (identique à l'affichage admin)
-          const code = `${item.uuid_code.slice(0, 8)}-${item.uuid_code.slice(-4)}`
-          return { qrDataUrl, code }
+          return { qrDataUrl, serial: item.serial_number }
         }),
       )
       const blob = await pdf(<DymoQRPDF labels={labels} />).toBlob()
@@ -167,7 +168,7 @@ export function QRPage() {
       const zip = new JSZip()
       const appUrl = import.meta.env.VITE_APP_URL || 'https://oohmyscan.vercel.app'
       for (const item of items) {
-        const dataUrl = await QRCodeLib.toDataURL(`${appUrl}/scan?id=${item.uuid_code}`, {
+        const dataUrl = await QRCodeLib.toDataURL(`${appUrl}/app/scan?id=${item.uuid_code}`, {
           width: 600, margin: 2, color: { dark: '#000000', light: '#FFFFFF' },
         })
         zip.file(`qr-${item.uuid_code.slice(0, 8)}.png`, dataUrl.split(',')[1], { base64: true })
@@ -303,7 +304,7 @@ export function QRPage() {
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Rechercher UUID ou panneau..."
+            placeholder="Rechercher #N°, UUID ou panneau..."
             className="h-10 pl-9 text-sm sm:h-9 sm:min-w-[240px]"
           />
         </div>
@@ -327,9 +328,10 @@ export function QRPage() {
               onChange={(e) => setSort(e.target.value as SortOption)}
               className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
             >
+              <option value="serial-desc">N° décroissant</option>
+              <option value="serial-asc">N° croissant</option>
               <option value="newest">Plus récents</option>
               <option value="oldest">Plus anciens</option>
-              <option value="uuid">UUID</option>
               <option value="status">Statut</option>
             </select>
           </div>
@@ -397,7 +399,8 @@ export function QRPage() {
                 <th className="w-10 px-4 py-2.5">
                   <input type="checkbox" checked={paginated.length > 0 && paginated.every((i) => selected.has(i.id))} onChange={toggleSelectAll} className="size-3.5 rounded border-border" />
                 </th>
-                <th className="px-4 py-2.5 font-medium">UUID</th>
+                <th className="px-4 py-2.5 font-medium">N°</th>
+                <th className="hidden px-4 py-2.5 font-medium sm:table-cell">UUID</th>
                 <th className="px-4 py-2.5 font-medium">Statut</th>
                 <th className="hidden px-4 py-2.5 font-medium md:table-cell">Panneau</th>
                 <th className="hidden px-4 py-2.5 font-medium md:table-cell">Généré le</th>
@@ -407,7 +410,7 @@ export function QRPage() {
             <tbody className="divide-y divide-border/50">
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12">
+                  <td colSpan={7} className="px-4 py-12">
                     {hasActiveFilters ? (
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <QrCode className="size-8" />
@@ -440,6 +443,11 @@ export function QRPage() {
                       <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)} className="size-3.5 rounded border-border" />
                     </td>
                     <td className="px-4 py-2.5">
+                      <span className="font-mono text-sm font-semibold tabular-nums">
+                        #{item.serial_number}
+                      </span>
+                    </td>
+                    <td className="hidden px-4 py-2.5 sm:table-cell">
                       <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                         {item.uuid_code.slice(0, 8)}...{item.uuid_code.slice(-4)}
                       </code>
