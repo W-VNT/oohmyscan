@@ -481,9 +481,10 @@ export function InstallWizardPage() {
             onCreateNew={() => setStep('create_location')}
             onSelectPlace={(place) => {
               // Pre-rempli le form avec les donnees Google Places
+              // (le tel Google Places est souvent obsolete/inexact, on ne le pre-remplit pas)
               setNewLocationData({
                 name: place.name,
-                phone: place.phone,
+                phone: '',
                 owner_first_name: '',
                 owner_last_name: '',
                 address: place.address,
