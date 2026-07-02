@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react'
-import { Camera, X, Loader2, RotateCcw, Image as ImageIcon } from 'lucide-react'
+import { Camera, X, Loader2, RotateCcw, Image as ImageIcon, CloudUpload } from 'lucide-react'
 import imageCompression from 'browser-image-compression'
-import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
+import { uploadPhoto } from '@/lib/photo-upload'
 
 interface PhotoCaptureProps {
   onPhotoUploaded: (storagePath: string) => void
@@ -19,6 +19,7 @@ export function PhotoCapture({
 }: PhotoCaptureProps) {
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [queued, setQueued] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -32,21 +33,21 @@ export function PhotoCapture({
     setUploading(true)
 
     try {
-      // Upload to Supabase Storage
+      // uploadPhoto : tente l'upload immediat si en ligne, sinon met en queue
+      // IndexedDB pour un upload differe. Le path retourne est toujours le
+      // path final (queue ou pas).
       const ext = compressed.name.split('.').pop() || 'jpg'
-      const path = `${folder}/${crypto.randomUUID()}.${ext}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('panel-photos')
-        .upload(path, compressed, {
-          contentType: compressed.type,
-          upsert: false,
-        })
-
-      if (uploadError) throw uploadError
+      const result = await uploadPhoto({
+        bucket: 'panel-photos',
+        folder,
+        blob: compressed,
+        contentType: compressed.type,
+        extension: ext,
+      })
 
       pendingFileRef.current = null
-      onPhotoUploaded(path)
+      setQueued(result.queued)
+      onPhotoUploaded(result.path)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de l\'upload')
     } finally {
@@ -101,6 +102,7 @@ export function PhotoCapture({
   function handleRemove() {
     setPreview(null)
     setError(null)
+    setQueued(false)
     pendingFileRef.current = null
     if (cameraInputRef.current) cameraInputRef.current.value = ''
     if (galleryInputRef.current) galleryInputRef.current.value = ''
@@ -123,6 +125,12 @@ export function PhotoCapture({
           >
             <X className="h-4 w-4" />
           </button>
+          {queued && (
+            <div className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-blue-500/95 px-2 py-1 text-[10px] font-medium text-white">
+              <CloudUpload className="size-3" />
+              En attente d'envoi
+            </div>
+          )}
         </div>
       ) : uploading ? (
         <div className="flex h-48 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 text-muted-foreground">
