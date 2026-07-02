@@ -229,8 +229,15 @@ export function CampaignDetailPage() {
         .eq('id', id)
       if (error) throw error
 
+      // Invalide toutes les vues qui listent les campagnes, y compris celles
+      // cote operateur qui filtrent par operator_user_ids : leur cache serait
+      // stale sinon (ils ne verraient pas la campagne juste assignee).
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
       queryClient.invalidateQueries({ queryKey: ['campaigns', id] })
+      queryClient.invalidateQueries({ queryKey: ['my-active-campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['my-active-campaigns-sheet'] })
+      queryClient.invalidateQueries({ queryKey: ['my-campaigns-list'] })
+      queryClient.invalidateQueries({ queryKey: ['diffuse-campaigns'] })
       toast('Campagne mise à jour')
       setEditing(false)
     } catch {

@@ -105,6 +105,19 @@ export function useDeleteCampaign() {
   })
 }
 
+/**
+ * Invalide toutes les vues cote operateur qui listent des campagnes filtrees
+ * par operator_user_ids (dashboard, MyCampaignsPage, DiffusePage,
+ * ScanMissionSheet). A appeler apres toute modif d'operator_user_ids sur
+ * une campagne pour que les operateurs voient les changements immediatement.
+ */
+function invalidateOperatorCampaignViews(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['my-active-campaigns'] })
+  queryClient.invalidateQueries({ queryKey: ['my-active-campaigns-sheet'] })
+  queryClient.invalidateQueries({ queryKey: ['my-campaigns-list'] })
+  queryClient.invalidateQueries({ queryKey: ['diffuse-campaigns'] })
+}
+
 export function useCreateCampaign() {
   const queryClient = useQueryClient()
 
@@ -120,6 +133,7 @@ export function useCreateCampaign() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+      invalidateOperatorCampaignViews(queryClient)
     },
   })
 }
@@ -141,6 +155,7 @@ export function useUpdateCampaign() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] })
       queryClient.invalidateQueries({ queryKey: ['campaigns', id] })
+      invalidateOperatorCampaignViews(queryClient)
     },
   })
 }

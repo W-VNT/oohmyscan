@@ -25,6 +25,10 @@ export function useDiffuseCampaigns(userId: string | undefined) {
   return useQuery({
     queryKey: ['diffuse-campaigns', userId],
     queryFn: async (): Promise<DiffuseCampaign[]> => {
+      if (!userId) return []
+      // Filtre SQL au lieu de JS pour eviter les subtilites de match array.
+      // Meme pattern que useActiveCampaigns / OperatorDashboardPage /
+      // ScanMissionSheet — coherent partout.
       const { data, error } = await supabase
         .from('campaigns')
         .select(`
@@ -33,10 +37,11 @@ export function useDiffuseCampaigns(userId: string | undefined) {
           campaign_visuals(panel_formats(name, has_qr_code))
         `)
         .eq('status', 'active')
+        .contains('operator_user_ids', [userId])
         .order('start_date', { ascending: false })
       if (error) throw error
 
-      const all = (data ?? []) as unknown as Array<{
+      const filtered = (data ?? []) as unknown as Array<{
         id: string
         name: string
         start_date: string
@@ -48,12 +53,6 @@ export function useDiffuseCampaigns(userId: string | undefined) {
           panel_formats: { name: string; has_qr_code: boolean } | null
         }> | null
       }>
-
-      // Filtre côté JS : SEUL les campagnes explicitement assignées à l'user.
-      // Une campagne avec operator_user_ids vide = non assignée = invisible aux ops.
-      const filtered = userId
-        ? all.filter((c) => c.operator_user_ids?.includes(userId))
-        : []
 
       return filtered.map((c) => {
         const allFormats = (c.campaign_visuals ?? [])
