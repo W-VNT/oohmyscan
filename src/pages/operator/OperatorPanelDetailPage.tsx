@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { usePanel, useUpdatePanel } from '@/hooks/usePanels'
 import { useLocation as useLocationData, useLocationPanels, useLocationContract } from '@/hooks/useLocations'
@@ -7,12 +7,10 @@ import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { PullToRefresh } from '@/components/shared/PullToRefresh'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/shared/Toast'
 import { PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS, PANEL_ZONES, PANEL_PROBLEMS, ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
-import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
 import { isValidUUID } from '@/lib/utils'
 import imageCompression from 'browser-image-compression'
@@ -20,7 +18,6 @@ import {
   ArrowLeft,
   MapPin,
   Loader2,
-  Pencil,
   X,
   Camera,
   Megaphone,
@@ -50,7 +47,6 @@ export function OperatorPanelDetailPage() {
   const validId = isValidUUID(id) ? id : undefined
   const { data: panel, isLoading } = usePanel(validId)
   const updatePanel = useUpdatePanel()
-  const { data: panelTypes } = useActivePanelTypes()
 
   const handleRefresh = useCallback(async () => {
     await queryClient.invalidateQueries()
@@ -61,19 +57,10 @@ export function OperatorPanelDetailPage() {
   const { data: locationPanels } = useLocationPanels(panel?.location_id ?? undefined)
   const { data: locationContract } = useLocationContract(panel?.location_id ?? undefined)
 
-  const [editing, setEditing] = useState(false)
   const [showReport, setShowReport] = useState(false)
   const [reportProblem, setReportProblem] = useState<string | null>(null)
   const [reportNote, setReportNote] = useState('')
   const [submittingReport, setSubmittingReport] = useState(false)
-  const [form, setForm] = useState({
-    name: '',
-    address: '',
-    city: '',
-    contact_phone: '',
-    type: '',
-    notes: '',
-  })
 
   // Photos for this panel
   const { data: photos } = useQuery({
@@ -166,19 +153,6 @@ export function OperatorPanelDetailPage() {
     staleTime: 30 * 60 * 1000,
   })
 
-  useEffect(() => {
-    if (panel) {
-      setForm({
-        name: panel.name ?? '',
-        address: panel.address ?? '',
-        city: panel.city ?? '',
-        contact_phone: panel.contact_phone ?? '',
-        type: panel.type ?? '',
-        notes: panel.notes ?? '',
-      })
-    }
-  }, [panel])
-
   // Quick photo upload (no preview — iOS handles its own confirmation)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -257,29 +231,6 @@ export function OperatorPanelDetailPage() {
     } finally {
       setDeletingPhoto(false)
       setConfirmDelete(false)
-    }
-  }
-
-  async function handleSave() {
-    if (!id) return
-
-    // Validate — on n'edite plus que type + notes (les infos du lieu se
-    // modifient sur la fiche etablissement).
-    if (form.notes && form.notes.length > 500) {
-      toast('Les notes ne doivent pas dépasser 500 caractères', 'error')
-      return
-    }
-
-    try {
-      await updatePanel.mutateAsync({
-        id,
-        type: form.type || null,
-        notes: form.notes || null,
-      })
-      toast('Panneau mis à jour')
-      setEditing(false)
-    } catch {
-      toast('Erreur lors de la mise à jour', 'error')
     }
   }
 
@@ -454,8 +405,8 @@ export function OperatorPanelDetailPage() {
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className={`grid gap-2 ${panel.contact_phone ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        {/* Action buttons — Verifier / (Appeler) / Signaler */}
+        <div className={`grid gap-2 ${panel.contact_phone ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <button
             onClick={() => photoInputRef.current?.click()}
             disabled={uploadingPhoto}
@@ -493,26 +444,6 @@ export function OperatorPanelDetailPage() {
           >
             <CircleAlert className="size-4 text-orange-500" />
             <span className="text-[11px] font-medium">Signaler</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setEditing(!editing)
-              if (panel) {
-                setForm({
-                  name: panel.name ?? '',
-                  address: panel.address ?? '',
-                  city: panel.city ?? '',
-                  contact_phone: panel.contact_phone ?? '',
-                  type: panel.type ?? '',
-                  notes: panel.notes ?? '',
-                })
-              }
-            }}
-            className="flex flex-col items-center gap-1.5 rounded-xl border border-border px-2 py-3 transition-colors hover:bg-muted"
-          >
-            {editing ? <X className="size-4 text-muted-foreground" /> : <Pencil className="size-4 text-muted-foreground" />}
-            <span className="text-[11px] font-medium">{editing ? 'Annuler' : 'Modifier'}</span>
           </button>
         </div>
 
@@ -567,63 +498,6 @@ export function OperatorPanelDetailPage() {
         )}
 
         {/* Edit form */}
-        {editing && (
-          <Card className="overflow-visible">
-            <CardContent className="space-y-3">
-              <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                Modifier le panneau
-              </p>
-              {panel.location_id && (
-                <div className="rounded-lg border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
-                  Pour changer le nom / adresse / téléphone du lieu, va sur la <Link to={`/app/locations/${panel.location_id}`} className="font-medium text-primary underline">fiche établissement</Link>.
-                </div>
-              )}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-muted-foreground">Type</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {panelTypes?.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setForm((s) => ({ ...s, type: s.type === t.name ? '' : t.name }))}
-                      className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                        form.type === t.name
-                          ? 'bg-foreground text-background'
-                          : 'border border-border bg-background text-foreground'
-                      }`}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-medium text-muted-foreground">Notes</label>
-                  <span className={`text-[10px] ${form.notes.length > 450 ? 'text-orange-400' : 'text-muted-foreground/50'}`}>
-                    {form.notes.length}/500
-                  </span>
-                </div>
-                <textarea
-                  value={form.notes}
-                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value.slice(0, 500) }))}
-                  placeholder="Observations..."
-                  rows={2}
-                  className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-[13px] placeholder:text-muted-foreground"
-                />
-              </div>
-              <Button
-                onClick={handleSave}
-                disabled={updatePanel.isPending}
-                className="w-full"
-                size="sm"
-              >
-                {updatePanel.isPending && <Loader2 className="mr-2 size-3.5 animate-spin" />}
-                Enregistrer
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Photos grid — hide campaign photos when panel is vacant */}
         {(() => {
           const visiblePhotos = getVisiblePhotos()
@@ -672,7 +546,7 @@ export function OperatorPanelDetailPage() {
         })()}
 
         {/* No photos state */}
-        {(!photos || photos.length === 0) && !editing && (
+        {(!photos || photos.length === 0)  && (
           <button
             onClick={() => photoInputRef.current?.click()}
             className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-border py-8 text-muted-foreground transition-colors hover:bg-muted/50"
@@ -716,7 +590,7 @@ export function OperatorPanelDetailPage() {
               </span>
             </div>
           )}
-          {panel.notes && !editing && (
+          {panel.notes  && (
             <div className="flex items-start gap-2 text-[12px]">
               <AlertTriangle className="mt-0.5 size-3 text-muted-foreground" />
               <span className="text-muted-foreground">Notes</span>
