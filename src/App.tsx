@@ -69,6 +69,7 @@ const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => (
 const CampaignReportEditorPage = lazy(() => import('@/pages/admin/reports/CampaignReportEditorPage').then((m) => ({ default: m.CampaignReportEditorPage })))
 const AdminProfilePage = lazy(() => import('@/pages/admin/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
 const LocationsPage = lazy(() => import('@/pages/admin/locations/LocationsPage').then((m) => ({ default: m.LocationsPage })))
 const LocationDetailPage = lazy(() => import('@/pages/admin/locations/LocationDetailPage').then((m) => ({ default: m.LocationDetailPage })))
 
@@ -165,6 +166,7 @@ export default function App() {
                   <Route path="/app/install/:panelId" element={<InstallWizardPage />} />
                   <Route path="/app/assign/:panelId" element={<AssignCampaignPage />} />
                   <Route path="/app/diffuse" element={<DiffusePage />} />
+                  <Route path="/app/notifications" element={<NotificationsPage />} />
                   <Route path="/app/deposit/:campaignId" element={<DepositWizardPage />} />
                   <Route path="/app/contract/:panelId" element={<ContractPage />} />
                   <Route path="/app/locations/:id" element={<OperatorLocationPage />} />
@@ -203,6 +205,7 @@ export default function App() {
                   <Route path="campaigns/:campaignId/report" element={<CampaignReportEditorPage />} />
                   <Route path="profile" element={<AdminProfilePage />} />
                   <Route path="settings" element={<SettingsPage />} />
+                  <Route path="notifications" element={<NotificationsPage />} />
                 </Route>
               </Route>
 

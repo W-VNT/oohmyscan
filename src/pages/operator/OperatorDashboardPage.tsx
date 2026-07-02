@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Megaphone, Camera, PanelTop, ChevronRight, MapPin, CheckCircle2, AlertTriangle, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/shared/Toast'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 import { PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS } from '@/lib/constants'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
 
@@ -215,10 +216,13 @@ export function OperatorDashboardPage() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
     <div className="space-y-5 p-4 pb-20">
-      {/* 1 — Greeting */}
-      <div>
-        <p className="text-[13px] text-muted-foreground">Bonjour,</p>
-        <h1 className="text-lg font-semibold tracking-tight">{profile?.full_name || 'Opérateur'}</h1>
+      {/* 1 — Greeting + cloche notifs */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[13px] text-muted-foreground">Bonjour,</p>
+          <h1 className="text-lg font-semibold tracking-tight">{profile?.full_name || 'Opérateur'}</h1>
+        </div>
+        <NotificationBell to="/app/notifications" />
       </div>
 
       {/* 2 — Action buttons (terrain-first) */}

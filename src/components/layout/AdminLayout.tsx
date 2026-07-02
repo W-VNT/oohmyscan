@@ -26,6 +26,7 @@ import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { ShortcutHelpProvider } from '@/components/shared/KeyboardShortcuts'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 
 const PAGE_TITLES: Record<string, string> = {
   '/admin': 'Dashboard',
@@ -215,6 +216,7 @@ export function AdminLayout() {
           </button>
           {pageTitle && <h2 className="text-sm font-semibold">{pageTitle}</h2>}
           <div className="flex-1" />
+          <NotificationBell to="/admin/notifications" />
         </header>
         <main className={cn('flex-1 overflow-hidden', isFullscreen ? 'p-0' : 'overflow-y-auto p-6')}>
           <ErrorBoundary>
