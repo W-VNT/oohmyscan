@@ -14,6 +14,17 @@ export default defineConfig({
       // pb "'text/html' is not a valid JavaScript MIME type" qui se produit
       // quand l'index.html cache reference des chunks JS qui n'existent plus.
       registerType: 'autoUpdate',
+      // injectManifest : on ecrit notre propre SW (src/sw.ts) pour supporter
+      // les push notifications (handlers push + notificationclick) en plus du
+      // cache Workbox.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
+        globIgnores: ['images/supports/**'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+      },
       manifest: {
         name: 'OOHMYSCAN',
         short_name: 'OOHMYSCAN',
@@ -30,30 +41,6 @@ export default defineConfig({
           { src: '/icons/icon-192-maskable.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
           { src: '/icons/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           { src: '/logo.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
-        globIgnores: ['images/supports/**'],
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-        navigateFallback: '/index.html',
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.mapbox\.com\/.*/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'mapbox-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'supabase-storage',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 2 },
-            },
-          },
         ],
       },
     }),

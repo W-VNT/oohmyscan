@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from '@/components/shared/Toast'
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
 import imageCompression from 'browser-image-compression'
+import { PushNotificationsCard } from '@/components/shared/PushNotificationsCard'
 import {
   LogOut,
   ChevronRight,
@@ -25,7 +26,6 @@ import {
   X,
   Sun,
   Moon,
-  Bell,
   User,
   Camera,
 } from 'lucide-react'
@@ -465,25 +465,8 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Notifications — V2 teaser */}
-      <Card>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell className="size-3.5 text-muted-foreground" />
-              <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                Notifications
-              </p>
-            </div>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              Bientôt
-            </span>
-          </div>
-          <p className="mt-1.5 text-[12px] text-muted-foreground">
-            Recevez des alertes pour les nouvelles campagnes et missions.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Notifications push */}
+      <PushNotificationsCard />
 
       {/* Spacer to push logout to bottom */}
       <div className="flex-1" />

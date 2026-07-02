@@ -12,6 +12,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from '@/components/shared/Toast'
 import { Loader2, Pencil, Check, X, User, Lock, Sun, Moon, Monitor, Camera, LogOut, Shield } from 'lucide-react'
 import { applyTheme, computeIsDark } from '@/components/shared/DynamicTheme'
+import { PushNotificationsCard } from '@/components/shared/PushNotificationsCard'
 
 /** Couleur déterministe pour l'avatar fallback à partir du nom. */
 function colorFromName(name: string): string {
@@ -331,6 +332,9 @@ export function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Notifications push */}
+      <PushNotificationsCard />
 
       {/* Compte */}
       <Card>
