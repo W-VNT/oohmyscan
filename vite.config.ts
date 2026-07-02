@@ -9,7 +9,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      // autoUpdate : quand un nouveau deploiement arrive, le SW se met a jour
+      // automatiquement et recharge la page au prochain focus. Evite le
+      // pb "'text/html' is not a valid JavaScript MIME type" qui se produit
+      // quand l'index.html cache reference des chunks JS qui n'existent plus.
+      registerType: 'autoUpdate',
       manifest: {
         name: 'OOHMYSCAN',
         short_name: 'OOHMYSCAN',
