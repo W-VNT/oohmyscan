@@ -40,6 +40,11 @@ export function LocationDetailPage() {
 
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Champs figures dans le contrat signé — on les verrouille pour eviter
+  // les incoherences avec le PDF deja signe. Modifiable uniquement via
+  // un avenant (workflow non expose ici).
+  const hasSignedContract = !!contract
+  const isFieldLocked = hasSignedContract
   const [contractPdfUrl, setContractPdfUrl] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({
     name: '', address: '', postal_code: '', city: '', phone: '',
@@ -169,6 +174,14 @@ export function LocationDetailPage() {
 
             {editing ? (
               <div className="space-y-4">
+                {isFieldLocked && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-800 dark:text-amber-400">
+                    <p className="font-medium">Contrat signé — champs verrouillés</p>
+                    <p className="mt-1 opacity-90">
+                      Le nom, l'adresse, le téléphone et les infos du bailleur figurent sur le contrat n° {contract?.contract_number} déjà signé. Pour les modifier, il faut passer par un avenant. Seuls les mois de fermeture restent modifiables.
+                    </p>
+                  </div>
+                )}
                 {/* Nom */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1 sm:col-span-2">
@@ -176,7 +189,8 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.name}
                       onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                      className="h-10 rounded-lg text-sm sm:h-9"
+                      disabled={isFieldLocked}
+                      className="h-10 rounded-lg text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
 
@@ -186,7 +200,8 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.address}
                       onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
-                      className="h-10 rounded-lg text-sm sm:h-9"
+                      disabled={isFieldLocked}
+                      className="h-10 rounded-lg text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
 
@@ -196,7 +211,8 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.postal_code}
                       onChange={(e) => setEditForm((f) => ({ ...f, postal_code: e.target.value }))}
-                      className="h-10 rounded-lg text-sm sm:h-9"
+                      disabled={isFieldLocked}
+                      className="h-10 rounded-lg text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
                   <div>
@@ -204,7 +220,8 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.city}
                       onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
-                      className="h-10 rounded-lg text-sm sm:h-9"
+                      disabled={isFieldLocked}
+                      className="h-10 rounded-lg text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
 
@@ -214,7 +231,8 @@ export function LocationDetailPage() {
                     <Input
                       value={editForm.phone}
                       onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-                      className="h-10 rounded-lg text-sm sm:h-9"
+                      disabled={isFieldLocked}
+                      className="h-10 rounded-lg text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </div>
                 </div>
@@ -228,7 +246,8 @@ export function LocationDetailPage() {
                       <Input
                         value={editForm.owner_first_name}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_first_name: e.target.value }))}
-                        className="h-10 rounded-lg text-sm sm:h-9"
+                        disabled={isFieldLocked}
+                        className="h-10 rounded-lg text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                       />
                     </div>
                     <div>
@@ -236,7 +255,8 @@ export function LocationDetailPage() {
                       <Input
                         value={editForm.owner_last_name}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_last_name: e.target.value }))}
-                        className="h-10 rounded-lg text-sm sm:h-9"
+                        disabled={isFieldLocked}
+                        className="h-10 rounded-lg text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                       />
                     </div>
                     <div>
@@ -244,7 +264,8 @@ export function LocationDetailPage() {
                       <Input
                         value={editForm.owner_role}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_role: e.target.value }))}
-                        className="h-10 rounded-lg text-sm sm:h-9"
+                        disabled={isFieldLocked}
+                        className="h-10 rounded-lg text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                       />
                     </div>
                     <div>
@@ -253,7 +274,8 @@ export function LocationDetailPage() {
                         type="email"
                         value={editForm.owner_email}
                         onChange={(e) => setEditForm((f) => ({ ...f, owner_email: e.target.value }))}
-                        className="h-10 rounded-lg text-sm sm:h-9"
+                        disabled={isFieldLocked}
+                        className="h-10 rounded-lg text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                       />
                     </div>
                   </div>

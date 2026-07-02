@@ -7,7 +7,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { PullToRefresh } from '@/components/shared/PullToRefresh'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -15,7 +14,6 @@ import { toast } from '@/components/shared/Toast'
 import { PANEL_STATUS_CONFIG, PHOTO_TYPE_LABELS, PANEL_ZONES, PANEL_PROBLEMS, ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '@/lib/constants'
 import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import type { PanelStatus, PhotoType } from '@/lib/constants'
-import { searchPlaces, type PlaceSuggestion } from '@/lib/google-places'
 import { isValidUUID } from '@/lib/utils'
 import imageCompression from 'browser-image-compression'
 import {
@@ -181,56 +179,6 @@ export function OperatorPanelDetailPage() {
     }
   }, [panel])
 
-  // Place autocomplete for editing — use device GPS for proximity
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([])
-  const [searchingPlaces, setSearchingPlaces] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
-  const deviceCoordsRef = useRef<{ lng: number; lat: number } | null>(null)
-
-  // Grab device position when edit mode opens + cleanup debounce
-  useEffect(() => {
-    if (!editing) return
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        deviceCoordsRef.current = { lng: pos.coords.longitude, lat: pos.coords.latitude }
-      },
-      () => {
-        if (panel) deviceCoordsRef.current = { lng: panel.lng, lat: panel.lat }
-      },
-      { enableHighAccuracy: true, timeout: 5000 },
-    )
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-  }, [editing, panel])
-
-  const handleNameSearch = useCallback((query: string) => {
-    setForm((f) => ({ ...f, name: query }))
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!query.trim() || query.length < 2) {
-      setSuggestions([])
-      return
-    }
-    debounceRef.current = setTimeout(async () => {
-      const coords = deviceCoordsRef.current ?? (panel ? { lng: panel.lng, lat: panel.lat } : null)
-      if (!coords) return
-      setSearchingPlaces(true)
-      const results = await searchPlaces(query, coords.lng, coords.lat)
-      setSuggestions(results)
-      setSearchingPlaces(false)
-    }, 300)
-  }, [panel])
-
-  function selectSuggestion(place: PlaceSuggestion) {
-    setForm((f) => ({
-      ...f,
-      name: place.name,
-      address: place.address,
-      city: place.city,
-    }))
-    setSuggestions([])
-  }
-
   // Quick photo upload (no preview — iOS handles its own confirmation)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -312,20 +260,11 @@ export function OperatorPanelDetailPage() {
     }
   }
 
-  const PHONE_RE = /^(?:\+?33|0)\s*[1-9](?:[\s.\-]?\d{2}){4}$/
-
   async function handleSave() {
     if (!id) return
 
-    // Validate
-    if (form.name && form.name.length > 100) {
-      toast('Le nom ne doit pas dépasser 100 caractères', 'error')
-      return
-    }
-    if (form.contact_phone && !PHONE_RE.test(form.contact_phone)) {
-      toast('Numéro de téléphone invalide', 'error')
-      return
-    }
+    // Validate — on n'edite plus que type + notes (les infos du lieu se
+    // modifient sur la fiche etablissement).
     if (form.notes && form.notes.length > 500) {
       toast('Les notes ne doivent pas dépasser 500 caractères', 'error')
       return
@@ -334,10 +273,6 @@ export function OperatorPanelDetailPage() {
     try {
       await updatePanel.mutateAsync({
         id,
-        name: form.name || null,
-        address: form.address || null,
-        city: form.city || null,
-        contact_phone: form.contact_phone || null,
         type: form.type || null,
         notes: form.notes || null,
       })
@@ -636,79 +571,13 @@ export function OperatorPanelDetailPage() {
           <Card className="overflow-visible">
             <CardContent className="space-y-3">
               <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                Modifier les informations
+                Modifier le panneau
               </p>
-              <div className="relative space-y-1.5">
-                <label className="text-[11px] font-medium text-muted-foreground">Nom du lieu</label>
-                <div className="relative">
-                  <Input
-                    value={form.name}
-                    onChange={(e) => handleNameSearch(e.target.value)}
-                    placeholder="Ex: Boulangerie Dupont"
-                    className="text-[13px]"
-                    autoComplete="off"
-                    maxLength={100}
-                  />
-                  {searchingPlaces && (
-                    <Loader2 className="absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
-                  )}
+              {panel.location_id && (
+                <div className="rounded-lg border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
+                  Pour changer le nom / adresse / téléphone du lieu, va sur la <Link to={`/app/locations/${panel.location_id}`} className="font-medium text-primary underline">fiche établissement</Link>.
                 </div>
-                {suggestions.length > 0 && (
-                  <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg">
-                    {suggestions.map((place) => (
-                      <button
-                        key={place.id}
-                        type="button"
-                        onClick={() => selectSuggestion(place)}
-                        className="flex w-full items-start gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted"
-                      >
-                        <MapPin className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-medium">{place.name}</p>
-                          <p className="truncate text-[11px] text-muted-foreground">
-                            {[place.address, place.city].filter(Boolean).join(', ')}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-muted-foreground">Adresse</label>
-                <Input
-                  value={form.address}
-                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                  placeholder="Ex: 12 rue de Rivoli"
-                  className="text-[13px]"
-                  maxLength={150}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-medium text-muted-foreground">Ville</label>
-                  <Input
-                    value={form.city}
-                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                    placeholder="Paris"
-                    className="text-[13px]"
-                    maxLength={80}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-medium text-muted-foreground">Tél. du lieu</label>
-                  <Input
-                    value={form.contact_phone}
-                    onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))}
-                    placeholder="01 23 45 67 89"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    className="text-[13px]"
-                    maxLength={20}
-                  />
-                </div>
-              </div>
+              )}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-medium text-muted-foreground">Type</label>
                 <div className="flex flex-wrap gap-1.5">
