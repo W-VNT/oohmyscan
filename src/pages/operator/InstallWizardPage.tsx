@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Loader2, MapPin, Plus, Camera, Check, Building2, ChevronRight, FileCheck } from 'lucide-react'
+import { ArrowLeft, Loader2, MapPin, Plus, Camera, Check, Building2, ChevronRight, FileCheck, Megaphone } from 'lucide-react'
 import { pdf } from '@react-pdf/renderer'
 import type { DocumentProps } from '@react-pdf/renderer'
 
@@ -1304,12 +1304,23 @@ function SuccessStep({
       </div>
 
       <div className="mt-6 w-full max-w-sm space-y-2">
+        {/* CTA principal : enchainer directement sur la diffusion. Le poseur est
+            sur place, autant coller le visuel et prendre la photo maintenant. */}
+        <Button onClick={() => navigate(`/app/assign/${firstPanelId}`)} className="h-12 w-full">
+          <Megaphone className="mr-1.5 size-4" />
+          Diffuser maintenant
+        </Button>
+        {installedCount > 1 && (
+          <p className="text-[11px] text-muted-foreground">
+            Tu pourras diffuser les {installedCount - 1} autre{installedCount > 2 ? 's' : ''} panneau{installedCount > 2 ? 'x' : ''} depuis leur fiche.
+          </p>
+        )}
         <Button onClick={() => navigate(`/app/panels/${firstPanelId}`)} className="h-12 w-full" variant="outline">
           <FileCheck className="mr-1.5 size-4" />
           Voir la fiche
         </Button>
-        <Button onClick={() => navigate('/app/dashboard')} className="h-12 w-full">
-          Retour accueil
+        <Button onClick={() => navigate('/app/dashboard')} className="h-12 w-full" variant="ghost">
+          Plus tard
         </Button>
       </div>
     </div>
