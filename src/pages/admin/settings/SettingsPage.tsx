@@ -86,7 +86,7 @@ export function SettingsPage() {
     const keys: (keyof CompanySettings)[] = [
       'company_name', 'address', 'city', 'postal_code', 'siret', 'tva_number',
       'email', 'phone', 'iban', 'bic', 'quote_prefix', 'invoice_prefix', 'legal_mentions', 'late_penalty_text', 'terms_and_conditions',
-      'resend_api_key', 'email_from', 'email_from_name', 'email_quote_subject', 'email_quote_body', 'email_invoice_subject', 'email_invoice_body',
+      'resend_api_key', 'email_from', 'email_from_name', 'email_quote_subject', 'email_quote_body', 'email_invoice_subject', 'email_invoice_body', 'email_contract_subject', 'email_contract_body',
     ]
     return keys.some((k) => (form[k] ?? '') !== (settings[k] ?? ''))
   }, [form, settings])
@@ -139,6 +139,8 @@ export function SettingsPage() {
         email_quote_body: form.email_quote_body,
         email_invoice_subject: form.email_invoice_subject,
         email_invoice_body: form.email_invoice_body,
+        email_contract_subject: form.email_contract_subject,
+        email_contract_body: form.email_contract_body,
       })
       setErrors({})
       toast('Paramètres enregistrés')
@@ -699,6 +701,37 @@ export function SettingsPage() {
                     content={form.email_invoice_body ?? ''}
                     onChange={(html) => setForm((f) => ({ ...f, email_invoice_body: html }))}
                     placeholder="Bonjour, veuillez trouver ci-joint..."
+                  />
+                </Suspense>
+              </div>
+              {saveButton()}
+            </CardContent>
+          </Card>
+
+          {/* Contract template */}
+          <Card>
+            <CardContent className="space-y-4">
+              <p className="text-sm font-semibold">Template email — Contrat d'installation</p>
+              <p className="text-xs text-muted-foreground">
+                Envoyé automatiquement au gérant en fin de signature terrain (si email fourni).
+                Variables : <code className="rounded bg-muted px-1 text-[10px]">{'{numero}'}</code> <code className="rounded bg-muted px-1 text-[10px]">{'{gerant_prenom}'}</code> <code className="rounded bg-muted px-1 text-[10px]">{'{gerant_nom}'}</code> <code className="rounded bg-muted px-1 text-[10px]">{'{etablissement}'}</code> <code className="rounded bg-muted px-1 text-[10px]">{'{entreprise}'}</code>
+              </p>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Objet</label>
+                <Input
+                  value={form.email_contract_subject ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, email_contract_subject: e.target.value }))}
+                  placeholder="Votre contrat d'installation {numero} — {entreprise}"
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Corps du mail</label>
+                <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="size-4 animate-spin text-muted-foreground" /></div>}>
+                  <RichTextEditor
+                    content={form.email_contract_body ?? ''}
+                    onChange={(html) => setForm((f) => ({ ...f, email_contract_body: html }))}
+                    placeholder="Bonjour {gerant_prenom}, veuillez trouver ci-joint..."
                   />
                 </Suspense>
               </div>

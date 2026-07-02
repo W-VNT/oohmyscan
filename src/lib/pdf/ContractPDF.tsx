@@ -121,13 +121,15 @@ export function ContractPDF({
   return (
     <Document>
       <Page size="A4" style={s.page}>
-        {/* Header */}
+        {/* Header : si logo présent, il contient déjà le nom → on l'affiche seul.
+            Sinon on garde le nom en fallback. */}
         <View style={s.headerRow}>
           <View style={s.companyBlock}>
-            {company.logoUrl && (
-              <Image src={company.logoUrl} style={{ width: 100, marginBottom: 6 }} />
+            {company.logoUrl ? (
+              <Image src={company.logoUrl} style={{ width: 130, marginBottom: 6 }} />
+            ) : (
+              <Text style={s.companyName}>{company.name}</Text>
             )}
-            <Text style={s.companyName}>{company.name}</Text>
             {company.address && <Text style={s.companyLine}>{company.address}</Text>}
             {(company.postal_code || company.city) && (
               <Text style={s.companyLine}>{[company.postal_code, company.city].filter(Boolean).join(' ')}</Text>
@@ -205,8 +207,10 @@ export function ContractPDF({
           <Text style={s.highlightSubtext}>Format : {formatLine}</Text>
         </View>
 
-        {/* Article 5 — Avantage partenaire */}
-        <Text style={s.articleTitle}>5. Avantage partenaire</Text>
+        {/* Article 5 — Avantage partenaire — force le saut en page 2 pour
+            eviter les blocs coupes. Layout final : art 1-4 page 1, art 5-8
+            + signatures page 2. */}
+        <Text style={s.articleTitle} break>5. Avantage partenaire</Text>
         <Text style={s.bodyText}>
           En contrepartie de l'autorisation d'installation des supports, l'établissement bénéficie d'une dotation en points cadeaux.
         </Text>
@@ -220,8 +224,8 @@ export function ContractPDF({
           Les points sont attribués à la fin de la période d'exploitation et sont convertibles sur la plateforme partenaire ACAD, donnant accès à une sélection de produits parmi plus de 500 références.
         </Text>
 
-        {/* Article 6 — Engagements — force page break pour ne pas etre coupe */}
-        <Text style={s.articleTitle} break>6. Engagements</Text>
+        {/* Article 6 — Engagements */}
+        <Text style={s.articleTitle}>6. Engagements</Text>
         <Text style={s.bodyText}>L'établissement s'engage à :</Text>
         <Text style={s.bulletText}>• maintenir les supports installés pendant la durée de l'autorisation</Text>
         <Text style={s.bulletText}>• permettre l'accès aux équipes pour le remplacement des affiches</Text>

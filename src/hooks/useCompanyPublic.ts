@@ -15,6 +15,8 @@ export interface CompanyPublic {
   legal_mentions: string | null
   late_penalty_text: string | null
   default_panel_type_id: string | null
+  email_contract_subject: string | null
+  email_contract_body: string | null
 }
 
 /**

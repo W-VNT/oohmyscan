@@ -535,9 +535,13 @@ export function InstallWizardPage() {
         if (location.owner_email) {
           const res = await sendContractEmail({
             to: location.owner_email,
-            ownerFirstName: location.owner_first_name || '',
             contractNumber,
+            ownerFirstName: location.owner_first_name || '',
+            ownerLastName: location.owner_last_name || '',
+            establishmentName: location.name,
             companyName: company.name,
+            subjectTemplate: companySettings?.email_contract_subject ?? null,
+            bodyTemplate: companySettings?.email_contract_body ?? null,
             pdfBlob,
           })
           if (res.ok) {
@@ -1384,31 +1388,57 @@ async function blobToBase64(blob: Blob): Promise<string> {
 }
 
 /**
+ * Interpole les variables dans un template texte/HTML.
+ * Ex: "Bonjour {gerant_prenom}" + {gerant_prenom: "Marie"} → "Bonjour Marie"
+ */
+function interpolate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '')
+}
+
+/** Fallback si aucun template n'est configure (rare, ne devrait pas arriver
+ *  car la migration set des defaults). */
+const CONTRACT_EMAIL_FALLBACK_SUBJECT = 'Votre contrat d\'installation {numero} — {entreprise}'
+const CONTRACT_EMAIL_FALLBACK_BODY = `<p>Bonjour {gerant_prenom},</p><p>Vous trouverez ci-joint votre <strong>contrat d'autorisation d'installation N° {numero}</strong>, signé électroniquement.</p><p>L'équipe {entreprise}</p>`
+
+/**
  * Envoie le contrat par email au gerant via l'edge function send-document-email.
+ * Utilise le template configure dans Reglages > Email (email_contract_subject/body)
+ * avec interpolation des variables : {numero}, {gerant_prenom}, {gerant_nom},
+ * {etablissement}, {entreprise}.
  * N'echoue jamais : les erreurs sont loggees mais ne bloquent pas le save.
  */
 async function sendContractEmail(params: {
   to: string
-  ownerFirstName: string
   contractNumber: string
+  ownerFirstName: string
+  ownerLastName: string
+  establishmentName: string
   companyName: string
+  subjectTemplate: string | null
+  bodyTemplate: string | null
   pdfBlob: Blob
 }): Promise<{ ok: boolean; error?: string }> {
   try {
+    const vars = {
+      numero: params.contractNumber,
+      gerant_prenom: params.ownerFirstName,
+      gerant_nom: params.ownerLastName,
+      etablissement: params.establishmentName,
+      entreprise: params.companyName,
+    }
+    const subject = interpolate(
+      params.subjectTemplate || CONTRACT_EMAIL_FALLBACK_SUBJECT,
+      vars,
+    )
+    const html = interpolate(
+      params.bodyTemplate || CONTRACT_EMAIL_FALLBACK_BODY,
+      vars,
+    )
     const pdfBase64 = await blobToBase64(params.pdfBlob)
-    const html = `
-      <div style="font-family: -apple-system, sans-serif; color: #0A0A0A; max-width: 600px;">
-        <p>Bonjour ${params.ownerFirstName},</p>
-        <p>Suite à notre passage aujourd'hui, vous trouverez ci-joint votre <strong>contrat d'autorisation d'installation N° ${params.contractNumber}</strong>, signé électroniquement.</p>
-        <p>Ce document engage ${params.companyName} et votre établissement pour la période convenue. Conservez-le précieusement, il vous servira de référence pour toute demande future.</p>
-        <p>Un grand merci pour votre confiance !</p>
-        <p style="margin-top: 24px; color: #737373; font-size: 13px;">L'équipe ${params.companyName}</p>
-      </div>
-    `.trim()
     const { error } = await supabase.functions.invoke('send-document-email', {
       body: {
         to: params.to,
-        subject: `Votre contrat d'installation N° ${params.contractNumber} — ${params.companyName}`,
+        subject,
         html,
         pdfBase64,
         pdfFilename: `contrat-${params.contractNumber}.pdf`,
