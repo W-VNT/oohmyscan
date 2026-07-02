@@ -170,7 +170,7 @@ export function OperatorLocationPage() {
   const mapsHref = `https://maps.apple.com/?q=${mapsQuery}`
 
   return (
-    <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom)+9rem)]">
+    <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom)+5rem)]">
       {/* Header */}
       <div className="sticky top-[env(safe-area-inset-top)] z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
         <button onClick={() => navigate(-1)} aria-label="Retour" className="rounded-md p-1 hover:bg-accent">
@@ -221,7 +221,6 @@ export function OperatorLocationPage() {
                 >
                   <Phone className="size-4 shrink-0 text-emerald-600" />
                   <span className="flex-1 text-[13px] text-foreground">{location.phone}</span>
-                  <span className="text-[11px] font-medium text-emerald-600">Appeler</span>
                 </a>
               )}
               {location.phone && location.owner_email && (
@@ -234,7 +233,6 @@ export function OperatorLocationPage() {
                 >
                   <Mail className="size-4 shrink-0 text-blue-600" />
                   <span className="flex-1 truncate text-[13px] text-foreground">{location.owner_email}</span>
-                  <span className="text-[11px] font-medium text-blue-600">Écrire</span>
                 </a>
               )}
             </div>
@@ -354,28 +352,15 @@ export function OperatorLocationPage() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Sticky actions terrain */}
-      <div className="fixed inset-x-0 bottom-16 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid max-w-lg grid-cols-2 gap-2">
-          <a
-            href={mapsHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 py-3 text-[13px] font-medium text-foreground transition-colors active:bg-muted/50"
-          >
-            <Navigation2 className="size-4 text-emerald-600" />
-            Itinéraire
-          </a>
-          <button
-            onClick={() => navigate(`/app/scan?mode=install`)}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-foreground px-3 py-3 text-[13px] font-medium text-background transition-colors active:opacity-90"
-          >
-            <Plus className="size-4" />
-            Ajouter un panneau
-          </button>
-        </div>
+        {/* CTA : ajouter un panneau — inline, en fin de page */}
+        <button
+          onClick={() => navigate(`/app/scan?mode=install`)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-foreground px-3 py-3 text-[13px] font-medium text-background transition-colors active:opacity-90"
+        >
+          <Plus className="size-4" />
+          Ajouter un panneau
+        </button>
       </div>
     </div>
   )
