@@ -27,32 +27,53 @@ export function ScanMissionSheet({ open, onClose }: ScanMissionSheetProps) {
   const { data: campaigns, isLoading } = useQuery({
     queryKey: ['my-active-campaigns-sheet', session?.user.id],
     queryFn: async () => {
-      // Filtre : uniquement les campagnes actives assignees a l'operateur
-      // (operator_user_ids contient son id). Une campagne non-assignee doit
-      // rester invisible aux operateurs.
+      // Filtre : uniquement les campagnes actives assignees a l'operateur.
+      // Split en 2 queries pour la perf (evite un double nested select lent).
       const { data: campaigns, error } = await supabase
         .from('campaigns')
-        .select(`
-          id, name, client_id, clients(company_name),
-          campaign_visuals(panel_formats(has_qr_code))
-        `)
+        .select('id, name, client_id, clients(company_name)')
         .eq('status', 'active')
         .contains('operator_user_ids', [session!.user.id])
       if (error) throw error
-      const raw = (campaigns ?? []) as unknown as Array<{
+      const rows = (campaigns ?? []) as unknown as Array<{
         id: string; name: string; client_id: string | null
         clients: { company_name: string } | null
-        campaign_visuals: Array<{ panel_formats: { has_qr_code: boolean } | null }> | null
       }>
-      return raw.map((c) => {
-        const formats = (c.campaign_visuals ?? [])
-          .map((v) => v.panel_formats)
-          .filter((f): f is { has_qr_code: boolean } => f !== null)
-        const isDeposit = formats.length > 0 && formats.every((f) => !f.has_qr_code)
-        return { id: c.id, name: c.name, client_id: c.client_id, clients: c.clients, isDeposit }
-      })
+      if (rows.length === 0) return []
+
+      const campaignIds = rows.map((c) => c.id)
+      const { data: visuals } = await supabase
+        .from('campaign_visuals')
+        .select('campaign_id, panel_formats(has_qr_code)')
+        .in('campaign_id', campaignIds)
+
+      // Regroupe : true si tous les visuels d'une campagne sont sans QR
+      const depositByCampaign = new Map<string, boolean>()
+      const seenByCampaign = new Map<string, { hasQr: boolean; noQr: boolean }>()
+      for (const v of (visuals ?? []) as unknown as Array<{
+        campaign_id: string
+        panel_formats: { has_qr_code: boolean } | null
+      }>) {
+        if (!v.panel_formats) continue
+        const s = seenByCampaign.get(v.campaign_id) ?? { hasQr: false, noQr: false }
+        if (v.panel_formats.has_qr_code) s.hasQr = true
+        else s.noQr = true
+        seenByCampaign.set(v.campaign_id, s)
+      }
+      for (const [id, s] of seenByCampaign) {
+        depositByCampaign.set(id, s.noQr && !s.hasQr)
+      }
+
+      return rows.map((c) => ({
+        id: c.id,
+        name: c.name,
+        client_id: c.client_id,
+        clients: c.clients,
+        isDeposit: depositByCampaign.get(c.id) ?? false,
+      }))
     },
     enabled: !!session && open && showCampaigns,
+    staleTime: 30_000,
   })
 
   if (!open) return null
