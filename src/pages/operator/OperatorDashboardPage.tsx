@@ -221,7 +221,7 @@ export function OperatorDashboardPage() {
 
       {/* 2 — Action buttons (terrain-first) */}
       <div className="grid grid-cols-2 gap-2">
-        <Link to="/app/scan?mode=install" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
+        <Link to="/app/install" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-auto flex-col items-center gap-2 px-3 py-4')}>
           <div className="flex size-10 items-center justify-center rounded-full bg-blue-500/10">
             <Plus className="size-5 text-blue-500" strokeWidth={1.5} />
           </div>

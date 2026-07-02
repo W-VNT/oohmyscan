@@ -43,7 +43,16 @@ import type { Location } from '@/types'
 // Types
 // ============================================================================
 
-type Step = 'location' | 'create_location' | 'photo_zone' | 'another' | 'sign_owner' | 'sign_operator' | 'saving' | 'success'
+type Step =
+  | 'location'
+  | 'create_location'
+  | 'contact_form'       // Nouveau : nb panneaux prevus
+  | 'sign_owner'
+  | 'sign_operator'
+  | 'photo_zone'
+  | 'another'
+  | 'saving'
+  | 'success'
 
 interface InstalledPanel {
   panelId: string
@@ -69,11 +78,28 @@ const SESSION_TTL_MS = 60 * 60 * 1000 // 1h
 interface PersistedSession {
   location: Location
   installed: InstalledPanel[]
+  /** Signatures base64 capturees avant scan des panneaux, uploadees au save final */
+  signOwner?: string
+  signOperator?: string
+  /** Nombre de panneaux annonces au gerant avant scan */
+  plannedPanelsCount?: number
   ts: number
 }
 
-function saveSession(location: Location, installed: InstalledPanel[]) {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ location, installed, ts: Date.now() } satisfies PersistedSession))
+function saveSession(
+  location: Location,
+  installed: InstalledPanel[],
+  extras?: { signOwner?: string; signOperator?: string; plannedPanelsCount?: number },
+) {
+  sessionStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify({
+      location,
+      installed,
+      ...(extras ?? {}),
+      ts: Date.now(),
+    } satisfies PersistedSession),
+  )
 }
 
 function loadSession(): PersistedSession | null {
@@ -112,7 +138,9 @@ export function InstallWizardPage() {
   // Continuation d'une session multi-panneaux ?
   const continueFromSession = searchParams.get('continue') === '1'
 
-  if (!isValidUUID(panelId)) {
+  // panelId est optionnel : on peut demarrer le wizard sans QR (nouveau flow).
+  // On valide seulement s'il est present dans l'URL.
+  if (panelId !== undefined && !isValidUUID(panelId)) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-sm text-muted-foreground">Identifiant de panneau invalide</p>
@@ -140,6 +168,8 @@ export function InstallWizardPage() {
   const [customZone, setCustomZone] = useState('')
   const [signOwner, setSignOwner] = useState('')
   const [signOperator, setSignOperator] = useState('')
+  /** Nombre de panneaux annonces au gerant, capture avant les signatures */
+  const [plannedPanelsCount, setPlannedPanelsCount] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [savedContractNumber, setSavedContractNumber] = useState<string | null>(null)
   const [savedFirstPanelId, setSavedFirstPanelId] = useState<string | null>(null)
@@ -158,12 +188,29 @@ export function InstallWizardPage() {
     restoredRef.current = true
     setLocation(persisted.location)
     setInstalled(persisted.installed)
+    if (persisted.signOwner) setSignOwner(persisted.signOwner)
+    if (persisted.signOperator) setSignOperator(persisted.signOperator)
+    if (persisted.plannedPanelsCount) setPlannedPanelsCount(String(persisted.plannedPanelsCount))
     setStep('photo_zone')
   }, [continueFromSession])
 
   // ============== Detect existing contract for amendment ==============
-  const { data: existingContract } = useLocationContract(location?.id)
+  const { data: existingContract, isLoading: contractLoading } = useLocationContract(location?.id)
   const isAmendment = !!existingContract
+
+  // Si le lieu a un contrat actif, on skip la partie contact + signature :
+  // on sauve la session et on navigate direct au scanner du 1er panneau.
+  const skippedRef = useRef(false)
+  useEffect(() => {
+    if (skippedRef.current) return
+    if (!location || contractLoading) return
+    if (step !== 'contact_form') return
+    if (isAmendment) {
+      skippedRef.current = true
+      saveSession(location, installed, { plannedPanelsCount: undefined })
+      navigate('/app/scan?install_session=1', { replace: true })
+    }
+  }, [location, contractLoading, isAmendment, step, installed, navigate])
 
   // ============== Default panel type ==============
   const defaultPanelType = useMemo(() => {
@@ -194,28 +241,71 @@ export function InstallWizardPage() {
   }
 
   // ============================================================================
+  // Passage a l'etape scan : save session (base64 sigs persistes) + navigate
+  // ============================================================================
+  function handleGoToScan() {
+    if (!location) return
+    if (!signOwner || !signOperator) {
+      setError('Signatures manquantes')
+      return
+    }
+    setError(null)
+    saveSession(location, installed, {
+      signOwner,
+      signOperator,
+      plannedPanelsCount: plannedPanelsCount ? Number(plannedPanelsCount) : undefined,
+    })
+    navigate('/app/scan?install_session=1')
+  }
+
+  // ============================================================================
   // Save : creation des panneaux + contrat
+  // Cas amendement : on reutilise les signatures du contrat original (pas de
+  // nouvelle signature demandee dans le nouveau flow).
   // ============================================================================
   async function handleFinalSave() {
     if (!location || !session?.user?.id) {
-      setError('Donnees incomplètes')
-      setStep('sign_operator')
+      setError('Donnees incompletes')
       return
     }
-    if (!signOwner || !signOperator) {
+    if (installed.length === 0) {
+      setError('Aucun panneau installe')
+      return
+    }
+    if (!isAmendment && (!signOwner || !signOperator)) {
       setError('Signatures manquantes')
-      setStep('sign_operator')
       return
     }
     setStep('saving')
     setError(null)
 
     try {
-      // 1. Upload signatures
-      const [sigOwnerPath, sigOperatorPath] = await Promise.all([
-        uploadSignature(signOwner, 'owner'),
-        uploadSignature(signOperator, 'operator'),
-      ])
+      // 1. Upload signatures OU reutilise celles du contrat existant (amendement)
+      let sigOwnerPath: string
+      let sigOperatorPath: string
+      let sigOwnerForPdf: string
+      let sigOperatorForPdf: string
+      if (isAmendment && existingContract) {
+        sigOwnerPath = existingContract.signature_owner
+        sigOperatorPath = existingContract.signature_operator
+        // Pour le PDF, on doit re-recuperer le base64 depuis storage
+        // (l'ancien code utilisait signOwner base64 en state).
+        const [ownerB64, operatorB64] = await Promise.all([
+          fetchSignatureAsBase64(sigOwnerPath),
+          fetchSignatureAsBase64(sigOperatorPath),
+        ])
+        sigOwnerForPdf = ownerB64
+        sigOperatorForPdf = operatorB64
+      } else {
+        const paths = await Promise.all([
+          uploadSignature(signOwner, 'owner'),
+          uploadSignature(signOperator, 'operator'),
+        ])
+        sigOwnerPath = paths[0]
+        sigOperatorPath = paths[1]
+        sigOwnerForPdf = signOwner
+        sigOperatorForPdf = signOperator
+      }
 
       // 2. Insert each panel record (the panelId in URL is the QR code, not DB id)
       //    Cherche s'il existe deja par qr_code, sinon insert.
@@ -348,8 +438,8 @@ export function InstallWizardPage() {
             panelsAdded={panelsToCreate}
             panelsRemoved={[]}
             panelsAfter={allPanelsSnapshot}
-            signatureOwner={signOwner}
-            signatureOperator={signOperator}
+            signatureOwner={sigOwnerForPdf}
+            signatureOperator={sigOperatorForPdf}
             company={company}
             zoneLabels={fullZoneLabels}
           />
@@ -402,8 +492,8 @@ export function InstallWizardPage() {
             }}
             closingMonths={location.closing_months}
             panels={panelsToCreate}
-            signatureOwner={signOwner}
-            signatureOperator={signOperator}
+            signatureOwner={sigOwnerForPdf}
+            signatureOperator={sigOperatorForPdf}
             company={company}
             zoneLabels={fullZoneLabels}
           />
@@ -439,7 +529,7 @@ export function InstallWizardPage() {
       toast(isAmendment ? 'Avenant signé' : 'Installation enregistrée')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
-      setStep('sign_operator')
+      setStep('another')
     }
   }
 
@@ -477,7 +567,12 @@ export function InstallWizardPage() {
           <LocationStep
             lat={lat}
             lng={lng}
-            onSelect={(loc) => { setLocation(loc); setStep('photo_zone') }}
+            onSelect={(loc) => {
+              // Lieu existant : setLocation, puis on decidera dans useEffect
+              // en fonction du contrat existant (isAmendment).
+              setLocation(loc)
+              setStep('contact_form')
+            }}
             onCreateNew={() => setStep('create_location')}
             onSelectPlace={(place) => {
               // Pre-rempli le form avec les donnees Google Places
@@ -527,7 +622,7 @@ export function InstallWizardPage() {
                   .single()
                 if (error) throw error
                 setLocation(created as Location)
-                setStep('photo_zone')
+                setStep('contact_form')
               } catch (e) {
                 toast(e instanceof Error ? e.message : 'Erreur création', 'error')
               }
@@ -579,18 +674,74 @@ export function InstallWizardPage() {
             installed={installed}
             isAmendment={isAmendment}
             onScanAnother={() => {
-              // Persiste la session et navigate vers le scanner
-              saveSession(location, installed)
+              // Persiste la session avec signatures pour re-hydrater apres scan
+              saveSession(location, installed, {
+                signOwner: signOwner || undefined,
+                signOperator: signOperator || undefined,
+                plannedPanelsCount: plannedPanelsCount ? Number(plannedPanelsCount) : undefined,
+              })
               navigate('/app/scan?install_session=1')
             }}
-            onFinish={() => setStep('sign_owner')}
+            onFinish={handleFinalSave}
           />
         </>
       )}
 
+      {step === 'contact_form' && location && !isAmendment && !contractLoading && (
+        <>
+          {header('Combien de panneaux ?', location.name, () => setStep('location'))}
+          <div className="space-y-4 pt-2">
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-sm font-medium">Établissement</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{location.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {[location.address, location.postal_code, location.city].filter(Boolean).join(', ') || '—'}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Gérant : {[location.owner_first_name, location.owner_last_name].filter(Boolean).join(' ') || '—'}
+              </p>
+            </div>
+            <div>
+              <label htmlFor="planned-count" className="mb-2 block text-sm font-medium">
+                Nombre de panneaux prévus <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="planned-count"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={20}
+                value={plannedPanelsCount}
+                onChange={(e) => setPlannedPanelsCount(e.target.value)}
+                placeholder="Ex: 3"
+                className="h-14 text-lg"
+                autoFocus
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Convenu avec le gérant. Tu pourras en installer moins si besoin — le contrat reflètera ce que tu poses réellement.
+              </p>
+            </div>
+            <Button
+              className="h-12 w-full text-base"
+              disabled={!plannedPanelsCount || Number(plannedPanelsCount) < 1}
+              onClick={() => setStep('sign_owner')}
+            >
+              Passer à la signature
+            </Button>
+          </div>
+        </>
+      )}
+
+      {step === 'contact_form' && contractLoading && (
+        <div className="flex flex-col items-center gap-4 py-16">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Vérification du contrat…</p>
+        </div>
+      )}
+
       {step === 'sign_owner' && location && (
         <>
-          {header('Signature bailleur', `${location.owner_first_name} ${location.owner_last_name}`.trim() || 'Le bailleur signe ici', () => setStep('another'))}
+          {header('Signature bailleur', `${location.owner_first_name} ${location.owner_last_name}`.trim() || 'Le bailleur signe ici', () => setStep('contact_form'))}
           <SignatureStep
             label="Le bailleur signe ici"
             value={signOwner}
@@ -607,8 +758,8 @@ export function InstallWizardPage() {
             label="Signe à ton tour"
             value={signOperator}
             onChange={setSignOperator}
-            onNext={handleFinalSave}
-            nextLabel="Valider et terminer"
+            onNext={handleGoToScan}
+            nextLabel="Valider et scanner les panneaux"
           />
           {error && (
             <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -1053,7 +1204,7 @@ function AnotherStep({
       </button>
 
       <Button onClick={onFinish} className="h-14 w-full text-base font-semibold">
-        Non, faire signer
+        {installed.length > 0 ? "Non, terminer l'installation" : 'Terminer'}
         <ChevronRight className="ml-1 size-5" />
       </Button>
     </div>
@@ -1162,6 +1313,20 @@ async function uploadSignature(dataUrl: string, prefix: string): Promise<string>
   })
   if (error) throw error
   return path
+}
+
+/**
+ * Re-charge une signature depuis storage et la retourne en data URL base64,
+ * pour re-injection dans le PDF (cas amendement ou signatures pas dans le state).
+ */
+async function fetchSignatureAsBase64(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from('panel-photos').download(path)
+  if (error || !data) throw new Error(`Impossible de charger la signature ${path}`)
+  const buf = await data.arrayBuffer()
+  const bytes = new Uint8Array(buf)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
+  return `data:image/png;base64,${btoa(binary)}`
 }
 
 async function generateAndUploadPDF(docNumber: string, element: React.ReactElement<DocumentProps>): Promise<string> {

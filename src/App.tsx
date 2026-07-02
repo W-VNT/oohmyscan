@@ -161,6 +161,7 @@ export default function App() {
                   <Route path="/app/profile" element={<ProfilePage />} />
                   <Route path="/app/my-campaigns" element={<MyCampaignsPage />} />
                   <Route path="/app/register/:panelId" element={<RegisterPanelPage />} />
+                  <Route path="/app/install" element={<InstallWizardPage />} />
                   <Route path="/app/install/:panelId" element={<InstallWizardPage />} />
                   <Route path="/app/assign/:panelId" element={<AssignCampaignPage />} />
                   <Route path="/app/diffuse" element={<DiffusePage />} />
