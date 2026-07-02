@@ -37,6 +37,8 @@ import { isValidUUID } from '@/lib/utils'
 import { PANEL_ZONES } from '@/lib/constants'
 import { ContractPDF } from '@/lib/pdf/ContractPDF'
 import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
+import { enqueueInstall } from '@/lib/offline-mutation-queue'
+import { isNetworkError } from '@/lib/install-replay'
 import type { Location } from '@/types'
 
 // ============================================================================
@@ -279,6 +281,41 @@ export function InstallWizardPage() {
     }
     setStep('saving')
     setError(null)
+
+    // Payload commun (utilise online ou queue offline)
+    const savePayload = {
+      location,
+      installed: installed.map((p) => ({
+        panelId: p.panelId,
+        qrCode: p.qrCode,
+        reference: p.reference,
+        photoPath: p.photoPath,
+        zone: p.zone,
+      })),
+      signOwner,
+      signOperator,
+      plannedPanelsCount: plannedPanelsCount ? Number(plannedPanelsCount) : undefined,
+      isAmendment,
+      userId: session.user.id,
+      lat: lat ?? undefined,
+      lng: lng ?? undefined,
+    }
+
+    // Si hors ligne : queue direct la mutation pour replay au retour reseau
+    if (!navigator.onLine) {
+      try {
+        await enqueueInstall(savePayload)
+        clearSession()
+        setSavedContractNumber('en attente')
+        setSavedFirstPanelId(installed[0]?.panelId ?? null)
+        setStep('success')
+        toast('Enregistré hors ligne — sync automatique dès reconnexion')
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Impossible de sauvegarder localement')
+        setStep('another')
+      }
+      return
+    }
 
     try {
       // 1. Upload signatures OU reutilise celles du contrat existant (amendement)
@@ -556,6 +593,21 @@ export function InstallWizardPage() {
       setStep('success')
       toast(isAmendment ? 'Avenant signé' : 'Installation enregistrée')
     } catch (e) {
+      // Fallback : si l'erreur ressemble a un souci reseau (perte cours de route),
+      // on queue la mutation pour replay au retour. Sinon on remonte l'erreur.
+      if (isNetworkError(e)) {
+        try {
+          await enqueueInstall(savePayload)
+          clearSession()
+          setSavedContractNumber('en attente')
+          setSavedFirstPanelId(installed[0]?.panelId ?? null)
+          setStep('success')
+          toast('Réseau perdu — enregistré localement, sync auto plus tard')
+          return
+        } catch {
+          // fall through
+        }
+      }
       setError(e instanceof Error ? e.message : 'Erreur')
       setStep('another')
     }
