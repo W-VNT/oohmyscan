@@ -27,12 +27,30 @@ export function ScanMissionSheet({ open, onClose }: ScanMissionSheetProps) {
   const { data: campaigns, isLoading } = useQuery({
     queryKey: ['my-active-campaigns-sheet', session?.user.id],
     queryFn: async () => {
+      // Filtre : uniquement les campagnes actives assignees a l'operateur
+      // (operator_user_ids contient son id). Une campagne non-assignee doit
+      // rester invisible aux operateurs.
       const { data: campaigns, error } = await supabase
         .from('campaigns')
-        .select('id, name, client_id, clients(company_name)')
+        .select(`
+          id, name, client_id, clients(company_name),
+          campaign_visuals(panel_formats(has_qr_code))
+        `)
         .eq('status', 'active')
+        .contains('operator_user_ids', [session!.user.id])
       if (error) throw error
-      return (campaigns ?? []) as unknown as { id: string; name: string; client_id: string | null; clients: { company_name: string } | null }[]
+      const raw = (campaigns ?? []) as unknown as Array<{
+        id: string; name: string; client_id: string | null
+        clients: { company_name: string } | null
+        campaign_visuals: Array<{ panel_formats: { has_qr_code: boolean } | null }> | null
+      }>
+      return raw.map((c) => {
+        const formats = (c.campaign_visuals ?? [])
+          .map((v) => v.panel_formats)
+          .filter((f): f is { has_qr_code: boolean } => f !== null)
+        const isDeposit = formats.length > 0 && formats.every((f) => !f.has_qr_code)
+        return { id: c.id, name: c.name, client_id: c.client_id, clients: c.clients, isDeposit }
+      })
     },
     enabled: !!session && open && showCampaigns,
   })
@@ -49,9 +67,14 @@ export function ScanMissionSheet({ open, onClose }: ScanMissionSheetProps) {
     navigate('/app/scan?mode=install')
   }
 
-  function goCampaign(campaignId: string) {
+  function goCampaign(campaignId: string, isDeposit: boolean) {
     handleClose()
-    navigate(`/app/scan?mode=campaign&campaign=${campaignId}`)
+    // Campagne QR : scan classique. Campagne depot (sous-bocks) : wizard depot.
+    if (isDeposit) {
+      navigate(`/app/deposit/${campaignId}`)
+    } else {
+      navigate(`/app/scan?mode=campaign&campaign=${campaignId}`)
+    }
   }
 
   return (
@@ -115,7 +138,7 @@ export function ScanMissionSheet({ open, onClose }: ScanMissionSheetProps) {
                   {campaigns.map((campaign) => (
                     <button
                       key={campaign.id}
-                      onClick={() => goCampaign(campaign.id)}
+                      onClick={() => goCampaign(campaign.id, campaign.isDeposit)}
                       className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors active:bg-muted/50"
                     >
                       <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">

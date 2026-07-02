@@ -67,8 +67,12 @@ export function CampaignDetailPage() {
   const { data: visuals } = useCampaignVisuals(id)
   const { data: clients } = useClients()
   const { data: allUsers } = useUsers()
-  // Admins peuvent aussi etre assignes en operateur (ils font parfois du terrain)
-  const operators = allUsers?.filter((u) => (u.role === 'operator' || u.role === 'admin') && u.is_active) ?? []
+  // Admins peuvent aussi etre assignes en operateur (ils font parfois du terrain).
+  // On inclut aussi les invites (is_active peut etre false tant qu'ils n'ont
+  // pas termine le set_password), sinon ils manquent dans le picker.
+  const operators = allUsers?.filter(
+    (u) => (u.role === 'operator' || u.role === 'admin') && (u.is_active || u.status === 'invited'),
+  ) ?? []
   const assignedOperatorIds = ((campaign as Record<string, unknown> | undefined)?.operator_user_ids as string[]) ?? []
   const assignedOperators = operators.filter((u) => assignedOperatorIds.includes(u.id))
   const createCampaign = useCreateCampaign()
