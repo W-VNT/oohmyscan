@@ -1357,6 +1357,24 @@ export interface Database {
         }
         Relationships: []
       }
+      company_public: {
+        Row: {
+          id: string
+          company_name: string | null
+          address: string | null
+          city: string | null
+          postal_code: string | null
+          siret: string | null
+          tva_number: string | null
+          phone: string | null
+          email: string | null
+          logo_path: string | null
+          legal_mentions: string | null
+          late_penalty_text: string | null
+          default_panel_type_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_next_quote_number: {

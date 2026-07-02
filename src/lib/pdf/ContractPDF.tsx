@@ -145,6 +145,7 @@ export function ContractPDF({
             <Text style={s.partyLine}>{establishment.postal_code} {establishment.city}</Text>
             {establishment.phone && <Text style={s.partyLine}>Tél : {establishment.phone}</Text>}
             <Text style={[s.partyLine, { marginTop: 4 }]}>Représentant : {owner.first_name} {owner.last_name} ({owner.role})</Text>
+            {owner.email && <Text style={s.partyLine}>Email : {owner.email}</Text>}
           </View>
         </View>
 

@@ -30,7 +30,7 @@ import { usePanelByQrCode } from '@/hooks/usePanels'
 import { nearbyPlaces, searchPlaces, type PlaceSuggestion } from '@/lib/google-places'
 import { reverseGeocodeAddress } from '@/lib/mapbox'
 import { useSearchLocations, useLocationContract } from '@/hooks/useLocations'
-import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
+import { useCompanyPublic } from '@/hooks/useCompanyPublic'
 import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
@@ -132,7 +132,7 @@ export function InstallWizardPage() {
   const navigate = useNavigate()
   const { session } = useAuth()
   const { lat, lng, requestPosition } = useGeolocation()
-  const { data: companySettings } = useCompanySettings()
+  const { data: companySettings } = useCompanyPublic()
   const { data: panelTypes } = useActivePanelTypes()
 
   // Continuation d'une session multi-panneaux ?
@@ -155,6 +155,7 @@ export function InstallWizardPage() {
   const [newLocationData, setNewLocationData] = useState({
     name: '',
     phone: '',
+    owner_email: '',
     owner_first_name: '',
     owner_last_name: '',
     address: '',
@@ -580,6 +581,7 @@ export function InstallWizardPage() {
               setNewLocationData({
                 name: place.name,
                 phone: '',
+                owner_email: '',
                 owner_first_name: '',
                 owner_last_name: '',
                 address: place.address,
@@ -614,7 +616,7 @@ export function InstallWizardPage() {
                     owner_first_name: data.owner_first_name.trim(),
                     owner_last_name: data.owner_last_name.trim(),
                     owner_role: 'Gérant',
-                    owner_email: null,
+                    owner_email: data.owner_email.trim() || null,
                     has_contract: false,
                     created_by: session?.user?.id ?? null,
                   })
@@ -974,7 +976,7 @@ function CreateLocationStep({
   onSubmit,
 }: {
   initial: {
-    name: string; phone: string; owner_first_name: string; owner_last_name: string;
+    name: string; phone: string; owner_email: string; owner_first_name: string; owner_last_name: string;
     address: string; postal_code: string; city: string;
   }
   lat: number | null
@@ -1056,6 +1058,10 @@ function CreateLocationStep({
 
       <Field label="Téléphone (facultatif)">
         <Input value={data.phone} onChange={(e) => patch('phone', e.target.value)} placeholder="04 93 00 11 22" inputMode="tel" type="tel" className="h-12 text-base" />
+      </Field>
+
+      <Field label="Email (facultatif)">
+        <Input value={data.owner_email} onChange={(e) => patch('owner_email', e.target.value)} placeholder="marie@camping-les-pins.fr" inputMode="email" type="email" className="h-12 text-base" />
       </Field>
 
       <Button
@@ -1339,7 +1345,7 @@ async function generateAndUploadPDF(docNumber: string, element: React.ReactEleme
   return path
 }
 
-function getCompanyForPDF(settings: ReturnType<typeof useCompanySettings>['data']) {
+function getCompanyForPDF(settings: ReturnType<typeof useCompanyPublic>['data']) {
   if (!settings) return {
     name: 'OOHMYAD', address: null, city: null, postal_code: null,
     siret: null, phone: null, email: null, logoUrl: null,
