@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useQuote, useQuoteLines, useCreateQuote, useUpdateQuote, useSaveQuoteLines, type QuoteLine } from '@/hooks/admin/useQuotes'
+import { useQuote, useQuoteLines, useCreateQuote, useUpdateQuote, useSaveQuoteLines, useDeleteQuote, type QuoteLine } from '@/hooks/admin/useQuotes'
 import { useQuoteInvoices } from '@/hooks/admin/useInvoices'
 import { useClients, useClient } from '@/hooks/admin/useClients'
 import { useAdmins } from '@/hooks/admin/useUsers'
@@ -75,6 +75,7 @@ export function QuoteDetailPage() {
 
   const createQuote = useCreateQuote()
   const updateQuote = useUpdateQuote()
+  const deleteQuote = useDeleteQuote()
   const { data: templates } = useQuoteTemplates()
   const createTemplate = useCreateQuoteTemplate()
   const saveLines = useSaveQuoteLines()
@@ -411,6 +412,26 @@ export function QuoteDetailPage() {
     await handleStatusChange('sent')
   }
 
+  async function handleDelete() {
+    if (!quote || !id) return
+    setShowActionsMenu(false)
+    const ok = await confirm({
+      title: `Supprimer le devis "${quote.quote_number}" ?`,
+      description:
+        'Le devis et toutes ses lignes seront supprimés définitivement. Cette action est irréversible. Les factures liées seront conservées.',
+      confirmLabel: 'Supprimer définitivement',
+      variant: 'destructive',
+    })
+    if (!ok) return
+    try {
+      await deleteQuote.mutateAsync(id)
+      toast('Devis supprimé')
+      navigate('/admin/quotes')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur lors de la suppression', 'error')
+    }
+  }
+
   async function handleDuplicate() {
     if (!quote || !settings) return
     setSaving(true)
@@ -679,6 +700,15 @@ export function QuoteDetailPage() {
                     {['converted', 'cancelled', 'rejected'].includes(quote.status) && !quote.is_archived && (
                       <button onClick={() => { setShowActionsMenu(false); updateQuote.mutateAsync({ id: id!, is_archived: true }).then(() => toast('Devis archivé')) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-muted">
                         Archiver
+                      </button>
+                    )}
+                    {quote.is_archived && (
+                      <button
+                        onClick={handleDelete}
+                        disabled={deleteQuote.isPending}
+                        className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                      >
+                        <Trash2 className="size-3.5" /> Supprimer définitivement
                       </button>
                     )}
                   </div>

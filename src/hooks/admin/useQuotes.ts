@@ -127,6 +127,33 @@ export function useCreateQuote() {
   })
 }
 
+/**
+ * Hard delete d'un devis. Uniquement autorise sur les devis archives
+ * (la validation is_archived est faite cote UI + garde-fou ici).
+ * Les lignes de devis sont supprimees en cascade SQL.
+ */
+export function useDeleteQuote() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data: quote, error: fetchErr } = await supabase
+        .from('quotes')
+        .select('is_archived')
+        .eq('id', id)
+        .single()
+      if (fetchErr) throw fetchErr
+      if (!quote.is_archived) {
+        throw new Error('Le devis doit être archivé avant suppression')
+      }
+      const { error } = await supabase.from('quotes').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] })
+    },
+  })
+}
+
 export function useUpdateQuote() {
   const queryClient = useQueryClient()
   return useMutation({

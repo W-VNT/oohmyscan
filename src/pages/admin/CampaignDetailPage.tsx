@@ -67,7 +67,8 @@ export function CampaignDetailPage() {
   const { data: visuals } = useCampaignVisuals(id)
   const { data: clients } = useClients()
   const { data: allUsers } = useUsers()
-  const operators = allUsers?.filter((u) => u.role === 'operator' && u.is_active) ?? []
+  // Admins peuvent aussi etre assignes en operateur (ils font parfois du terrain)
+  const operators = allUsers?.filter((u) => (u.role === 'operator' || u.role === 'admin') && u.is_active) ?? []
   const assignedOperatorIds = ((campaign as Record<string, unknown> | undefined)?.operator_user_ids as string[]) ?? []
   const assignedOperators = operators.filter((u) => assignedOperatorIds.includes(u.id))
   const createCampaign = useCreateCampaign()
@@ -565,6 +566,11 @@ export function CampaignDetailPage() {
                               {op.full_name.charAt(0).toUpperCase()}
                             </div>
                             <span className="truncate font-medium">{op.full_name}</span>
+                            {op.role === 'admin' && (
+                              <span className="ml-auto shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-500/20 dark:text-amber-400">
+                                admin
+                              </span>
+                            )}
                           </label>
                         )
                       })}
