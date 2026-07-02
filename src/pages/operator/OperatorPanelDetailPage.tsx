@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { usePanel, useUpdatePanel } from '@/hooks/usePanels'
-import { useLocation as useLocationData, useLocationPanels, useLocationContract, useContractAmendments } from '@/hooks/useLocations'
+import { useLocation as useLocationData, useLocationPanels, useLocationContract } from '@/hooks/useLocations'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
@@ -36,8 +36,6 @@ import {
   Landmark,
   FileText,
   PanelTop,
-  FileCheck,
-  Download,
   Zap,
   CircleOff,
   Unlink,
@@ -64,7 +62,6 @@ export function OperatorPanelDetailPage() {
   const { data: location } = useLocationData(panel?.location_id ?? undefined)
   const { data: locationPanels } = useLocationPanels(panel?.location_id ?? undefined)
   const { data: locationContract } = useLocationContract(panel?.location_id ?? undefined)
-  const { data: amendments } = useContractAmendments(locationContract?.id)
 
   const [editing, setEditing] = useState(false)
   const [showReport, setShowReport] = useState(false)
@@ -859,9 +856,11 @@ export function OperatorPanelDetailPage() {
           )}
         </div>
 
-        {/* Contract CTA (adaptive) */}
+        {/* Contract CTA : uniquement si aucun contrat ne couvre encore ce panneau.
+            Le detail contrat + PDF + avenants est deja affiche sur la fiche du
+            lieu (accessible via la card ci-dessus). */}
         {(() => {
-          // No location → show "create contract" which will also create the location
+          // Pas de lieu associe → creer un contrat pour rattacher le panneau
           if (!panel.location_id) {
             return (
               <Link
@@ -874,7 +873,7 @@ export function OperatorPanelDetailPage() {
             )
           }
 
-          // Location exists, no contract
+          // Lieu existant mais sans contrat
           if (!locationContract) {
             return (
               <Link
@@ -887,83 +886,14 @@ export function OperatorPanelDetailPage() {
             )
           }
 
-          // Contract exists, check if this panel is included
+          // Contrat existant : verifier si ce panneau y est inclus
           const panelsInContract = (locationContract.panels_snapshot as Array<{ panel_id: string }>) ?? []
           const isIncluded = panelsInContract.some((p) => p.panel_id === panel.id)
 
-          if (isIncluded) {
-            return (
-              <div className="rounded-lg border border-border p-3">
-                <div className="flex items-center gap-3">
-                  <FileCheck className="size-4 shrink-0 text-green-600" />
-                  <div className="flex-1">
-                    <p className="text-[13px] font-medium">Contrat {locationContract.contract_number}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Signé le {new Date(locationContract.signed_at).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                </div>
-                {locationContract.storage_path && (
-                  <button
-                    onClick={async () => {
-                      const { data } = supabase.storage.from('panel-photos').getPublicUrl(locationContract.storage_path!)
-                      if (data?.publicUrl) {
-                        window.open(data.publicUrl, '_blank')
-                      }
-                    }}
-                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border py-2 text-[12px] font-medium text-primary transition-colors active:bg-muted/50"
-                  >
-                    <Download className="size-3.5" />
-                    Voir le PDF
-                  </button>
-                )}
-                {/* Avenants */}
-                {amendments && amendments.length > 0 && (
-                  <div className="mt-3 border-t border-border pt-3">
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Avenants ({amendments.length})
-                    </p>
-                    <div className="space-y-2">
-                      {amendments.map((amendment) => (
-                        <div
-                          key={amendment.id}
-                          className="flex items-center justify-between rounded-md border border-border p-2.5"
-                        >
-                          <div>
-                            <p className="text-[12px] font-medium">{amendment.amendment_number}</p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {amendment.reason === 'panel_added' && 'Ajout de panneau'}
-                              {amendment.reason === 'panel_removed' && 'Retrait de panneau'}
-                              {amendment.reason === 'terms_updated' && 'Modification des termes'}
-                              {' · '}
-                              {amendment.signed_at
-                                ? new Date(amendment.signed_at).toLocaleDateString('fr-FR')
-                                : '—'}
-                            </p>
-                          </div>
-                          {amendment.storage_path && (
-                            <button
-                              onClick={async () => {
-                                const { data } = supabase.storage.from('panel-photos').getPublicUrl(amendment.storage_path!)
-                                if (data?.publicUrl) {
-                                  window.open(data.publicUrl, '_blank')
-                                }
-                              }}
-                              className="rounded-md p-1.5 text-muted-foreground transition-colors active:bg-muted/50"
-                            >
-                              <Download className="size-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          }
+          // Panneau deja dans le contrat → rien a afficher (le detail est sur le lieu)
+          if (isIncluded) return null
 
-          // Contract exists but panel not included → amendment
+          // Panneau pas encore inclus → proposer l'avenant
           return (
             <Link
               to={`/app/contract/${panel.id}`}
