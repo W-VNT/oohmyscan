@@ -1,13 +1,14 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useCampaigns } from '@/hooks/useCampaigns'
+import { useCampaigns, useDeleteCampaign } from '@/hooks/useCampaigns'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Loader2, Plus, Megaphone, Search, Filter, ArrowUpDown, Download, X, AlertTriangle, Building2, SlidersHorizontal } from 'lucide-react'
+import { Loader2, Plus, Megaphone, Search, Filter, ArrowUpDown, Download, X, AlertTriangle, Building2, SlidersHorizontal, MoreVertical, Trash2 } from 'lucide-react'
 import { ErrorState } from '@/components/shared/ErrorState'
 import { saveAs } from 'file-saver'
 import { toast } from '@/components/shared/Toast'
@@ -27,6 +28,27 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 export function CampaignsPage() {
   const { data: campaigns, isLoading, isError, error, refetch } = useCampaigns()
   const navigate = useNavigate()
+  const deleteCampaign = useDeleteCampaign()
+  const confirm = useConfirm()
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+
+  async function handleDelete(id: string, name: string) {
+    setOpenMenuId(null)
+    const ok = await confirm({
+      title: `Supprimer "${name}" ?`,
+      description:
+        'La campagne, ses visuels, assignations panneaux et dépôts seront supprimés définitivement. Devis et factures liés seront conservés (dé-liés). Action irréversible.',
+      confirmLabel: 'Supprimer définitivement',
+      variant: 'destructive',
+    })
+    if (!ok) return
+    try {
+      await deleteCampaign.mutateAsync(id)
+      toast('Campagne supprimée')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur lors de la suppression', 'error')
+    }
+  }
 
   const [search, setSearch] = useState('')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -386,6 +408,7 @@ export function CampaignsPage() {
                     <th className="px-4 py-3 font-medium">Statut</th>
                     <th className="hidden px-4 py-3 font-medium sm:table-cell">Panneaux</th>
                     <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Budget</th>
+                    <th className="w-10" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -458,6 +481,31 @@ export function CampaignsPage() {
                           {campaign.budget
                             ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(campaign.budget)
                             : '—'}
+                        </td>
+                        <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
+                          <div className="relative">
+                            <button
+                              onClick={() => setOpenMenuId(openMenuId === campaign.id ? null : campaign.id)}
+                              className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                              aria-label={`Actions pour ${campaign.name}`}
+                            >
+                              <MoreVertical className="size-4" />
+                            </button>
+                            {openMenuId === campaign.id && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
+                                <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-md border border-border bg-popover py-1 shadow-lg">
+                                  <button
+                                    onClick={() => handleDelete(campaign.id, campaign.name)}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                    Supprimer
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )

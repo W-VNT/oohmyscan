@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useCampaign, useCreateCampaign } from '@/hooks/useCampaigns'
+import { useCampaign, useCreateCampaign, useDeleteCampaign } from '@/hooks/useCampaigns'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
 import { useClients } from '@/hooks/admin/useClients'
 import { useUsers } from '@/hooks/admin/useUsers'
 import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
@@ -70,6 +71,8 @@ export function CampaignDetailPage() {
   const assignedOperatorIds = ((campaign as Record<string, unknown> | undefined)?.operator_user_ids as string[]) ?? []
   const assignedOperators = operators.filter((u) => assignedOperatorIds.includes(u.id))
   const createCampaign = useCreateCampaign()
+  const deleteCampaign = useDeleteCampaign()
+  const confirm = useConfirm()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadFormatId, setUploadFormatId] = useState<string>('')
@@ -232,6 +235,26 @@ export function CampaignDetailPage() {
     }
   }
 
+  // --- Delete ---
+  async function handleDelete() {
+    if (!campaign) return
+    const ok = await confirm({
+      title: `Supprimer "${campaign.name}" ?`,
+      description:
+        'La campagne, ses visuels, ses assignations panneaux et ses dépôts seront supprimés définitivement. Les devis et factures liés seront conservés (mais dé-liés). Action irréversible.',
+      confirmLabel: 'Supprimer définitivement',
+      variant: 'destructive',
+    })
+    if (!ok) return
+    try {
+      await deleteCampaign.mutateAsync(campaign.id)
+      toast('Campagne supprimée')
+      navigate('/admin/campaigns')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur lors de la suppression', 'error')
+    }
+  }
+
   // --- Cloning ---
   async function handleClone() {
     if (!campaign) return
@@ -354,6 +377,16 @@ export function CampaignDetailPage() {
             <Button variant="outline" size="sm" onClick={openEdit} className="flex-1 sm:flex-none">
               <Pencil className="mr-1.5 size-3.5" />
               Modifier
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleteCampaign.isPending}
+              className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive sm:flex-none"
+            >
+              {deleteCampaign.isPending ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Trash2 className="mr-1.5 size-3.5" />}
+              Supprimer
             </Button>
           </div>
         )}

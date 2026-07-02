@@ -49,15 +49,11 @@ export function useDiffuseCampaigns(userId: string | undefined) {
         }> | null
       }>
 
-      // Filtre côté JS : campagnes ouvertes (vides) ou explicitement assignées à l'user
+      // Filtre côté JS : SEUL les campagnes explicitement assignées à l'user.
+      // Une campagne avec operator_user_ids vide = non assignée = invisible aux ops.
       const filtered = userId
-        ? all.filter(
-            (c) =>
-              !c.operator_user_ids ||
-              c.operator_user_ids.length === 0 ||
-              c.operator_user_ids.includes(userId),
-          )
-        : all
+        ? all.filter((c) => c.operator_user_ids?.includes(userId))
+        : []
 
       return filtered.map((c) => {
         const allFormats = (c.campaign_visuals ?? [])

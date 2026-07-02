@@ -19,7 +19,7 @@ export function AssignCampaignPage() {
   const { session } = useAuth()
   const validPanelId = isValidUUID(panelId) ? panelId : undefined
   const { data: panel, isLoading: panelLoading } = usePanel(validPanelId)
-  const { data: campaigns, isLoading: campaignsLoading } = useActiveCampaigns()
+  const { data: campaigns, isLoading: campaignsLoading } = useActiveCampaigns(session?.user?.id)
   const assignCampaign = useAssignCampaign()
   const queryClient = useQueryClient()
 

@@ -70,11 +70,13 @@ export function OperatorDashboardPage() {
   const { data: activeCampaigns } = useQuery({
     queryKey: ['my-active-campaigns', session?.user.id],
     queryFn: async () => {
-      // 1. Get active campaigns
+      // 1. Get active campaigns explicitement assignées à l'opérateur.
+      //    Une campagne sans operator_user_ids = non assignée = pas visible ici.
       const { data: campaigns, error: cErr } = await supabase
         .from('campaigns')
         .select('id, name, client_id, clients(company_name), start_date, end_date, target_panel_count')
         .eq('status', 'active')
+        .contains('operator_user_ids', [session!.user.id])
       if (cErr) throw cErr
       if (!campaigns?.length) return []
 

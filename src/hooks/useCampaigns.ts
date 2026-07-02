@@ -18,15 +18,25 @@ export function useCampaigns() {
   })
 }
 
-export function useActiveCampaigns() {
+/**
+ * Campagnes actives.
+ * Si `assignedToUserId` est passé, filtre uniquement celles où
+ * l'user est explicitement dans operator_user_ids (utilisé côté opérateur).
+ * Sans argument = toutes (côté admin).
+ */
+export function useActiveCampaigns(assignedToUserId?: string) {
   return useQuery({
-    queryKey: ['campaigns', 'active'],
+    queryKey: ['campaigns', 'active', assignedToUserId ?? 'all'],
     queryFn: async (): Promise<CampaignWithClient[]> => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('campaigns')
         .select('*, clients(id, company_name)')
         .eq('status', 'active')
         .order('start_date', { ascending: false })
+      if (assignedToUserId) {
+        query = query.contains('operator_user_ids', [assignedToUserId])
+      }
+      const { data, error } = await query
       if (error) throw error
       return data as unknown as CampaignWithClient[]
     },
@@ -63,6 +73,35 @@ export function useCampaign(id: string | undefined) {
       return data as unknown as CampaignWithClient
     },
     enabled: !!id,
+  })
+}
+
+/**
+ * Hard delete d'une campagne + données liées.
+ * - campaign_visuals, campaign_reports, campaign_deposits : cascade SQL auto
+ * - panel_campaigns : suppression manuelle (pas de cascade en DB)
+ * - quotes/invoices/recurring_invoices : dé-liaison (campaign_id → NULL)
+ */
+export function useDeleteCampaign() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // 1. Dé-lie les documents financiers (on garde les factures/devis)
+      await Promise.all([
+        supabase.from('quotes').update({ campaign_id: null }).eq('campaign_id', id),
+        supabase.from('invoices').update({ campaign_id: null }).eq('campaign_id', id),
+        supabase.from('recurring_invoices').update({ campaign_id: null }).eq('campaign_id', id),
+      ])
+      // 2. Supprime les assignations panneaux (pas de cascade)
+      await supabase.from('panel_campaigns').delete().eq('campaign_id', id)
+      // 3. Supprime la campagne (cascade sur visuals, reports, deposits)
+      const { error } = await supabase.from('campaigns').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+    },
   })
 }
 
