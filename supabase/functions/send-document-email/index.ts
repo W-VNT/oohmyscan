@@ -61,9 +61,20 @@ Deno.serve(async (req) => {
       .eq("id", caller.id)
       .single();
 
-    if (callerProfile?.role !== "admin") {
+    // Admin peut tout envoyer. Operateur peut envoyer un contrat (juste apres
+    // installation terrain, workflow legitime).
+    const role = callerProfile?.role;
+    const allowed =
+      role === "admin" ||
+      (role === "operator" && documentType === "contract");
+    if (!allowed) {
       return new Response(
-        JSON.stringify({ error: "Accès réservé aux administrateurs" }),
+        JSON.stringify({
+          error:
+            role === "operator"
+              ? "Opérateur autorisé uniquement pour les emails de contrat"
+              : "Accès réservé aux administrateurs",
+        }),
         {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -72,7 +83,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { to, subject, html, pdfBase64, pdfFilename } = await req.json();
+    const { to, subject, html, pdfBase64, pdfFilename, documentType } = await req.json();
 
     if (!to || !subject || !html) {
       return new Response(

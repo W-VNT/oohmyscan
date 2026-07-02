@@ -78,6 +78,8 @@ export interface ContractPDFProps {
   }
   closingMonths: string | null
   panels: PanelSnapshot[]
+  /** Format(s) des supports installés (nom + dimensions). Sinon fallback générique. */
+  panelFormat?: { name: string; width_cm: number | null; height_cm: number | null } | null
   signatureOwner: string
   signatureOperator: string
   company: {
@@ -100,6 +102,7 @@ export function ContractPDF({
   establishment,
   owner,
   panels,
+  panelFormat,
   signatureOwner,
   signatureOperator,
   company,
@@ -107,6 +110,13 @@ export function ContractPDF({
 }: ContractPDFProps) {
   void _zoneLabels
   const pointsTotal = panels.length * 50
+  // Descriptif du format : "Sous-bock (10 × 10 cm)" ou "4x3 (400 × 300 cm)"
+  // Fallback si pas fourni : mention neutre "selon devis"
+  const formatLine = panelFormat
+    ? panelFormat.width_cm && panelFormat.height_cm
+      ? `${panelFormat.name} — ${panelFormat.width_cm} × ${panelFormat.height_cm} cm`
+      : panelFormat.name
+    : 'Selon spécifications techniques convenues'
 
   return (
     <Document>
@@ -161,7 +171,7 @@ export function ContractPDF({
         {/* Article 1 — Objet */}
         <Text style={s.articleTitle}>1. Objet</Text>
         <Text style={s.bodyText}>
-          L'établissement autorise {company.name} à installer un ou plusieurs supports publicitaires en plexiglas au sein de son établissement.
+          L'établissement autorise {company.name} à installer un ou plusieurs supports publicitaires au sein de son établissement.
         </Text>
         <Text style={s.bodyText}>
           Ces supports permettent la diffusion de campagnes publicitaires renouvelées périodiquement par les équipes de {company.name}.
@@ -192,7 +202,7 @@ export function ContractPDF({
         <Text style={s.articleTitle}>4. Nombre de supports</Text>
         <View style={s.highlightBox}>
           <Text style={s.highlightText}>Nombre de supports installés : {panels.length}</Text>
-          <Text style={[s.partyLine, { marginTop: 2 }]}>Format standard : 40 × 60 cm</Text>
+          <Text style={s.highlightSubtext}>Format : {formatLine}</Text>
         </View>
 
         {/* Article 5 — Avantage partenaire */}
@@ -219,7 +229,10 @@ export function ContractPDF({
         {/* Article 7 — Résiliation */}
         <Text style={s.articleTitle}>7. Résiliation</Text>
         <Text style={s.bodyText}>
-          L'établissement peut demander le retrait des supports à tout moment.
+          L'établissement peut demander le retrait des supports moyennant un préavis de <Text style={{ fontWeight: 'bold' }}>15 jours</Text>, notifié par écrit (email ou courrier) à {company.name}.
+        </Text>
+        <Text style={s.bodyText}>
+          {company.name} s'engage à intervenir dans ce délai pour désinstaller les supports.
         </Text>
 
         {/* Article 8 — Validation */}

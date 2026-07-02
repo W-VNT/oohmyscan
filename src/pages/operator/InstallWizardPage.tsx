@@ -417,7 +417,7 @@ export function InstallWizardPage() {
           reference: p.reference,
         }))
 
-        const pdfPath = await generateAndUploadPDF(amendmentNumber, (
+        const { path: pdfPath } = await generateAndUploadPDF(amendmentNumber, (
           <AmendmentPDF
             amendmentNumber={amendmentNumber}
             originalContractNumber={existingContract.contract_number}
@@ -473,7 +473,7 @@ export function InstallWizardPage() {
         if (rpcErr) throw rpcErr
         const contractNumber = numData as string
 
-        const pdfPath = await generateAndUploadPDF(contractNumber, (
+        const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(contractNumber, (
           <ContractPDF
             contractNumber={contractNumber}
             signedAt={now}
@@ -493,6 +493,11 @@ export function InstallWizardPage() {
             }}
             closingMonths={location.closing_months}
             panels={panelsToCreate}
+            panelFormat={defaultPanelType ? {
+              name: defaultPanelType.name,
+              width_cm: defaultPanelType.width_cm,
+              height_cm: defaultPanelType.height_cm,
+            } : null}
             signatureOwner={sigOwnerForPdf}
             signatureOperator={sigOperatorForPdf}
             company={company}
@@ -523,6 +528,24 @@ export function InstallWizardPage() {
         if (insertErr) throw insertErr
 
         setSavedContractNumber(contractNumber)
+
+        // Envoi automatique du contrat au gerant par email (si email fourni).
+        // Best-effort : les erreurs sont juste toastees, elles ne bloquent
+        // pas l'enregistrement.
+        if (location.owner_email) {
+          const res = await sendContractEmail({
+            to: location.owner_email,
+            ownerFirstName: location.owner_first_name || '',
+            contractNumber,
+            companyName: company.name,
+            pdfBlob,
+          })
+          if (res.ok) {
+            toast(`Contrat envoyé à ${location.owner_email}`)
+          } else {
+            toast(`Contrat sauvegardé, envoi email échoué : ${res.error ?? 'erreur'}`, 'error')
+          }
+        }
       }
 
       clearSession()
@@ -1335,14 +1358,68 @@ async function fetchSignatureAsBase64(path: string): Promise<string> {
   return `data:image/png;base64,${btoa(binary)}`
 }
 
-async function generateAndUploadPDF(docNumber: string, element: React.ReactElement<DocumentProps>): Promise<string> {
+async function generateAndUploadPDF(docNumber: string, element: React.ReactElement<DocumentProps>): Promise<{ path: string; blob: Blob }> {
   const blob = await pdf(element).toBlob()
   const path = `contracts/${docNumber}.pdf`
   const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
     contentType: 'application/pdf', upsert: true,
   })
   if (error) throw error
-  return path
+  return { path, blob }
+}
+
+/**
+ * Convertit un Blob en string base64 (sans le prefixe data:) pour l'envoi
+ * en tant que piece jointe email via la fonction edge.
+ */
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = await blob.arrayBuffer()
+  const bytes = new Uint8Array(buf)
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
+}
+
+/**
+ * Envoie le contrat par email au gerant via l'edge function send-document-email.
+ * N'echoue jamais : les erreurs sont loggees mais ne bloquent pas le save.
+ */
+async function sendContractEmail(params: {
+  to: string
+  ownerFirstName: string
+  contractNumber: string
+  companyName: string
+  pdfBlob: Blob
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const pdfBase64 = await blobToBase64(params.pdfBlob)
+    const html = `
+      <div style="font-family: -apple-system, sans-serif; color: #0A0A0A; max-width: 600px;">
+        <p>Bonjour ${params.ownerFirstName},</p>
+        <p>Suite à notre passage aujourd'hui, vous trouverez ci-joint votre <strong>contrat d'autorisation d'installation N° ${params.contractNumber}</strong>, signé électroniquement.</p>
+        <p>Ce document engage ${params.companyName} et votre établissement pour la période convenue. Conservez-le précieusement, il vous servira de référence pour toute demande future.</p>
+        <p>Un grand merci pour votre confiance !</p>
+        <p style="margin-top: 24px; color: #737373; font-size: 13px;">L'équipe ${params.companyName}</p>
+      </div>
+    `.trim()
+    const { error } = await supabase.functions.invoke('send-document-email', {
+      body: {
+        to: params.to,
+        subject: `Votre contrat d'installation N° ${params.contractNumber} — ${params.companyName}`,
+        html,
+        pdfBase64,
+        pdfFilename: `contrat-${params.contractNumber}.pdf`,
+        documentType: 'contract',
+      },
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Erreur inconnue' }
+  }
 }
 
 function getCompanyForPDF(settings: ReturnType<typeof useCompanyPublic>['data']) {
