@@ -1,45 +1,51 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer'
 import { formatDateFR } from './pdf-helpers'
 
+// Charte graphique OOH MY AD ! — cohérente avec la landing page
+// Jaune #F5C400 + noir #0A0A0A, minimaliste
 const c = {
-  primary: '#0F172A',
-  muted: '#64748B',
-  border: '#E2E8F0',
-  bg: '#F8FAFC',
-  accent: '#2563EB',
+  primary: '#0A0A0A',    // Texte principal
+  muted: '#737373',      // Texte secondaire / labels
+  border: '#E5E5E5',     // Séparateurs
+  bg: '#FAFAFA',         // Fond de blocs neutres
+  accent: '#F5C400',     // Jaune brand (highlights)
+  accentDark: '#0A0A0A', // Titres articles (noir plutôt que jaune pour lisibilité)
 }
 
 const s = StyleSheet.create({
   page: { padding: 40, fontSize: 9, fontFamily: 'Helvetica', color: c.primary },
   // Header
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: c.primary },
   companyBlock: { maxWidth: 240 },
-  companyName: { fontSize: 13, fontWeight: 'bold', marginBottom: 4 },
+  companyName: { fontSize: 13, fontWeight: 'bold', marginBottom: 4, letterSpacing: 0.5 },
   companyLine: { fontSize: 8, color: c.muted, lineHeight: 1.5 },
   docBlock: { textAlign: 'right' },
   docMeta: { fontSize: 8, color: c.muted, lineHeight: 1.6 },
-  // Title
-  title: { fontSize: 14, fontWeight: 'bold', textAlign: 'center', marginBottom: 16, color: c.accent },
-  subtitle: { fontSize: 9, textAlign: 'center', color: c.muted, marginBottom: 20 },
+  // Title — noir gras, décoration accent jaune
+  titleWrap: { alignItems: 'center', marginBottom: 20 },
+  title: { fontSize: 16, fontWeight: 'bold', textAlign: 'center', color: c.primary, letterSpacing: 0.5, textTransform: 'uppercase' },
+  titleAccent: { width: 36, height: 3, backgroundColor: c.accent, marginTop: 8 },
+  subtitle: { fontSize: 9, textAlign: 'center', color: c.muted, marginBottom: 20, textTransform: 'uppercase', letterSpacing: 1.5 },
   // Parties
   partiesRow: { flexDirection: 'row', gap: 20, marginBottom: 16 },
-  partyBox: { flex: 1, backgroundColor: c.bg, borderRadius: 4, padding: 10 },
+  partyBox: { flex: 1, backgroundColor: c.bg, borderRadius: 4, padding: 12, borderLeftWidth: 3, borderLeftColor: c.accent },
   partyLabel: { fontSize: 7, fontWeight: 'bold', color: c.muted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
-  partyName: { fontSize: 9, fontWeight: 'bold', marginBottom: 2 },
+  partyName: { fontSize: 10, fontWeight: 'bold', marginBottom: 2, color: c.primary },
   partyLine: { fontSize: 8, color: c.muted, lineHeight: 1.5 },
-  // Articles
-  articleTitle: { fontSize: 9, fontWeight: 'bold', color: c.accent, marginBottom: 4, marginTop: 14 },
+  // Articles — noir gras (pas de bleu), avec petite décoration accent
+  articleTitle: { fontSize: 10, fontWeight: 'bold', color: c.primary, marginBottom: 6, marginTop: 16, textTransform: 'uppercase', letterSpacing: 0.5 },
   bodyText: { fontSize: 8, color: c.primary, lineHeight: 1.7, marginBottom: 4 },
   bulletText: { fontSize: 8, color: c.primary, lineHeight: 1.7, marginBottom: 2, paddingLeft: 12 },
-  highlightBox: { backgroundColor: c.bg, borderRadius: 4, padding: 8, marginBottom: 6, marginTop: 4 },
-  highlightText: { fontSize: 8.5, fontWeight: 'bold', color: c.primary },
+  highlightBox: { backgroundColor: c.bg, borderRadius: 4, padding: 10, marginBottom: 6, marginTop: 6, borderLeftWidth: 3, borderLeftColor: c.accent },
+  highlightText: { fontSize: 9, fontWeight: 'bold', color: c.primary },
+  highlightSubtext: { fontSize: 8, color: c.primary, marginTop: 3 },
   // Signatures
-  signatureRow: { flexDirection: 'row', gap: 40, marginTop: 16 },
-  signatureBox: { flex: 1 },
-  signatureLabel: { fontSize: 8, fontWeight: 'bold', color: c.muted, marginBottom: 4 },
+  signatureRow: { flexDirection: 'row', gap: 40, marginTop: 24 },
+  signatureBox: { flex: 1, borderTopWidth: 1, borderTopColor: c.primary, paddingTop: 8 },
+  signatureLabel: { fontSize: 8, fontWeight: 'bold', color: c.muted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
   signatureName: { fontSize: 8, color: c.muted, marginBottom: 6 },
   signatureImage: { width: 160, height: 50, objectFit: 'contain' },
-  dateLine: { fontSize: 8, color: c.muted, marginBottom: 8 },
+  dateLine: { fontSize: 8, color: c.muted, marginBottom: 8, fontStyle: 'italic' },
   // Footer
   footer: { position: 'absolute', bottom: 30, left: 40, right: 40 },
   footerLine: { borderTopWidth: 0.5, borderTopColor: c.border, paddingTop: 8 },
@@ -124,7 +130,10 @@ export function ContractPDF({
         </View>
 
         {/* Title */}
-        <Text style={s.title}>Autorisation d'installation de supports publicitaires</Text>
+        <View style={s.titleWrap}>
+          <Text style={s.title}>Autorisation d'installation</Text>
+          <View style={s.titleAccent} />
+        </View>
 
         {/* Between */}
         <Text style={s.subtitle}>Entre</Text>
@@ -201,8 +210,8 @@ export function ContractPDF({
           Les points sont attribués à la fin de la période d'exploitation et sont convertibles sur la plateforme partenaire ACAD, donnant accès à une sélection de produits parmi plus de 500 références.
         </Text>
 
-        {/* Article 6 — Engagements */}
-        <Text style={s.articleTitle}>6. Engagements</Text>
+        {/* Article 6 — Engagements — force page break pour ne pas etre coupe */}
+        <Text style={s.articleTitle} break>6. Engagements</Text>
         <Text style={s.bodyText}>L'établissement s'engage à :</Text>
         <Text style={s.bulletText}>• maintenir les supports installés pendant la durée de l'autorisation</Text>
         <Text style={s.bulletText}>• permettre l'accès aux équipes pour le remplacement des affiches</Text>
