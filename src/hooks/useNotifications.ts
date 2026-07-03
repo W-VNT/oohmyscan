@@ -42,26 +42,37 @@ export function useNotifications() {
     staleTime: 30_000,
   })
 
-  // Realtime subscription : INSERT/UPDATE => invalidate + soft refetch
+  // Realtime subscription : INSERT/UPDATE => invalidate + soft refetch.
+  // Wrap dans try/catch : sur certains navigateurs (Safari + CSP strict), la
+  // WebSocket peut jeter synchronement. On veut pas crasher toute l'app pour ça
+  // — le fallback c'est le staleTime + polling naturel de tanstack query.
   useEffect(() => {
     if (!userId) return
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['notifications', userId] })
-        },
-      )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(channel)
+    try {
+      const channel = supabase
+        .channel(`notifications:${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications', userId] })
+          },
+        )
+        .subscribe()
+      return () => {
+        try {
+          supabase.removeChannel(channel)
+        } catch {
+          // no-op
+        }
+      }
+    } catch (e) {
+      console.warn('[notifications] realtime indisponible, fallback polling', e)
     }
   }, [userId, queryClient])
 
