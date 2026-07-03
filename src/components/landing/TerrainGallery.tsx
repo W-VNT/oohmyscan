@@ -5,9 +5,20 @@ import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface TerrainGalleryProps {
   photos: string[]
+  /** Contexte pour enrichir les alt text SEO — ex. "campagne outdoor". */
+  context?: string
 }
 
-export function TerrainGallery({ photos }: TerrainGalleryProps) {
+/** Extrait un label lisible depuis un chemin d'image (ex. /a/puy-du-fou.jpg -> "Puy du Fou"). */
+function labelFromPath(path: string): string {
+  const base = path.split('/').pop()?.replace(/\.[^.]+$/, '') ?? ''
+  return base
+    .split('-')
+    .map((w, i) => (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(' ')
+}
+
+export function TerrainGallery({ photos, context = 'campagne' }: TerrainGalleryProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   const close = useCallback(() => setOpenIndex(null), [])
@@ -37,25 +48,29 @@ export function TerrainGallery({ photos }: TerrainGalleryProps) {
         Photos terrain
       </span>
       <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
-        {photos.map((src, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => setOpenIndex(i)}
-            aria-label={`Voir photo terrain ${i + 1} en grand`}
-            className="group relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-[#E5E5E5] dark:border-white/[0.06] bg-[#F5F5F5] dark:bg-white/[0.03] transition-all hover:border-[#F5C400] hover:shadow-md"
-          >
-            <img
-              src={src}
-              alt={`Photo terrain ${i + 1}`}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-              loading="lazy"
-              onError={(e) => {
-                ;(e.target as HTMLImageElement).style.display = 'none'
-              }}
-            />
-          </button>
-        ))}
+        {photos.map((src, i) => {
+          const label = labelFromPath(src)
+          const alt = `Photo terrain — ${context} ${label} par OOH MY AD !`
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setOpenIndex(i)}
+              aria-label={`Voir ${label} en grand`}
+              className="group relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-[#E5E5E5] dark:border-white/[0.06] bg-[#F5F5F5] dark:bg-white/[0.03] transition-all hover:border-[#F5C400] hover:shadow-md"
+            >
+              <img
+                src={src}
+                alt={alt}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                loading="lazy"
+                onError={(e) => {
+                  ;(e.target as HTMLImageElement).style.display = 'none'
+                }}
+              />
+            </button>
+          )
+        })}
       </div>
 
       {/* Lightbox modal — rendered via portal on document.body to escape any transformed parents (e.g. slide-over drawer) */}
@@ -103,7 +118,7 @@ export function TerrainGallery({ photos }: TerrainGalleryProps) {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.25 }}
               src={photos[openIndex]}
-              alt={`Photo terrain ${openIndex + 1}`}
+              alt={`Photo terrain ${context} ${labelFromPath(photos[openIndex])} par OOH MY AD !`}
               onClick={(e) => e.stopPropagation()}
               className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
             />

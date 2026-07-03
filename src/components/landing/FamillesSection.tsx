@@ -31,19 +31,28 @@ export function FamillesSection() {
         {/* Grille 2x2 — 4 familles physiques */}
         <div className="mt-12 grid gap-4 md:grid-cols-2">
           {FAMILLES.map((famille, i) => (
-            <motion.div
+            <motion.article
               key={famille.id}
               initial={{ opacity: 0, y: 30 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.1 + i * 0.1 }}
               onClick={() => setSelected(famille)}
-              className="group cursor-pointer overflow-hidden rounded-2xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] transition-all hover:border-[#F5C400]/30 hover:shadow-lg dark:hover:border-[#F5C400]/40 dark:hover:bg-white/[0.04] dark:hover:shadow-[0_0_28px_rgba(245,196,0,0.12)]"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setSelected(famille)
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Ouvrir la fiche ${famille.name.toLowerCase()}`}
+              className="group cursor-pointer overflow-hidden rounded-2xl border border-[#E5E5E5] dark:border-white/[0.06] bg-white dark:bg-white/[0.02] transition-all hover:border-[#F5C400]/30 hover:shadow-lg dark:hover:border-[#F5C400]/40 dark:hover:bg-white/[0.04] dark:hover:shadow-[0_0_28px_rgba(245,196,0,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5C400] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FAFAFA] dark:focus-visible:ring-offset-[#0A0A0A]"
             >
               {/* Image */}
               <div className="relative aspect-[16/9] overflow-hidden">
                 <img
                   src={famille.photo}
-                  alt={famille.name}
+                  alt={`${famille.name.toLowerCase()} — ${famille.tagline}`}
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                   loading="lazy"
                 />
@@ -68,7 +77,7 @@ export function FamillesSection() {
                   <ArrowRight className="h-3.5 w-3.5" />
                 </div>
               </div>
-            </motion.div>
+            </motion.article>
           ))}
         </div>
 

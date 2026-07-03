@@ -47,14 +47,16 @@ export function LandingPage() {
       <SmoothScroll>
         <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#0A0A0A] text-[#111111] dark:text-[#F5F5F5]" style={{ fontFamily: "'Inter', sans-serif" }}>
           <Navbar />
-          <HeroC />
-          <TrustSection />
-          <ConceptSection />
-          <FamillesSection />
-          <DigitalSection />
-          <ProcessC />
-          <WhyUsSection />
-          <ContactSection />
+          <main>
+            <HeroC />
+            <TrustSection />
+            <ConceptSection />
+            <FamillesSection />
+            <DigitalSection />
+            <ProcessC />
+            <WhyUsSection />
+            <ContactSection />
+          </main>
           <Footer />
         </div>
       </SmoothScroll>

@@ -6,7 +6,7 @@ export function HeroC() {
       {/* Mobile background image — photo en bande centrale, jaune plein en haut & bas
           Le bas est plus opaque pour garder les CTAs et stats parfaitement lisibles */}
       <div className="absolute inset-0 md:hidden">
-        <img src="/images/supports/hero.jpg" alt="Supports publicitaires OOH MY AD !" className="h-full w-full object-cover" loading="eager" />
+        <img src="/images/supports/hero.jpg" alt="Supports publicitaires de proximité — OOH MY AD ! média captif déployé en France" className="h-full w-full object-cover" loading="eager" />
         {/* Tint jaune subtil sur toute la photo */}
         <div className="absolute inset-0 bg-[#F5C400]/50" />
         {/* Fade jaune plein en bas — zone opaque renforcee pour le contraste des CTAs */}
@@ -22,7 +22,7 @@ export function HeroC() {
       >
         <img
           src="/images/supports/hero.jpg"
-          alt="Supports publicitaires OOH MY AD !"
+          alt="Supports publicitaires de proximité — OOH MY AD ! média captif déployé en France"
           className="h-full w-full object-cover"
           loading="eager"
         />
@@ -43,7 +43,7 @@ export function HeroC() {
           >
             <img
               src="/images/logo-oohmyad-white.svg"
-              alt="OOH MY AD !"
+              alt="Logo OOH MY AD ! — média publicitaire de proximité captif"
               className="mx-auto block w-full max-w-[340px] md:mx-0 md:max-w-[680px] md:-translate-x-[7%]"
             />
           </motion.div>

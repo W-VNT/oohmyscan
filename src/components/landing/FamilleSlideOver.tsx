@@ -56,7 +56,7 @@ export function FamilleSlideOver({ famille, onClose }: FamilleSlideOverProps) {
             <div className="relative aspect-[16/10] overflow-hidden">
               <img
                 src={famille.photo}
-                alt={famille.name}
+                alt={`Support publicitaire OOH MY AD ! — ${famille.name.toLowerCase()} — ${famille.tagline}`}
                 className="h-full w-full object-cover"
               />
               <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#FAFAFA] dark:from-[#0A0A0A] to-transparent" />
@@ -116,7 +116,7 @@ export function FamilleSlideOver({ famille, onClose }: FamilleSlideOverProps) {
               {/* Photos terrain */}
               {famille.terrainPhotos.length > 0 && (
                 <div className="mt-6 border-t border-[#E5E5E5] dark:border-white/[0.06] pt-6">
-                  <TerrainGallery photos={famille.terrainPhotos} />
+                  <TerrainGallery photos={famille.terrainPhotos} context={famille.name.toLowerCase()} />
                 </div>
               )}
 
