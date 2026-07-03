@@ -106,3 +106,8 @@ export async function countQueuedPhotos(): Promise<number> {
   const all = await withStore('readonly', (store) => idbRequest(store.count()))
   return all ?? 0
 }
+
+/** Purge toute la queue des photos en attente. */
+export async function clearQueuedPhotos(): Promise<void> {
+  await withStore('readwrite', (store) => idbRequest(store.clear()))
+}

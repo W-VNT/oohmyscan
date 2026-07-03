@@ -124,3 +124,8 @@ export async function countPendingInstalls(): Promise<number> {
   const n = await withStore('readonly', (s) => idbRequest(s.count()))
   return n ?? 0
 }
+
+/** Purge toute la queue des installations en attente. */
+export async function clearPendingInstalls(): Promise<void> {
+  await withStore('readwrite', (s) => idbRequest(s.clear()))
+}
