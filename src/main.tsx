@@ -27,6 +27,30 @@ const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark)
 document.documentElement.classList.toggle('dark', isDark)
 document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#0A0A0A' : '#FFFFFF')
 
+// Quand un nouveau Service Worker prend le controle (via clients.claim() en SW),
+// on force un reload complet de la page. Sinon le JS deja charge en memoire
+// continue de tourner avec des references vers les anciens chunks (qui n'existent
+// plus sur la nouvelle version), et l'utilisateur voit un mix ancien/nouveau
+// avec crash au premier lazy-import.
+// Guard sessionStorage : evite la boucle infinie de reload.
+if ('serviceWorker' in navigator) {
+  let reloading = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return
+    // Skip le premier controllerchange qui arrive au tout debut (SW s'installe
+    // la premiere fois, aucun code cache n'est stale a ce moment-la).
+    if (sessionStorage.getItem('sw_ever_controlled') !== '1') {
+      sessionStorage.setItem('sw_ever_controlled', '1')
+      return
+    }
+    reloading = true
+    window.location.reload()
+  })
+  if (navigator.serviceWorker.controller) {
+    sessionStorage.setItem('sw_ever_controlled', '1')
+  }
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <HelmetProvider>

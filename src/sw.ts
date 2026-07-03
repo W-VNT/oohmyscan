@@ -22,7 +22,20 @@ declare const self: ServiceWorkerGlobalScope
 precacheAndRoute(self.__WB_MANIFEST)
 cleanupOutdatedCaches()
 
-// Force update immediat quand un nouveau SW est disponible
+// Auto-update : le nouveau SW prend le controle immediatement au lieu
+// d'attendre que tous les onglets soient fermes. Combine avec clients.claim
+// pour prendre le controle des onglets/PWA deja ouverts.
+// Necessaire sur iOS PWA ou "fermer" l'app veut dire swipe up dans le
+// selecteur, ce qui n'arrive quasi jamais en usage terrain.
+self.addEventListener('install', () => {
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim())
+})
+
+// Trigger manuel (utilise par PWAUpdatePrompt via workbox-window)
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting()
