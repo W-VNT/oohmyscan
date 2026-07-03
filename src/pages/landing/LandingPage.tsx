@@ -22,13 +22,13 @@ export function LandingPage() {
         />
         <meta property="og:title" content="OOH MY AD ! — Média de proximité captif" />
         <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://oohmyad.com/og-image.jpg" />
+        <meta property="og:image" content="https://oohmyad.fr/og-image.jpg" />
         <meta
           property="og:description"
           content="5 familles de supports captifs déployés partout en France. Du terrain au digital."
         />
-        <meta property="og:url" content="https://oohmyad.com" />
-        <link rel="canonical" href="https://oohmyad.com" />
+        <meta property="og:url" content="https://oohmyad.fr" />
+        <link rel="canonical" href="https://oohmyad.fr" />
       </Helmet>
 
       <SmoothScroll>

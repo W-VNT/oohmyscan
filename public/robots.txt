@@ -11,4 +11,4 @@ Disallow: /app
 Disallow: /app/*
 Disallow: /landing
 
-Sitemap: https://oohmyad.com/sitemap.xml
+Sitemap: https://oohmyad.fr/sitemap.xml

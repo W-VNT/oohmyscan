@@ -802,7 +802,7 @@ export function SettingsPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               {field('report_linkedin_url', 'URL LinkedIn', 'https://linkedin.com/company/oohmyad', 'url')}
-              {field('report_website_url', 'URL site web', 'https://oohmyad.com', 'url')}
+              {field('report_website_url', 'URL site web', 'https://oohmyad.fr', 'url')}
             </div>
             <p className="text-xs text-muted-foreground">
               Affichees sur la page "Merci" du rapport. Modifiables par rapport.

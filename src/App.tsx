@@ -75,7 +75,7 @@ const LocationDetailPage = lazy(() => import('@/pages/admin/locations/LocationDe
 
 /**
  * Hostname-based redirect for subdomain routing.
- * app.oohmyad.com → /app, admin.oohmyad.com → /admin
+ * app.oohmyad.fr → /app, admin.oohmyad.fr → /admin
  */
 function HostnameRedirect() {
   const { pathname } = useLocation()
