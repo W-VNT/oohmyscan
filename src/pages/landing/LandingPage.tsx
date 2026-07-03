@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async'
+import { getLandingPageSchema } from '@/lib/seo/schema'
 import { Navbar } from '@/components/landing/Navbar'
 import { SmoothScroll } from '@/components/landing/SmoothScroll'
 import { HeroC } from '@/components/landing/heroes/HeroC'
@@ -18,17 +19,29 @@ export function LandingPage() {
         <title>OOH MY AD ! — Média de proximité captif</title>
         <meta
           name="description"
-          content="5 familles de supports publicitaires captifs : affichage de proximité, médias tactiques, réseaux ville & estival, animation terrain, digital. Partout en France."
+          content="Média de proximité captif pour marques et agences : 5 familles de supports outdoor + digital, déployés partout en France. Brief gratuit, devis 24h."
         />
         <meta property="og:title" content="OOH MY AD ! — Média de proximité captif" />
         <meta property="og:type" content="website" />
         <meta property="og:image" content="https://oohmyad.fr/og-image.jpg" />
         <meta
           property="og:description"
-          content="5 familles de supports captifs déployés partout en France. Du terrain au digital."
+          content="Média de proximité captif pour marques et agences : 5 familles de supports outdoor + digital, déployés partout en France. Brief gratuit, devis 24h."
         />
+        <meta property="og:locale" content="fr_FR" />
+        <meta property="og:site_name" content="OOH MY AD !" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="OOH MY AD ! — Média de proximité captif" />
+        <meta
+          name="twitter:description"
+          content="Média de proximité captif pour marques et agences : 5 familles de supports outdoor + digital, déployés partout en France."
+        />
+        <meta name="twitter:image" content="https://oohmyad.fr/og-image.jpg" />
         <meta property="og:url" content="https://oohmyad.fr" />
         <link rel="canonical" href="https://oohmyad.fr" />
+        <script type="application/ld+json">
+          {JSON.stringify(getLandingPageSchema())}
+        </script>
       </Helmet>
 
       <SmoothScroll>
