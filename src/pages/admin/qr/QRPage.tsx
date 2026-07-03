@@ -41,6 +41,11 @@ export function QRPage() {
   // Export dropdown
   const [showExportMenu, setShowExportMenu] = useState(false)
 
+  // Range selection popover
+  const [showRange, setShowRange] = useState(false)
+  const [rangeFrom, setRangeFrom] = useState('')
+  const [rangeTo, setRangeTo] = useState('')
+
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const handleSearchChange = useCallback((value: string) => {
@@ -101,6 +106,27 @@ export function QRPage() {
 
   function selectAllFiltered() {
     setSelected(new Set(filtered.map((i) => i.id)))
+  }
+
+  function applyRangeSelection() {
+    const from = parseInt(rangeFrom, 10)
+    const to = parseInt(rangeTo, 10)
+    if (!from || !to) {
+      toast('Renseigne les 2 numéros', 'error')
+      return
+    }
+    const [lo, hi] = from <= to ? [from, to] : [to, from]
+    // Cherche dans la liste filtrée en cours (respecte statut/recherche)
+    const matches = filtered.filter((i) => i.serial_number >= lo && i.serial_number <= hi)
+    if (matches.length === 0) {
+      toast('Aucun QR dans cette plage', 'error')
+      return
+    }
+    setSelected(new Set(matches.map((i) => i.id)))
+    setShowRange(false)
+    setRangeFrom('')
+    setRangeTo('')
+    toast(`${matches.length} QR sélectionnés (#${lo} → #${hi})`)
   }
 
   async function handleGenerate() {
@@ -222,10 +248,14 @@ export function QRPage() {
             {(hasActiveFilters ? (qrItems?.length ?? 0) : filtered.length) !== 1 ? 's' : ''}
           </span>
         </div>
-        <div className="relative">
-          <Button onClick={() => setShowGenerate((v) => !v)}>
-            <Plus className="mr-1.5 size-4" /> Générer
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowRange((v) => !v)}>
+            <Hash className="mr-1.5 size-4" /> Plage
           </Button>
+          <div className="relative">
+            <Button onClick={() => setShowGenerate((v) => !v)}>
+              <Plus className="mr-1.5 size-4" /> Générer
+            </Button>
           {showGenerate && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowGenerate(false)}>
               <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl space-y-5" onClick={(e) => e.stopPropagation()}>
@@ -251,8 +281,53 @@ export function QRPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
+
+      {/* Range selection modal */}
+      {showRange && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowRange(false)}>
+          <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Sélectionner une plage</h2>
+              <button onClick={() => setShowRange(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Sélectionne les QR par numéro (dans la liste actuellement affichée, filtres inclus).
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-2 block text-xs font-medium">De</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={rangeFrom}
+                  onChange={(e) => setRangeFrom(e.target.value)}
+                  placeholder="601"
+                  className="text-sm"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-medium">À</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={rangeTo}
+                  onChange={(e) => setRangeTo(e.target.value)}
+                  placeholder="1450"
+                  className="text-sm"
+                  onKeyDown={(e) => e.key === 'Enter' && applyRangeSelection()}
+                />
+              </div>
+            </div>
+            <Button onClick={applyRangeSelection} className="w-full">
+              Sélectionner
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Stats : slider horizontal sur mobile, grille sur desktop */}
       <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:py-0">
