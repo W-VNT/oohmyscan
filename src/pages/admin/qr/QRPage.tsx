@@ -1,38 +1,60 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useQRStock, useQRStockStats, useGenerateQRCodes, useDeleteQRCodes } from '@/hooks/admin/useQRStock'
+import {
+  useInfiniteQRStock,
+  useQRStockFilteredCount,
+  useQRStockStats,
+  useGenerateQRCodes,
+  useDeleteQRCodes,
+  fetchAllQRIds,
+  fetchQRsInSerialRange,
+  fetchQRsByIds,
+  type QRStockFilter,
+  type QRStockSort,
+} from '@/hooks/admin/useQRStock'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/shared/Toast'
 import { useConfirm } from '@/components/shared/ConfirmDialog'
-import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive, X, Trash2, Download, ChevronLeft, ChevronRight, Filter, ArrowUpDown, CheckSquare } from 'lucide-react'
+import { QrCode, Plus, Search, Loader2, Hash, CheckCircle2, Circle, Copy, Printer, FileArchive, X, Trash2, Download, Filter, ArrowUpDown, CheckSquare } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 import { pdf } from '@react-pdf/renderer'
 import { DymoQRPDF } from '@/lib/pdf/DymoQRPDF'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 
-type SortOption = 'serial-desc' | 'serial-asc' | 'newest' | 'oldest' | 'status'
-type FilterOption = 'all' | 'available' | 'assigned'
-
-const PAGE_SIZE = 25
-
 export function QRPage() {
-  const { data: qrItems, isLoading } = useQRStock()
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [filter, setFilter] = useState<QRStockFilter>('all')
+  const [sort, setSort] = useState<QRStockSort>('serial-desc')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [exporting, setExporting] = useState(false)
+
+  // Fetch server-side paginé
+  const infiniteOpts = useMemo(
+    () => ({ filter, sort, search: debouncedSearch }),
+    [filter, sort, debouncedSearch],
+  )
+  const {
+    data: infiniteData,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQRStock(infiniteOpts)
+  const { data: filteredCount } = useQRStockFilteredCount(infiniteOpts)
   const { data: stats } = useQRStockStats()
   const generateQR = useGenerateQRCodes()
   const deleteQR = useDeleteQRCodes()
   const confirm = useConfirm()
 
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [filter, setFilter] = useState<FilterOption>('all')
-  const [sort, setSort] = useState<SortOption>('serial-desc')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [exporting, setExporting] = useState(false)
-  const [page, setPage] = useState(0)
+  const items = useMemo(
+    () => (infiniteData?.pages ?? []).flatMap((p) => p.items),
+    [infiniteData],
+  )
 
   // Generate popover
   const [showGenerate, setShowGenerate] = useState(false)
@@ -53,7 +75,6 @@ export function QRPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setDebouncedSearch(value)
-      setPage(0)
     }, 300)
   }, [])
 
@@ -63,40 +84,26 @@ export function QRPage() {
 
   useEffect(() => {
     setSelected(new Set())
-    setPage(0)
   }, [filter, debouncedSearch])
 
-  const filtered = useMemo(() => {
-    if (!qrItems) return []
-    let result = qrItems
-    if (filter === 'available') result = result.filter((q) => !q.is_assigned)
-    if (filter === 'assigned') result = result.filter((q) => q.is_assigned)
-    if (debouncedSearch.trim()) {
-      const q = debouncedSearch.toLowerCase()
-      const qNum = q.replace(/^#/, '').trim()
-      result = result.filter(
-        (item) =>
-          item.uuid_code.toLowerCase().includes(q) ||
-          item.panels?.reference?.toLowerCase().includes(q) ||
-          (qNum && String(item.serial_number).includes(qNum)),
-      )
-    }
-    return [...result].sort((a, b) => {
-      switch (sort) {
-        case 'serial-desc': return b.serial_number - a.serial_number
-        case 'serial-asc': return a.serial_number - b.serial_number
-        case 'newest': return new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime()
-        case 'oldest': return new Date(a.generated_at).getTime() - new Date(b.generated_at).getTime()
-        case 'status': return Number(a.is_assigned) - Number(b.is_assigned)
-        default: return 0
-      }
-    })
-  }, [qrItems, debouncedSearch, filter, sort])
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
-
   const hasActiveFilters = !!debouncedSearch.trim() || filter !== 'all'
+
+  // Infinite scroll sentinel — fetchNextPage quand visible
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !hasNextPage) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { rootMargin: '200px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   function resetFilters() {
     setSearch('')
@@ -104,29 +111,38 @@ export function QRPage() {
     setFilter('all')
   }
 
-  function selectAllFiltered() {
-    setSelected(new Set(filtered.map((i) => i.id)))
+  async function selectAllFiltered() {
+    try {
+      const ids = await fetchAllQRIds(infiniteOpts)
+      setSelected(new Set(ids))
+      toast(`${ids.length} QR sélectionné${ids.length > 1 ? 's' : ''}`)
+    } catch {
+      toast('Erreur lors de la sélection', 'error')
+    }
   }
 
-  function applyRangeSelection() {
+  async function applyRangeSelection() {
     const from = parseInt(rangeFrom, 10)
     const to = parseInt(rangeTo, 10)
     if (!from || !to) {
       toast('Renseigne les 2 numéros', 'error')
       return
     }
-    const [lo, hi] = from <= to ? [from, to] : [to, from]
-    // Cherche dans la liste filtrée en cours (respecte statut/recherche)
-    const matches = filtered.filter((i) => i.serial_number >= lo && i.serial_number <= hi)
-    if (matches.length === 0) {
-      toast('Aucun QR dans cette plage', 'error')
-      return
+    try {
+      const rows = await fetchQRsInSerialRange(from, to)
+      if (rows.length === 0) {
+        toast('Aucun QR dans cette plage', 'error')
+        return
+      }
+      const [lo, hi] = from <= to ? [from, to] : [to, from]
+      setSelected(new Set(rows.map((r) => r.id)))
+      setShowRange(false)
+      setRangeFrom('')
+      setRangeTo('')
+      toast(`${rows.length} QR sélectionnés (#${lo} → #${hi})`)
+    } catch {
+      toast('Erreur lors de la sélection', 'error')
     }
-    setSelected(new Set(matches.map((i) => i.id)))
-    setShowRange(false)
-    setRangeFrom('')
-    setRangeTo('')
-    toast(`${matches.length} QR sélectionnés (#${lo} → #${hi})`)
   }
 
   async function handleGenerate() {
@@ -152,23 +168,25 @@ export function QRPage() {
     })
   }
 
-  function toggleSelectAll() {
-    if (selected.size === paginated.length && paginated.every((i) => selected.has(i.id))) {
+  function toggleSelectAllVisible() {
+    // Tout selectionner ce qui est chargé actuellement (pas juste la première page)
+    if (items.length > 0 && items.every((i) => selected.has(i.id))) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(paginated.map((i) => i.id)))
+      setSelected(new Set(items.map((i) => i.id)))
     }
   }
 
   async function handleExportDymo() {
-    const items = filtered.filter((i) => selected.has(i.id))
-    if (items.length === 0) return
+    if (selected.size === 0) return
     setExporting(true)
     setShowExportMenu(false)
     try {
+      // Résout les data des IDs sélectionnés (peut couvrir des pages non chargées)
+      const rows = await fetchQRsByIds(Array.from(selected))
       const appUrl = import.meta.env.VITE_APP_URL || 'https://oohmyscan.vercel.app'
       const labels = await Promise.all(
-        items.map(async (item) => {
+        rows.map(async (item) => {
           const qrDataUrl = await QRCodeLib.toDataURL(`${appUrl}/app/scan?id=${item.uuid_code}`, {
             width: 300, margin: 1, color: { dark: '#000000', light: '#FFFFFF' },
           })
@@ -176,8 +194,8 @@ export function QRPage() {
         }),
       )
       const blob = await pdf(<DymoQRPDF labels={labels} />).toBlob()
-      saveAs(blob, `qr-dymo-${items.length}.pdf`)
-      toast(`PDF Dymo — ${items.length} étiquette${items.length !== 1 ? 's' : ''}`)
+      saveAs(blob, `qr-dymo-${rows.length}.pdf`)
+      toast(`PDF Dymo — ${rows.length} étiquette${rows.length !== 1 ? 's' : ''}`)
     } catch {
       toast('Erreur lors de la génération', 'error')
     } finally {
@@ -186,22 +204,22 @@ export function QRPage() {
   }
 
   async function handleExportZipPNG() {
-    const items = filtered.filter((i) => selected.has(i.id))
-    if (items.length === 0) return
+    if (selected.size === 0) return
     setExporting(true)
     setShowExportMenu(false)
     try {
+      const rows = await fetchQRsByIds(Array.from(selected))
       const zip = new JSZip()
       const appUrl = import.meta.env.VITE_APP_URL || 'https://oohmyscan.vercel.app'
-      for (const item of items) {
+      for (const item of rows) {
         const dataUrl = await QRCodeLib.toDataURL(`${appUrl}/app/scan?id=${item.uuid_code}`, {
           width: 600, margin: 2, color: { dark: '#000000', light: '#FFFFFF' },
         })
         zip.file(`qr-${item.uuid_code.slice(0, 8)}.png`, dataUrl.split(',')[1], { base64: true })
       }
       const blob = await zip.generateAsync({ type: 'blob' })
-      saveAs(blob, `qr-codes-${items.length}.zip`)
-      toast(`ZIP — ${items.length} QR code${items.length !== 1 ? 's' : ''}`)
+      saveAs(blob, `qr-codes-${rows.length}.zip`)
+      toast(`ZIP — ${rows.length} QR code${rows.length !== 1 ? 's' : ''}`)
     } catch {
       toast('Erreur lors de l\'export', 'error')
     } finally {
@@ -209,23 +227,28 @@ export function QRPage() {
     }
   }
 
-  const selectedUnassigned = useMemo(() => {
-    if (!qrItems) return []
-    return qrItems.filter((i) => selected.has(i.id) && !i.is_assigned)
-  }, [qrItems, selected])
+  // Filtre sélection non-assignée à partir des items chargés (approximation).
+  // Le delete server-side a un .eq('is_assigned', false) pour la sécurité.
+  const selectedUnassignedIds = useMemo(() => {
+    return items.filter((i) => selected.has(i.id) && !i.is_assigned).map((i) => i.id)
+  }, [items, selected])
 
   async function handleDelete() {
-    if (selectedUnassigned.length === 0) return
+    if (selected.size === 0) return
     const ok = await confirm({
-      title: `Supprimer ${selectedUnassigned.length} QR code${selectedUnassigned.length !== 1 ? 's' : ''} ?`,
-      description: 'Les QR codes sélectionnés seront retirés du stock. Cette action est irréversible.',
+      title: `Supprimer les QR sélectionnés ?`,
+      description:
+        'Seuls les QR non-assignés seront supprimés (les autres seront ignorés). Cette action est irréversible.',
       confirmLabel: 'Supprimer',
       variant: 'destructive',
     })
     if (!ok) return
     try {
-      await deleteQR.mutateAsync(selectedUnassigned.map((i) => i.id))
-      toast(`${selectedUnassigned.length} QR code${selectedUnassigned.length !== 1 ? 's' : ''} supprimé${selectedUnassigned.length !== 1 ? 's' : ''}`)
+      // On envoie TOUS les IDs sélectionnés — le hook filtre côté SQL les
+      // is_assigned=false, donc c'est safe même si certains couvrent des
+      // pages non chargées.
+      await deleteQR.mutateAsync(Array.from(selected))
+      toast('Suppression effectuée')
       setSelected(new Set())
     } catch {
       toast('Erreur lors de la suppression', 'error')
@@ -243,9 +266,9 @@ export function QRPage() {
         <div className="flex items-center gap-3">
           <h1 className="hidden text-xl font-semibold sm:block">QR Codes</h1>
           <span className="text-sm text-muted-foreground">
-            {filtered.length}
-            {hasActiveFilters && ` / ${qrItems?.length ?? 0}`} QR code
-            {(hasActiveFilters ? (qrItems?.length ?? 0) : filtered.length) !== 1 ? 's' : ''}
+            {filteredCount ?? 0}
+            {hasActiveFilters && ` / ${stats?.total ?? 0}`} QR code
+            {(hasActiveFilters ? (stats?.total ?? 0) : filteredCount ?? 0) !== 1 ? 's' : ''}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -388,10 +411,10 @@ export function QRPage() {
             <Filter className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <select
               value={filter}
-              onChange={(e) => setFilter(e.target.value as FilterOption)}
+              onChange={(e) => setFilter(e.target.value as QRStockFilter)}
               className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
             >
-              <option value="all">Tous ({qrItems?.length ?? 0})</option>
+              <option value="all">Tous ({stats?.total ?? 0})</option>
               <option value="available">Disponibles ({stats?.available ?? 0})</option>
               <option value="assigned">Assignés ({stats?.assigned ?? 0})</option>
             </select>
@@ -400,14 +423,13 @@ export function QRPage() {
             <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <select
               value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
+              onChange={(e) => setSort(e.target.value as QRStockSort)}
               className="flex h-10 w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm sm:h-9"
             >
               <option value="serial-desc">N° décroissant</option>
               <option value="serial-asc">N° croissant</option>
               <option value="newest">Plus récents</option>
               <option value="oldest">Plus anciens</option>
-              <option value="status">Statut</option>
             </select>
           </div>
         </div>
@@ -427,13 +449,13 @@ export function QRPage() {
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2">
           <span className="text-sm font-medium">{selected.size} sélectionné{selected.size !== 1 ? 's' : ''}</span>
           <button onClick={() => setSelected(new Set())} className="text-muted-foreground hover:text-foreground" title="Tout désélectionner"><X className="size-3.5" /></button>
-          {selected.size < filtered.length && (
+          {selected.size < (filteredCount ?? 0) && (
             <button
               onClick={selectAllFiltered}
               className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
             >
               <CheckSquare className="size-3.5" />
-              Tout sélectionner ({filtered.length})
+              Tout sélectionner ({filteredCount ?? 0})
             </button>
           )}
           <div className="ml-auto flex gap-2">
@@ -456,9 +478,9 @@ export function QRPage() {
                 </>
               )}
             </div>
-            {selectedUnassigned.length > 0 && (
+            {selectedUnassignedIds.length > 0 && (
               <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleteQR.isPending}>
-                <Trash2 className="mr-1.5 size-3.5" /> Supprimer ({selectedUnassigned.length})
+                <Trash2 className="mr-1.5 size-3.5" /> Supprimer
               </Button>
             )}
           </div>
@@ -472,7 +494,7 @@ export function QRPage() {
             <thead>
               <tr className="border-b border-border bg-muted/50 text-left">
                 <th className="w-10 px-4 py-2.5">
-                  <input type="checkbox" checked={paginated.length > 0 && paginated.every((i) => selected.has(i.id))} onChange={toggleSelectAll} className="size-3.5 rounded border-border" />
+                  <input type="checkbox" checked={items.length > 0 && items.every((i) => selected.has(i.id))} onChange={toggleSelectAllVisible} className="size-3.5 rounded border-border" />
                 </th>
                 <th className="px-4 py-2.5 font-medium">N°</th>
                 <th className="hidden px-4 py-2.5 font-medium sm:table-cell">UUID</th>
@@ -483,7 +505,7 @@ export function QRPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {paginated.length === 0 ? (
+              {items.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12">
                     {hasActiveFilters ? (
@@ -512,7 +534,7 @@ export function QRPage() {
                   </td>
                 </tr>
               ) : (
-                paginated.map((item) => (
+                items.map((item) => (
                   <tr key={item.id} className="transition-colors hover:bg-muted/50">
                     <td className="px-4 py-2.5">
                       <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)} className="size-3.5 rounded border-border" />
@@ -555,22 +577,19 @@ export function QRPage() {
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} sur {filtered.length}
+      {/* Infinite scroll sentinel + status */}
+      <div ref={sentinelRef} className="flex items-center justify-center py-4 text-xs text-muted-foreground">
+        {isFetchingNextPage ? (
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="size-3.5 animate-spin" />
+            Chargement…
           </span>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
-              <ChevronLeft className="size-4" />
-            </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+        ) : hasNextPage ? (
+          <span>Défile pour charger plus</span>
+        ) : items.length > 0 ? (
+          <span>Fin de la liste — {items.length} QR chargés</span>
+        ) : null}
+      </div>
     </div>
   )
 }
