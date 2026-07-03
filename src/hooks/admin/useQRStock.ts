@@ -8,13 +8,14 @@ export function useQRStock() {
   return useQuery({
     queryKey: ['qr-stock'],
     queryFn: async (): Promise<QRStockWithPanel[]> => {
-      // Supabase cap par defaut a 1000 rows. On monte le range a 10000 pour
-      // supporter un plus gros stock. Au dela, il faudra paginer server-side.
+      // Supabase cap par defaut a 1000 rows. On monte le range a 100k pour
+      // supporter un tres gros stock. Au dela, ou pour perf, il faudra
+      // paginer server-side (react-query useInfiniteQuery + .range dynamique).
       const { data, error } = await supabase
         .from('qr_stock')
         .select('*, panels(reference)')
         .order('generated_at', { ascending: false })
-        .range(0, 9999)
+        .range(0, 99999)
       if (error) throw error
       return data as unknown as QRStockWithPanel[]
     },
