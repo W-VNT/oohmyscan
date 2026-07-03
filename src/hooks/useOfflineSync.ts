@@ -9,7 +9,6 @@ import {
   removePendingInstall,
   updatePendingInstall,
 } from '@/lib/offline-mutation-queue'
-import { performInstallSave } from '@/lib/install-replay'
 import { toast } from '@/components/shared/Toast'
 
 const MAX_INSTALL_ATTEMPTS = 5
@@ -33,19 +32,21 @@ async function processInstallQueue(): Promise<{ replayed: number; remaining: num
     return { replayed: 0, remaining: (await listPendingInstalls()).length, failed: 0 }
   }
   const queue = await listPendingInstalls()
+  if (queue.length === 0) {
+    return { replayed: 0, remaining: 0, failed: 0 }
+  }
+  // Dynamic import : react-pdf/renderer + PDF templates sont lourds (~400KB).
+  // On ne les charge que quand il y a effectivement une install a rejouer.
+  const { performInstallSave } = await import('@/lib/install-replay')
   let replayed = 0
   let failed = 0
   for (const item of queue) {
-    // Items au max d'essais : on les retire de la queue pour ne plus les
-    // retenter en boucle. L'op devra les refaire manuellement si besoin.
     if (item.attempts >= MAX_INSTALL_ATTEMPTS) {
       await removePendingInstall(item.id)
       failed++
       continue
     }
     try {
-      // Timeout global 30s par install pour eviter que le sync bloque
-      // eternellement sur une operation qui hang (fetch qui ne resout pas).
       await withTimeout(performInstallSave(item.payload), 30_000, 'performInstallSave')
       await removePendingInstall(item.id)
       replayed++
@@ -88,16 +89,24 @@ export function useOfflineSync() {
 
   const runSync = useCallback(async () => {
     if (!navigator.onLine) return
+    // Skip early si les 2 queues sont vides : evite d'ouvrir IDB pour rien
+    // et le flicker "Synchronisation" pour rien.
+    const [nPhotos, nInstalls] = await Promise.all([countQueuedPhotos(), countPendingInstalls()])
+    if (nPhotos === 0 && nInstalls === 0) {
+      setPendingCount(0)
+      setPendingInstallCount(0)
+      return
+    }
     setSyncing(true)
     try {
-      // Timeout global 60s pour tout le cycle de sync — evite que le banner
-      // reste bloque sur "Synchronisation" en permanence si un appel hang.
       await withTimeout(
         (async () => {
-          await processQueue()
-          const res = await processInstallQueue()
-          if (res.replayed > 0) {
-            toast(`${res.replayed} installation${res.replayed > 1 ? 's' : ''} synchronisée${res.replayed > 1 ? 's' : ''}`)
+          if (nPhotos > 0) await processQueue()
+          if (nInstalls > 0) {
+            const res = await processInstallQueue()
+            if (res.replayed > 0) {
+              toast(`${res.replayed} installation${res.replayed > 1 ? 's' : ''} synchronisée${res.replayed > 1 ? 's' : ''}`)
+            }
           }
         })(),
         60_000,
@@ -122,7 +131,9 @@ export function useOfflineSync() {
   }, [online, runSync])
 
   useEffect(() => {
-    const interval = setInterval(refreshCount, 15_000)
+    // 30s au lieu de 15s : les compteurs bougent rarement si l'user n'est pas
+    // en train de generer des installs offline. Reduit la charge sur IDB.
+    const interval = setInterval(refreshCount, 30_000)
     return () => clearInterval(interval)
   }, [refreshCount])
 
