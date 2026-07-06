@@ -94,13 +94,16 @@ interface PersistedSession {
   /** Signatures base64, si l'operateur a deja signe (rare : signatures sont a la fin). */
   signOwner?: string
   signOperator?: string
+  /** true si le lieu a ete cree dans cette session (insert DB deja fait).
+   *  Lu par ScanPage pour proposer un cleanup au back. */
+  isNewLocation?: boolean
   ts: number
 }
 
 function saveSession(
   location: Location,
   installed: InstalledPanel[],
-  extras?: { signOwner?: string; signOperator?: string },
+  extras?: { signOwner?: string; signOperator?: string; isNewLocation?: boolean },
 ) {
   sessionStorage.setItem(
     SESSION_KEY,
@@ -204,6 +207,7 @@ export function InstallWizardPage() {
     if (!persisted) return
     restoredRef.current = true
     setLocation(persisted.location)
+    setCreatedLocationInSession(persisted.isNewLocation === true)
     if (persisted.signOwner) setSignOwner(persisted.signOwner)
     if (persisted.signOperator) setSignOperator(persisted.signOperator)
     // Ajoute le panneau tout juste scanne (URL) a la liste. Guard contre les
@@ -232,12 +236,11 @@ export function InstallWizardPage() {
   useEffect(() => { window.scrollTo(0, 0) }, [step])
 
   // ============== Render header (back + progress) ==============
-  // Wrap le onBack pour afficher un confirm des que le lieu est renseigne
-  // (creation nouvelle OU selection existante). Sans ce guard, l'operateur
-  // pouvait creer un lieu en DB puis faire retour -> orphelin (lieu sans
-  // panneau ni contrat).
-  // Skip sur : location/create_location (rien encore engage), saving/success
-  // (rien a preserver).
+  // Wrap le onBack pour afficher un confirm des que le lieu est renseigne.
+  // Cas particulier : si le lieu a ete CREE dans cette session et que
+  // l'user confirme l'abandon, on SUPPRIME le lieu de la base pour eviter
+  // les orphelins et permettre a l'user de re-creer sans doublon la
+  // prochaine fois.
   const stepsWithoutBackGuard = new Set(['location', 'create_location', 'saving', 'success'])
   async function guardedBack(defaultAction: () => void) {
     if (!location || stepsWithoutBackGuard.has(step)) {
@@ -245,7 +248,7 @@ export function InstallWizardPage() {
       return
     }
     const description = createdLocationInSession
-      ? `Le lieu "${location.name}" vient d'être créé. Si tu quittes maintenant, il sera abandonné mais restera dans la base — tu devras le rechercher au lieu de le recréer la prochaine fois.`
+      ? `Le lieu "${location.name}" vient d'être créé. Si tu confirmes l'abandon, il sera SUPPRIMÉ de la base — tu pourras le recréer proprement la prochaine fois.`
       : `Tu vas perdre les scans / signatures en cours pour "${location.name}". Le lieu lui-même reste intact.`
     const ok = await confirm({
       title: 'Abandonner l\'installation ?',
@@ -253,7 +256,20 @@ export function InstallWizardPage() {
       confirmLabel: 'Abandonner',
       variant: 'destructive',
     })
-    if (ok) defaultAction()
+    if (!ok) return
+
+    // Rollback : supprime le lieu qui vient d'etre cree pour eviter l'orphelin.
+    // Best-effort : si le delete echoue (RLS, reseau), on log mais on laisse
+    // partir l'user quand meme (la migration SQL de cleanup s'en chargera).
+    if (createdLocationInSession && location) {
+      try {
+        await supabase.from('locations').delete().eq('id', location.id)
+      } catch (e) {
+        console.warn('[install] cleanup lieu orphelin echoue', e)
+      }
+      clearSession()
+    }
+    defaultAction()
   }
 
   function header(title: string, subtitle?: string, onBack?: () => void) {
@@ -284,6 +300,7 @@ export function InstallWizardPage() {
     saveSession(location, installed, {
       signOwner: signOwner || undefined,
       signOperator: signOperator || undefined,
+      isNewLocation: createdLocationInSession,
     })
     navigate('/app/scan?install_session=1')
   }
@@ -763,10 +780,10 @@ export function InstallWizardPage() {
               if (panelId) {
                 const first = [{ panelId, qrCode: panelId, reference: '' }]
                 setInstalled(first)
-                saveSession(loc, first)
+                saveSession(loc, first, { isNewLocation: false })
                 setStep('diffuse_choice')
               } else {
-                saveSession(loc, [])
+                saveSession(loc, [], { isNewLocation: false })
                 navigate('/app/scan?install_session=1')
               }
             }}
@@ -827,10 +844,10 @@ export function InstallWizardPage() {
                 if (panelId) {
                   const first = [{ panelId, qrCode: panelId, reference: '' }]
                   setInstalled(first)
-                  saveSession(loc, first)
+                  saveSession(loc, first, { isNewLocation: true })
                   setStep('diffuse_choice')
                 } else {
-                  saveSession(loc, [])
+                  saveSession(loc, [], { isNewLocation: true })
                   navigate('/app/scan?install_session=1')
                 }
               } catch (e) {

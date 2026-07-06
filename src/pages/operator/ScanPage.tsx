@@ -5,6 +5,22 @@ import { QRScanner } from '@/components/qr/QRScanner'
 import { extractPanelId } from '@/hooks/useQRScanner'
 import { usePanelByQrCode } from '@/hooks/usePanels'
 import { supabase } from '@/lib/supabase'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
+
+const INSTALL_SESSION_KEY = 'install_wizard_session'
+interface PartialInstallSession {
+  location?: { id: string; name: string }
+  isNewLocation?: boolean
+}
+function readInstallSession(): PartialInstallSession | null {
+  try {
+    const raw = sessionStorage.getItem(INSTALL_SESSION_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as PartialInstallSession
+  } catch {
+    return null
+  }
+}
 
 type ScanMode = 'install' | 'campaign'
 
@@ -17,10 +33,46 @@ type AlertState = {
 
 export function ScanPage() {
   const navigate = useNavigate()
+  const confirm = useConfirm()
   const [searchParams] = useSearchParams()
   const mode: ScanMode = (searchParams.get('mode') as ScanMode) || 'install'
   /** Si vrai : continuation d'une session multi-panneau du wizard install. */
   const installSession = searchParams.get('install_session') === '1'
+
+  // Guard sur le retour : si l'operateur est en cours d'install et a cree
+  // un nouveau lieu (isNewLocation dans la session), le back doit proposer
+  // le cleanup du lieu pour eviter les orphelins/doublons.
+  async function handleBack() {
+    if (!installSession) {
+      navigate(-1)
+      return
+    }
+    const sess = readInstallSession()
+    if (!sess?.location) {
+      navigate(-1)
+      return
+    }
+    const isNew = sess.isNewLocation === true
+    const description = isNew
+      ? `Le lieu "${sess.location.name}" vient d'être créé. Si tu confirmes l'abandon, il sera SUPPRIMÉ de la base — tu pourras le recréer proprement la prochaine fois.`
+      : `Tu vas perdre les scans / signatures en cours pour "${sess.location.name}". Le lieu lui-même reste intact.`
+    const ok = await confirm({
+      title: 'Abandonner l\'installation ?',
+      description,
+      confirmLabel: 'Abandonner',
+      variant: 'destructive',
+    })
+    if (!ok) return
+    if (isNew) {
+      try {
+        await supabase.from('locations').delete().eq('id', sess.location.id)
+      } catch (e) {
+        console.warn('[scan] cleanup lieu orphelin echoue', e)
+      }
+    }
+    sessionStorage.removeItem(INSTALL_SESSION_KEY)
+    navigate('/app/dashboard')
+  }
 
   const [scannedId, setScannedId] = useState<string | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
@@ -169,7 +221,7 @@ export function ScanPage() {
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
         {/* Top bar */}
         <div className="pointer-events-auto flex items-center gap-3 bg-gradient-to-b from-black/60 to-transparent p-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <button onClick={() => navigate(-1)} className="flex size-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm" aria-label="Fermer le scanner">
+          <button onClick={handleBack} className="flex size-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm" aria-label="Fermer le scanner">
             <ArrowLeft className="size-6 text-white" />
           </button>
           <div className="flex-1">
