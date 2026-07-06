@@ -897,6 +897,12 @@ export function InstallWizardPage() {
               else setStep('sign_owner')
             }}
           />
+          {error && (
+            <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+              <p className="font-medium">Erreur d'enregistrement :</p>
+              <p className="mt-1 whitespace-pre-wrap text-xs">{error}</p>
+            </div>
+          )}
         </>
       )}
 
