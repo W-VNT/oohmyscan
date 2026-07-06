@@ -679,6 +679,8 @@ export function InstallWizardPage() {
       const baseMsg = isAmendment ? 'Avenant signé' : 'Installation enregistrée'
       toast(diffCount > 0 ? `${baseMsg} — ${diffCount} campagne${diffCount > 1 ? 's' : ''} diffusée${diffCount > 1 ? 's' : ''}` : baseMsg)
     } catch (e) {
+      // Log raw error dans la console pour debug via Safari remote inspector
+      console.error('[install] handleFinalSave error:', e)
       // Fallback : si l'erreur ressemble a un souci reseau (perte cours de route),
       // on queue la mutation pour replay au retour. Sinon on remonte l'erreur.
       if (isNetworkError(e)) {
@@ -690,11 +692,25 @@ export function InstallWizardPage() {
           setStep('success')
           toast('Réseau perdu — enregistré localement, sync auto plus tard')
           return
-        } catch {
-          // fall through
+        } catch (queueErr) {
+          console.error('[install] enqueueInstall fallback failed:', queueErr)
         }
       }
-      setError(e instanceof Error ? e.message : 'Erreur')
+      // Message d'erreur enrichi : essaie de capturer aussi les erreurs Supabase
+      // qui ne sont pas des Error mais des { message, code, details, hint }.
+      let errMsg = 'Erreur inconnue'
+      if (e instanceof Error) {
+        errMsg = e.message + (e.stack ? `\n\n${e.stack.split('\n').slice(0, 3).join('\n')}` : '')
+      } else if (e && typeof e === 'object') {
+        try {
+          errMsg = JSON.stringify(e, null, 2)
+        } catch {
+          errMsg = String(e)
+        }
+      } else {
+        errMsg = String(e)
+      }
+      setError(errMsg)
       setStep('another')
     }
   }
