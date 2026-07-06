@@ -232,17 +232,24 @@ export function InstallWizardPage() {
   useEffect(() => { window.scrollTo(0, 0) }, [step])
 
   // ============== Render header (back + progress) ==============
-  // Wrap le onBack pour afficher un confirm si l'operateur a cree un nouveau
-  // lieu dans cette session. Retour = abandon = orphelin en DB (on ne peut
-  // pas rollback proprement sans la creation differee).
+  // Wrap le onBack pour afficher un confirm des que le lieu est renseigne
+  // (creation nouvelle OU selection existante). Sans ce guard, l'operateur
+  // pouvait creer un lieu en DB puis faire retour -> orphelin (lieu sans
+  // panneau ni contrat).
+  // Skip sur : location/create_location (rien encore engage), saving/success
+  // (rien a preserver).
+  const stepsWithoutBackGuard = new Set(['location', 'create_location', 'saving', 'success'])
   async function guardedBack(defaultAction: () => void) {
-    if (!createdLocationInSession || step === 'success' || step === 'saving') {
+    if (!location || stepsWithoutBackGuard.has(step)) {
       defaultAction()
       return
     }
+    const description = createdLocationInSession
+      ? `Le lieu "${location.name}" vient d'être créé. Si tu quittes maintenant, il sera abandonné mais restera dans la base — tu devras le rechercher au lieu de le recréer la prochaine fois.`
+      : `Tu vas perdre les scans / signatures en cours pour "${location.name}". Le lieu lui-même reste intact.`
     const ok = await confirm({
       title: 'Abandonner l\'installation ?',
-      description: `Le lieu "${location?.name ?? ''}" vient d'être créé. Si tu quittes maintenant, il sera abandonné mais restera dans la base — tu devras le rechercher au lieu de le recréer la prochaine fois.`,
+      description,
       confirmLabel: 'Abandonner',
       variant: 'destructive',
     })
