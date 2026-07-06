@@ -17,6 +17,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Loader2, MapPin, Plus, Camera, Check, Building2, ChevronRight, FileCheck, Megaphone } from 'lucide-react'
+import { pdf } from '@react-pdf/renderer'
+import type { DocumentProps } from '@react-pdf/renderer'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,10 +36,9 @@ import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { useActiveCampaigns } from '@/hooks/useCampaigns'
 import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
-import { downscaleImage } from '@/lib/image-utils'
-import { pdf } from '@react-pdf/renderer'
 import { ContractPDF } from '@/lib/pdf/ContractPDF'
 import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
+import { downscaleImage } from '@/lib/image-utils'
 import { enqueueInstall } from '@/lib/offline-mutation-queue'
 import { isNetworkError } from '@/lib/install-replay'
 import type { Location } from '@/types'
@@ -89,17 +90,13 @@ interface PersistedSession {
   /** Signatures base64, si l'operateur a deja signe (rare : signatures sont a la fin). */
   signOwner?: string
   signOperator?: string
-  /** true si le lieu n'est PAS encore inseree en DB — on l'insere au save
-   *  final pour eviter les orphelins si l'operateur quitte le flow avant
-   *  d'avoir signe. Le champ id du location est alors un UUID local. */
-  isNewLocation?: boolean
   ts: number
 }
 
 function saveSession(
   location: Location,
   installed: InstalledPanel[],
-  extras?: { signOwner?: string; signOperator?: string; isNewLocation?: boolean },
+  extras?: { signOwner?: string; signOperator?: string },
 ) {
   sessionStorage.setItem(
     SESSION_KEY,
@@ -180,9 +177,6 @@ export function InstallWizardPage() {
   const [savedFirstPanelId, setSavedFirstPanelId] = useState<string | null>(null)
   /** Campagne selectionnee au step 'diffuse_campaign', consommee au step 'diffuse_photo'. */
   const [diffuseCampaignId, setDiffuseCampaignId] = useState<string | null>(null)
-  /** true si le lieu n'a PAS encore ete inseree en DB. On insere au save
-   *  final. Evite les orphelins si l'operateur quitte le flow au milieu. */
-  const [isNewLocation, setIsNewLocation] = useState(false)
 
   // ============== Campagnes actives assignees a l'operateur ==============
   const { data: activeCampaigns = [] } = useActiveCampaigns(session?.user?.id)
@@ -201,7 +195,6 @@ export function InstallWizardPage() {
     if (!persisted) return
     restoredRef.current = true
     setLocation(persisted.location)
-    setIsNewLocation(persisted.isNewLocation === true)
     if (persisted.signOwner) setSignOwner(persisted.signOwner)
     if (persisted.signOperator) setSignOperator(persisted.signOperator)
     // Ajoute le panneau tout juste scanne (URL) a la liste. Guard contre les
@@ -217,11 +210,7 @@ export function InstallWizardPage() {
   }, [continueFromSession, panelId])
 
   // ============== Detect existing contract for amendment ==============
-  // Pour un lieu qui n'a jamais ete inseree en DB (isNewLocation=true), l'id
-  // est un UUID local temporaire. On ne fetch pas le contrat (isAmendment
-  // impossible sur un lieu non-existant).
-  const contractQueryLocationId = isNewLocation ? undefined : location?.id
-  const { data: existingContract, isLoading: contractLoading } = useLocationContract(contractQueryLocationId)
+  const { data: existingContract, isLoading: contractLoading } = useLocationContract(location?.id)
   const isAmendment = !!existingContract
 
   // ============== Default panel type ==============
@@ -307,7 +296,6 @@ export function InstallWizardPage() {
       signOwner,
       signOperator,
       isAmendment,
-      isNewLocation,
       userId: session.user.id,
       lat: lat ?? undefined,
       lng: lng ?? undefined,
@@ -367,34 +355,6 @@ export function InstallWizardPage() {
         console.warn('[install] Downscale signatures failed, using originals', e)
       }
 
-      // 1.5. Si lieu nouveau (isNewLocation) : insert reel maintenant (deferred
-      //      creation). Recupere l'ID reel et l'utilise pour tous les
-      //      inserts panels + contrat en aval. Evite les orphelins.
-      let effectiveLocation: Location = location
-      if (isNewLocation) {
-        const { data: created, error: locErr } = await supabase
-          .from('locations')
-          .insert({
-            name: location.name,
-            address: location.address,
-            postal_code: location.postal_code,
-            city: location.city,
-            phone: location.phone,
-            owner_first_name: location.owner_first_name,
-            owner_last_name: location.owner_last_name,
-            owner_role: location.owner_role,
-            owner_email: location.owner_email,
-            has_contract: false,
-            created_by: session.user.id,
-          })
-          .select()
-          .single()
-        if (locErr) throw locErr
-        effectiveLocation = created as Location
-        setLocation(effectiveLocation)
-        setIsNewLocation(false)
-      }
-
       // 2. Insert each panel record (the panelId in URL is the QR code, not DB id)
       //    Cherche s'il existe deja par qr_code, sinon insert.
       //    Nouveau flow (juillet 2026) : plus de photo/zone captures. Les
@@ -414,7 +374,7 @@ export function InstallWizardPage() {
         if (existing) {
           // Update existing
           const { error: updateErr } = await supabase.from('panels').update({
-            location_id: effectiveLocation.id,
+            location_id: location.id,
             zone_label: null,
             name: location.name,
             address: location.address,
@@ -437,7 +397,7 @@ export function InstallWizardPage() {
             city: location.city,
             lat: lat ?? 0,
             lng: lng ?? 0,
-            location_id: effectiveLocation.id,
+            location_id: location.id,
             zone_label: null,
             type: defaultPanelType?.name ?? null,
             status: 'active',
@@ -492,7 +452,7 @@ export function InstallWizardPage() {
         const { data: existingPanels } = await supabase
           .from('panels')
           .select('id, qr_code, reference, zone_label')
-          .eq('location_id', effectiveLocation.id)
+          .eq('location_id', location.id)
         const allPanelsSnapshot: PanelSnapshot[] = (existingPanels ?? []).map((p) => ({
           panel_id: p.id,
           zone_label: p.zone_label ?? '',
@@ -500,8 +460,6 @@ export function InstallWizardPage() {
           reference: p.reference,
         }))
 
-        // Rendu PDF client-side (avec les optims memoire : JPEG sigs +
-        // downscale images ci-dessus, PhotoCapture Object URLs partout).
         const { path: pdfPath } = await generateAndUploadPDF(amendmentNumber, (
           <AmendmentPDF
             amendmentNumber={amendmentNumber}
@@ -533,7 +491,7 @@ export function InstallWizardPage() {
 
         const { error: insertErr } = await supabase.from('contract_amendments').insert({
           contract_id: existingContract.id,
-          location_id: effectiveLocation.id,
+          location_id: location.id,
           amendment_number: amendmentNumber,
           reason: 'panel_added',
           panels_added: panelsToCreate,
@@ -558,7 +516,6 @@ export function InstallWizardPage() {
         if (rpcErr) throw rpcErr
         const contractNumber = numData as string
 
-        // Rendu PDF client-side.
         const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(contractNumber, (
           <ContractPDF
             contractNumber={contractNumber}
@@ -592,7 +549,7 @@ export function InstallWizardPage() {
         ))
 
         const { error: insertErr } = await supabase.from('panel_contracts').insert({
-          location_id: effectiveLocation.id,
+          location_id: location.id,
           contract_number: contractNumber,
           establishment_name: location.name,
           establishment_address: location.address,
@@ -617,7 +574,7 @@ export function InstallWizardPage() {
 
         // Envoi automatique du contrat au gerant par email (si email fourni).
         // Best-effort : les erreurs sont juste toastees, elles ne bloquent
-        // pas l'enregistrement. On reutilise le blob deja rendu client-side.
+        // pas l'enregistrement.
         if (location.owner_email) {
           const res = await sendContractEmail({
             to: location.owner_email,
@@ -679,8 +636,6 @@ export function InstallWizardPage() {
       const baseMsg = isAmendment ? 'Avenant signé' : 'Installation enregistrée'
       toast(diffCount > 0 ? `${baseMsg} — ${diffCount} campagne${diffCount > 1 ? 's' : ''} diffusée${diffCount > 1 ? 's' : ''}` : baseMsg)
     } catch (e) {
-      // Log raw error dans la console pour debug via Safari remote inspector
-      console.error('[install] handleFinalSave error:', e)
       // Fallback : si l'erreur ressemble a un souci reseau (perte cours de route),
       // on queue la mutation pour replay au retour. Sinon on remonte l'erreur.
       if (isNetworkError(e)) {
@@ -692,25 +647,11 @@ export function InstallWizardPage() {
           setStep('success')
           toast('Réseau perdu — enregistré localement, sync auto plus tard')
           return
-        } catch (queueErr) {
-          console.error('[install] enqueueInstall fallback failed:', queueErr)
-        }
-      }
-      // Message d'erreur enrichi : essaie de capturer aussi les erreurs Supabase
-      // qui ne sont pas des Error mais des { message, code, details, hint }.
-      let errMsg = 'Erreur inconnue'
-      if (e instanceof Error) {
-        errMsg = e.message + (e.stack ? `\n\n${e.stack.split('\n').slice(0, 3).join('\n')}` : '')
-      } else if (e && typeof e === 'object') {
-        try {
-          errMsg = JSON.stringify(e, null, 2)
         } catch {
-          errMsg = String(e)
+          // fall through
         }
-      } else {
-        errMsg = String(e)
       }
-      setError(errMsg)
+      setError(e instanceof Error ? e.message : 'Erreur')
       setStep('another')
     }
   }
@@ -798,42 +739,41 @@ export function InstallWizardPage() {
             lng={lng}
             onSubmit={async (data) => {
               setNewLocationData(data)
-              // Deferred insertion : on NE cree PAS encore le lieu en DB.
-              // On construit une location locale avec un UUID temporaire.
-              // L'insert reel se fait dans handleFinalSave si isNewLocation
-              // est true. Evite les orphelins si l'user quitte le flow avant
-              // signature ou re-cree un lieu identique.
-              const now = new Date().toISOString()
-              const loc: Location = {
-                id: crypto.randomUUID(),
-                name: data.name.trim(),
-                address: data.address.trim(),
-                postal_code: data.postal_code.trim(),
-                city: data.city.trim(),
-                phone: data.phone.trim() || null,
-                owner_first_name: data.owner_first_name.trim(),
-                owner_last_name: data.owner_last_name.trim(),
-                owner_role: 'Gérant',
-                owner_email: data.owner_email.trim() || null,
-                closing_months: null,
-                has_contract: false,
-                contract_signed_at: null,
-                created_by: session?.user?.id ?? null,
-                created_at: now,
-                updated_at: now,
-              }
-              setLocation(loc)
-              setIsNewLocation(true)
-              // Meme logique que le lieu existant : si scan-first, ajoute le
-              // panneau et propose la diffusion. Sinon, envoie a la page de scan.
-              if (panelId) {
-                const first = [{ panelId, qrCode: panelId, reference: '' }]
-                setInstalled(first)
-                saveSession(loc, first, { isNewLocation: true })
-                setStep('diffuse_choice')
-              } else {
-                saveSession(loc, [], { isNewLocation: true })
-                navigate('/app/scan?install_session=1')
+              // Crée immédiatement le lieu en DB
+              try {
+                const { data: created, error } = await supabase
+                  .from('locations')
+                  .insert({
+                    name: data.name.trim(),
+                    address: data.address.trim(),
+                    postal_code: data.postal_code.trim(),
+                    city: data.city.trim(),
+                    phone: data.phone.trim() || null,
+                    owner_first_name: data.owner_first_name.trim(),
+                    owner_last_name: data.owner_last_name.trim(),
+                    owner_role: 'Gérant',
+                    owner_email: data.owner_email.trim() || null,
+                    has_contract: false,
+                    created_by: session?.user?.id ?? null,
+                  })
+                  .select()
+                  .single()
+                if (error) throw error
+                const loc = created as Location
+                setLocation(loc)
+                // Meme logique que le lieu existant : si scan-first, ajoute le
+                // panneau et propose la diffusion. Sinon, envoie a la page de scan.
+                if (panelId) {
+                  const first = [{ panelId, qrCode: panelId, reference: '' }]
+                  setInstalled(first)
+                  saveSession(loc, first)
+                  setStep('diffuse_choice')
+                } else {
+                  saveSession(loc, [])
+                  navigate('/app/scan?install_session=1')
+                }
+              } catch (e) {
+                toast(e instanceof Error ? e.message : 'Erreur création', 'error')
               }
             }}
           />
@@ -910,12 +850,6 @@ export function InstallWizardPage() {
               else setStep('sign_owner')
             }}
           />
-          {error && (
-            <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-              <p className="font-medium">Erreur d'enregistrement :</p>
-              <p className="mt-1 whitespace-pre-wrap text-xs">{error}</p>
-            </div>
-          )}
         </>
       )}
 
@@ -1190,11 +1124,8 @@ function CreateLocationStep({
       .finally(() => setGeocoding(false))
   }, [lat, lng, data.address, data.postal_code, data.city])
 
-  const phoneValid = data.phone.trim() === '' || /^[\d\s+().-]{8,}$/.test(data.phone.trim())
-  const emailValid = data.owner_email.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.owner_email.trim())
   const canSubmit = data.name.trim() && data.address.trim() && data.city.trim() &&
-                    data.owner_first_name.trim() && data.owner_last_name.trim() &&
-                    phoneValid && emailValid
+                    data.owner_first_name.trim() && data.owner_last_name.trim()
 
   return (
     <div className="space-y-3">
@@ -1239,16 +1170,10 @@ function CreateLocationStep({
 
       <Field label="Téléphone (facultatif)">
         <Input value={data.phone} onChange={(e) => patch('phone', e.target.value)} placeholder="04 93 00 11 22" inputMode="tel" type="tel" className="h-12 text-base" />
-        {data.phone.trim() && !phoneValid && (
-          <p className="mt-1 text-[11px] text-destructive">Numéro invalide (au moins 8 chiffres)</p>
-        )}
       </Field>
 
       <Field label="Email (facultatif)">
         <Input value={data.owner_email} onChange={(e) => patch('owner_email', e.target.value)} placeholder="marie@camping-les-pins.fr" inputMode="email" type="email" className="h-12 text-base" />
-        {data.owner_email.trim() && !emailValid && (
-          <p className="mt-1 text-[11px] text-destructive">Email invalide</p>
-        )}
       </Field>
 
       <Button
@@ -1567,34 +1492,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-async function generateAndUploadPDF(
-  docNumber: string,
-  element: React.ReactElement,
-): Promise<{ path: string; blob: Blob }> {
-  const blob = await pdf(element as Parameters<typeof pdf>[0]).toBlob()
-  const path = `contracts/${docNumber}.pdf`
-  const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
-    contentType: 'application/pdf', upsert: true,
-  })
-  if (error) throw error
-  return { path, blob }
-}
-
 async function uploadSignature(dataUrl: string, prefix: string): Promise<string> {
-  // Detecte le format depuis le prefixe data URL. Depuis le passage a JPEG
-  // dans SignatureCanvas (perf mobile), le mime peut etre jpeg. On aligne
-  // MIME + extension sur ce qui est reellement dans les bytes, sinon Supabase
-  // stocke des bytes JPEG etiquetes PNG → react-pdf serveur bug.
-  const mimeMatch = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
-  if (!mimeMatch) throw new Error('Signature invalide (data URL malforme)')
-  const mime = mimeMatch[1] // 'image/jpeg' ou 'image/png'
-  const base64 = mimeMatch[2]
-  const ext = mime === 'image/jpeg' ? 'jpg' : 'png'
+  const base64 = dataUrl.split(',')[1]
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-  const blob = new Blob([bytes], { type: mime })
-  const path = `signatures/${prefix}-${crypto.randomUUID()}.${ext}`
+  const blob = new Blob([bytes], { type: 'image/png' })
+  const path = `signatures/${prefix}-${crypto.randomUUID()}.png`
   const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
-    contentType: mime, upsert: false,
+    contentType: 'image/png', upsert: false,
   })
   if (error) throw error
   return path
@@ -1611,11 +1515,17 @@ async function fetchSignatureAsBase64(path: string): Promise<string> {
   const bytes = new Uint8Array(buf)
   let binary = ''
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
-  // Detecte le format depuis l'extension du path (jpg/jpeg → jpeg, sinon png).
-  // Evite de labeliser data:image/png alors que les bytes sont JPEG.
-  const isJpeg = /\.jpe?g$/i.test(path)
-  const mime = isJpeg ? 'image/jpeg' : 'image/png'
-  return `data:${mime};base64,${btoa(binary)}`
+  return `data:image/png;base64,${btoa(binary)}`
+}
+
+async function generateAndUploadPDF(docNumber: string, element: React.ReactElement<DocumentProps>): Promise<{ path: string; blob: Blob }> {
+  const blob = await pdf(element).toBlob()
+  const path = `contracts/${docNumber}.pdf`
+  const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
+    contentType: 'application/pdf', upsert: true,
+  })
+  if (error) throw error
+  return { path, blob }
 }
 
 /**

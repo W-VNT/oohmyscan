@@ -166,9 +166,13 @@ export function ContractStepper({ panel }: ContractStepperProps) {
     }
   }
 
-  // Upload signature image to storage, return the path
-  async function generateAndUploadPDF(docNumber: string, element: React.ReactElement): Promise<string> {
-    const blob = await pdf(element as Parameters<typeof pdf>[0]).toBlob()
+  // Generate PDF blob and upload to storage
+  async function generateAndUploadPDF(
+    docNumber: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pdfElement: React.ReactElement<any>,
+  ): Promise<string> {
+    const blob = await pdf(pdfElement).toBlob()
     const path = `contracts/${docNumber}.pdf`
     const { error: uploadErr } = await supabase.storage
       .from('panel-photos')
@@ -177,22 +181,15 @@ export function ContractStepper({ panel }: ContractStepperProps) {
     return path
   }
 
+  // Upload signature image to storage, return the path
   async function uploadSignature(dataUrl: string, prefix: string): Promise<string> {
-    // Detecte le format depuis le prefixe data URL. Depuis le passage a JPEG
-    // dans SignatureCanvas (perf mobile), le mime peut etre jpeg. On aligne
-    // MIME + extension sur les vrais bytes, sinon Supabase stocke des bytes
-    // JPEG etiquetes PNG → downstream (PDF gen serveur, amendment) foire.
-    const mimeMatch = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
-    if (!mimeMatch) throw new Error('Signature invalide (data URL malforme)')
-    const mime = mimeMatch[1]
-    const base64 = mimeMatch[2]
-    const ext = mime === 'image/jpeg' ? 'jpg' : 'png'
+    const base64 = dataUrl.split(',')[1]
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-    const blob = new Blob([bytes], { type: mime })
-    const path = `signatures/${prefix}-${crypto.randomUUID()}.${ext}`
+    const blob = new Blob([bytes], { type: 'image/png' })
+    const path = `signatures/${prefix}-${crypto.randomUUID()}.png`
     const { error: uploadErr } = await supabase.storage
       .from('panel-photos')
-      .upload(path, blob, { contentType: mime })
+      .upload(path, blob, { contentType: 'image/png' })
     if (uploadErr) throw uploadErr
     return path
   }
@@ -265,7 +262,9 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         if (rpcErr) throw rpcErr
         const amendmentNumber = numData as string
 
-        const storagePath = await generateAndUploadPDF(amendmentNumber, (
+        // Generate PDF
+        const storagePath = await generateAndUploadPDF(
+          amendmentNumber,
           <AmendmentPDF
             amendmentNumber={amendmentNumber}
             originalContractNumber={existingContract.contract_number}
@@ -291,8 +290,8 @@ export function ContractStepper({ panel }: ContractStepperProps) {
             signatureOperator={signatureOperator}
             company={company}
             zoneLabels={fullZoneLabels}
-          />
-        ))
+          />,
+        )
 
         const { error: insertErr } = await supabase.from('contract_amendments').insert({
           contract_id: existingContract.id,
@@ -323,7 +322,9 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         if (rpcErr) throw rpcErr
         const newContractNumber = numData as string
 
-        const storagePath = await generateAndUploadPDF(newContractNumber, (
+        // Generate PDF
+        const storagePath = await generateAndUploadPDF(
+          newContractNumber,
           <ContractPDF
             contractNumber={newContractNumber}
             signedAt={now}
@@ -347,8 +348,8 @@ export function ContractStepper({ panel }: ContractStepperProps) {
             signatureOperator={signatureOperator}
             company={company}
             zoneLabels={fullZoneLabels}
-          />
-        ))
+          />,
+        )
 
         const { error: insertErr } = await supabase.from('panel_contracts').insert({
           location_id: location.id,

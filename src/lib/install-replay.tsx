@@ -14,11 +14,12 @@
  */
 
 import { pdf } from '@react-pdf/renderer'
+import type { DocumentProps } from '@react-pdf/renderer'
 import { supabase } from '@/lib/supabase'
-import { PANEL_ZONES } from '@/lib/constants'
-import { downscaleImage } from '@/lib/image-utils'
 import { ContractPDF } from '@/lib/pdf/ContractPDF'
 import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
+import { PANEL_ZONES } from '@/lib/constants'
+import { downscaleImage } from '@/lib/image-utils'
 import type { Location } from '@/types'
 import type { InstalledPanelData } from '@/lib/offline-mutation-queue'
 import type { CompanyPublic } from '@/hooks/useCompanyPublic'
@@ -37,8 +38,6 @@ export interface InstallSaveInput {
   signOperator: string
   plannedPanelsCount?: number
   isAmendment: boolean
-  /** true si le lieu doit etre inseree en DB au replay (creation locale). */
-  isNewLocation?: boolean
   userId: string
   lat?: number
   lng?: number
@@ -61,32 +60,13 @@ function zoneLabel(zone: string): string {
   return z?.label ?? zone
 }
 
-async function generateAndUploadPDF(
-  docNumber: string,
-  element: React.ReactElement,
-): Promise<{ path: string; blob: Blob }> {
-  const blob = await pdf(element as Parameters<typeof pdf>[0]).toBlob()
-  const path = `contracts/${docNumber}.pdf`
-  const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
-    contentType: 'application/pdf', upsert: true,
-  })
-  if (error) throw error
-  return { path, blob }
-}
-
 async function uploadSignature(dataUrl: string, prefix: string): Promise<string> {
-  // Meme fix que InstallWizardPage.uploadSignature : detecte le format
-  // depuis le prefixe (jpeg since juillet 2026, png historiquement).
-  const mimeMatch = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
-  if (!mimeMatch) throw new Error('Signature invalide (data URL malforme)')
-  const mime = mimeMatch[1]
-  const base64 = mimeMatch[2]
-  const ext = mime === 'image/jpeg' ? 'jpg' : 'png'
+  const base64 = dataUrl.split(',')[1]
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-  const blob = new Blob([bytes], { type: mime })
-  const path = `signatures/${prefix}-${crypto.randomUUID()}.${ext}`
+  const blob = new Blob([bytes], { type: 'image/png' })
+  const path = `signatures/${prefix}-${crypto.randomUUID()}.png`
   const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
-    contentType: mime,
+    contentType: 'image/png',
     upsert: false,
   })
   if (error) throw error
@@ -100,10 +80,21 @@ async function fetchSignatureAsBase64(path: string): Promise<string> {
   const bytes = new Uint8Array(buf)
   let binary = ''
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
-  // Detecte le format depuis l'extension (jpg/jpeg → jpeg, sinon png).
-  const isJpeg = /\.jpe?g$/i.test(path)
-  const mime = isJpeg ? 'image/jpeg' : 'image/png'
-  return `data:${mime};base64,${btoa(binary)}`
+  return `data:image/png;base64,${btoa(binary)}`
+}
+
+async function generateAndUploadPDF(
+  docNumber: string,
+  element: React.ReactElement<DocumentProps>,
+): Promise<{ path: string; blob: Blob }> {
+  const blob = await pdf(element).toBlob()
+  const path = `contracts/${docNumber}.pdf`
+  const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
+    contentType: 'application/pdf',
+    upsert: true,
+  })
+  if (error) throw error
+  return { path, blob }
 }
 
 function getCompanyForPDF(settings: CompanyPublic | null | undefined) {
@@ -204,34 +195,9 @@ async function sendContractEmail(params: {
 export async function performInstallSave(
   input: InstallSaveInput,
 ): Promise<InstallSaveResult> {
-  const { location, installed, signOwner, signOperator, isAmendment, isNewLocation, userId } = input
+  const { location, installed, signOwner, signOperator, isAmendment, userId } = input
 
   if (installed.length === 0) throw new Error('Aucun panneau installé')
-
-  // Insertion differee du lieu si nouveau (creation locale dans le wizard).
-  // On insere avant le fetch des contrats/panneaux qui referencent location.id.
-  let effectiveLocation: Location = location
-  if (isNewLocation) {
-    const { data: created, error: locErr } = await supabase
-      .from('locations')
-      .insert({
-        name: location.name,
-        address: location.address,
-        postal_code: location.postal_code,
-        city: location.city,
-        phone: location.phone,
-        owner_first_name: location.owner_first_name,
-        owner_last_name: location.owner_last_name,
-        owner_role: location.owner_role,
-        owner_email: location.owner_email,
-        has_contract: false,
-        created_by: userId,
-      })
-      .select()
-      .single()
-    if (locErr) throw locErr
-    effectiveLocation = created as Location
-  }
 
   // 1. Fetch companySettings + defaultPanelType + existingContract au replay time
   //    (utilise les infos actuelles, pas un snapshot périmé)
@@ -242,7 +208,7 @@ export async function performInstallSave(
       ? supabase
           .from('panel_contracts')
           .select('*')
-          .eq('location_id', effectiveLocation.id)
+          .eq('location_id', location.id)
           .neq('status', 'terminated')
           .order('created_at', { ascending: false })
           .limit(1)
@@ -322,7 +288,7 @@ export async function performInstallSave(
       const { error: updErr } = await supabase
         .from('panels')
         .update({
-          location_id: effectiveLocation.id,
+          location_id: location.id,
           zone_label: p.zone ?? null,
           name: autoName,
           address: location.address,
@@ -347,7 +313,7 @@ export async function performInstallSave(
           city: location.city,
           lat: input.lat ?? 0,
           lng: input.lng ?? 0,
-          location_id: effectiveLocation.id,
+          location_id: location.id,
           zone_label: p.zone ?? null,
           type: defaultPanelType?.name ?? null,
           status: 'active',
@@ -415,7 +381,7 @@ export async function performInstallSave(
     const { data: existingPanels } = await supabase
       .from('panels')
       .select('id, qr_code, reference, zone_label')
-      .eq('location_id', effectiveLocation.id)
+      .eq('location_id', location.id)
     const allPanelsSnapshot: PanelSnapshot[] = (existingPanels ?? []).map((p) => ({
       panel_id: p.id,
       zone_label: p.zone_label ?? '',
@@ -423,7 +389,8 @@ export async function performInstallSave(
       reference: p.reference,
     }))
 
-    const { path: pdfPath } = await generateAndUploadPDF(amendmentNumber, (
+    const { path: pdfPath } = await generateAndUploadPDF(
+      amendmentNumber,
       <AmendmentPDF
         amendmentNumber={amendmentNumber}
         originalContractNumber={existingContract.contract_number}
@@ -449,12 +416,12 @@ export async function performInstallSave(
         signatureOperator={sigOperatorForPdf}
         company={company}
         zoneLabels={fullZoneLabels}
-      />
-    ))
+      />,
+    )
 
     const { error: insertErr } = await supabase.from('contract_amendments').insert({
       contract_id: existingContract.id,
-      location_id: effectiveLocation.id,
+      location_id: location.id,
       amendment_number: amendmentNumber,
       reason: 'panel_added',
       panels_added: panelsToCreate,
@@ -475,7 +442,8 @@ export async function performInstallSave(
     if (rpcErr) throw rpcErr
     contractNumber = numData as string
 
-    const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(contractNumber, (
+    const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(
+      contractNumber,
       <ContractPDF
         contractNumber={contractNumber}
         signedAt={now}
@@ -495,20 +463,24 @@ export async function performInstallSave(
         }}
         closingMonths={location.closing_months}
         panels={panelsToCreate}
-        panelFormat={defaultPanelType ? {
-          name: defaultPanelType.name,
-          width_cm: defaultPanelType.width_cm,
-          height_cm: defaultPanelType.height_cm,
-        } : null}
+        panelFormat={
+          defaultPanelType
+            ? {
+                name: defaultPanelType.name,
+                width_cm: defaultPanelType.width_cm,
+                height_cm: defaultPanelType.height_cm,
+              }
+            : null
+        }
         signatureOwner={sigOwnerForPdf}
         signatureOperator={sigOperatorForPdf}
         company={company}
         zoneLabels={fullZoneLabels}
-      />
-    ))
+      />,
+    )
 
     const { error: insertErr } = await supabase.from('panel_contracts').insert({
-      location_id: effectiveLocation.id,
+      location_id: location.id,
       contract_number: contractNumber,
       establishment_name: location.name,
       establishment_address: location.address,
@@ -529,7 +501,7 @@ export async function performInstallSave(
     })
     if (insertErr) throw insertErr
 
-    // Email au gerant (best-effort, ne bloque pas). Reutilise le blob rendu.
+    // Email au gerant (best-effort, ne bloque pas)
     if (location.owner_email) {
       const res = await sendContractEmail({
         to: location.owner_email,
