@@ -102,9 +102,7 @@ export function LocationForm({ onSubmit, initialData, panelCoords, submitLabel =
     if (!form.city.trim()) e.city = 'Requis'
     if (!form.owner_last_name.trim()) e.owner_last_name = 'Requis'
     if (!form.owner_first_name.trim()) e.owner_first_name = 'Requis'
-    if (!form.owner_email.trim()) {
-      e.owner_email = 'Requis'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email)) {
+    if (form.owner_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email)) {
       e.owner_email = 'Email invalide'
     }
     if (form.phone.trim() && !/^[\d\s+()./-]{6,25}$/.test(form.phone.trim())) {
@@ -224,7 +222,7 @@ export function LocationForm({ onSubmit, initialData, panelCoords, submitLabel =
             {field('owner_last_name', 'Nom', 'Dupont')}
           </div>
           {field('owner_role', 'Fonction', 'Gérant')}
-          {field('owner_email', 'Email *', 'jean@bar-central.fr', 'email', { inputMode: 'email', autoComplete: 'email' })}
+          {field('owner_email', 'Email (facultatif)', 'jean@bar-central.fr', 'email', { inputMode: 'email', autoComplete: 'email' })}
         </div>
       </div>
 

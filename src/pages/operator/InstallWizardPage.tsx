@@ -1172,7 +1172,7 @@ function CreateLocationStep({
   }, [lat, lng, data.address, data.postal_code, data.city])
 
   const phoneValid = data.phone.trim() === '' || /^[\d\s+().-]{8,}$/.test(data.phone.trim())
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.owner_email.trim())
+  const emailValid = data.owner_email.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.owner_email.trim())
   const canSubmit = data.name.trim() && data.address.trim() && data.city.trim() &&
                     data.owner_first_name.trim() && data.owner_last_name.trim() &&
                     phoneValid && emailValid
@@ -1225,7 +1225,7 @@ function CreateLocationStep({
         )}
       </Field>
 
-      <Field label="Email *">
+      <Field label="Email (facultatif)">
         <Input value={data.owner_email} onChange={(e) => patch('owner_email', e.target.value)} placeholder="marie@camping-les-pins.fr" inputMode="email" type="email" className="h-12 text-base" />
         {data.owner_email.trim() && !emailValid && (
           <p className="mt-1 text-[11px] text-destructive">Email invalide</p>
