@@ -13,10 +13,12 @@
  * catch-thrown si dupliqués (à améliorer avec une check upfront).
  */
 
+import { pdf } from '@react-pdf/renderer'
 import { supabase } from '@/lib/supabase'
 import { PANEL_ZONES } from '@/lib/constants'
 import { downscaleImage } from '@/lib/image-utils'
-import { generateContractPDFServer, downloadPDFBlob } from '@/lib/pdf-server'
+import { ContractPDF } from '@/lib/pdf/ContractPDF'
+import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
 import type { Location } from '@/types'
 import type { InstalledPanelData } from '@/lib/offline-mutation-queue'
 import type { CompanyPublic } from '@/hooks/useCompanyPublic'
@@ -57,6 +59,19 @@ function zoneLabel(zone: string): string {
   if (zone.startsWith('custom:')) return zone.slice(7)
   const z = PANEL_ZONES.find((x) => x.value === zone)
   return z?.label ?? zone
+}
+
+async function generateAndUploadPDF(
+  docNumber: string,
+  element: React.ReactElement,
+): Promise<{ path: string; blob: Blob }> {
+  const blob = await pdf(element as Parameters<typeof pdf>[0]).toBlob()
+  const path = `contracts/${docNumber}.pdf`
+  const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
+    contentType: 'application/pdf', upsert: true,
+  })
+  if (error) throw error
+  return { path, blob }
 }
 
 async function uploadSignature(dataUrl: string, prefix: string): Promise<string> {
@@ -408,36 +423,34 @@ export async function performInstallSave(
       reference: p.reference,
     }))
 
-    const { pdfPath } = await generateContractPDFServer({
-      type: 'amendment',
-      fileName: `contracts/${amendmentNumber}.pdf`,
-      props: {
-        amendmentNumber,
-        originalContractNumber: existingContract.contract_number,
-        originalSignedAt: existingContract.signed_at,
-        signedAt: now,
-        signedCity: location.city,
-        reason: 'panel_added',
-        establishment: {
+    const { path: pdfPath } = await generateAndUploadPDF(amendmentNumber, (
+      <AmendmentPDF
+        amendmentNumber={amendmentNumber}
+        originalContractNumber={existingContract.contract_number}
+        originalSignedAt={existingContract.signed_at}
+        signedAt={now}
+        signedCity={location.city}
+        reason="panel_added"
+        establishment={{
           name: location.name,
           address: location.address,
           postal_code: location.postal_code,
           city: location.city,
-        },
-        owner: {
+        }}
+        owner={{
           first_name: location.owner_first_name,
           last_name: location.owner_last_name,
           role: location.owner_role,
-        },
-        panelsAdded: panelsToCreate,
-        panelsRemoved: [],
-        panelsAfter: allPanelsSnapshot,
-        signatureOwner: sigOwnerForPdf,
-        signatureOperator: sigOperatorForPdf,
-        company,
-        zoneLabels: fullZoneLabels,
-      },
-    })
+        }}
+        panelsAdded={panelsToCreate}
+        panelsRemoved={[]}
+        panelsAfter={allPanelsSnapshot}
+        signatureOwner={sigOwnerForPdf}
+        signatureOperator={sigOperatorForPdf}
+        company={company}
+        zoneLabels={fullZoneLabels}
+      />
+    ))
 
     const { error: insertErr } = await supabase.from('contract_amendments').insert({
       contract_id: existingContract.id,
@@ -462,41 +475,37 @@ export async function performInstallSave(
     if (rpcErr) throw rpcErr
     contractNumber = numData as string
 
-    const { pdfPath } = await generateContractPDFServer({
-      type: 'contract',
-      fileName: `contracts/${contractNumber}.pdf`,
-      props: {
-        contractNumber,
-        signedAt: now,
-        signedCity: location.city,
-        establishment: {
+    const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(contractNumber, (
+      <ContractPDF
+        contractNumber={contractNumber}
+        signedAt={now}
+        signedCity={location.city}
+        establishment={{
           name: location.name,
           address: location.address,
           postal_code: location.postal_code,
           city: location.city,
           phone: location.phone,
-        },
-        owner: {
+        }}
+        owner={{
           first_name: location.owner_first_name,
           last_name: location.owner_last_name,
           role: location.owner_role,
           email: location.owner_email,
-        },
-        closingMonths: location.closing_months,
-        panels: panelsToCreate,
-        panelFormat: defaultPanelType
-          ? {
-              name: defaultPanelType.name,
-              width_cm: defaultPanelType.width_cm,
-              height_cm: defaultPanelType.height_cm,
-            }
-          : null,
-        signatureOwner: sigOwnerForPdf,
-        signatureOperator: sigOperatorForPdf,
-        company,
-        zoneLabels: fullZoneLabels,
-      },
-    })
+        }}
+        closingMonths={location.closing_months}
+        panels={panelsToCreate}
+        panelFormat={defaultPanelType ? {
+          name: defaultPanelType.name,
+          width_cm: defaultPanelType.width_cm,
+          height_cm: defaultPanelType.height_cm,
+        } : null}
+        signatureOwner={sigOwnerForPdf}
+        signatureOperator={sigOperatorForPdf}
+        company={company}
+        zoneLabels={fullZoneLabels}
+      />
+    ))
 
     const { error: insertErr } = await supabase.from('panel_contracts').insert({
       location_id: effectiveLocation.id,
@@ -520,10 +529,8 @@ export async function performInstallSave(
     })
     if (insertErr) throw insertErr
 
-    // Email au gerant (best-effort, ne bloque pas). Le blob PDF est redownload
-    // depuis Storage — evite de garder tout en RAM cote client.
+    // Email au gerant (best-effort, ne bloque pas). Reutilise le blob rendu.
     if (location.owner_email) {
-      const pdfBlob = await downloadPDFBlob(pdfPath)
       const res = await sendContractEmail({
         to: location.owner_email,
         contractNumber,

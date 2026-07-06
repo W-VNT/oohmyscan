@@ -1,17 +1,17 @@
 {
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/(.*)",
       "has": [{ "type": "host", "value": "app.oohmyad.com" }],
       "destination": "/index.html"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/(.*)",
       "has": [{ "type": "host", "value": "admin.oohmyad.com" }],
       "destination": "/index.html"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]

@@ -41,7 +41,3 @@ supabase/.temp/
 # Temp migration files
 ALL_MIGRATIONS*.sql
 
-# Vercel API sourcemaps only (large, regenerated at build)
-# .js files sont commit pour que Vercel les detecte comme functions
-# meme si le build script n'a pas encore tourne
-/api/*.js.map
