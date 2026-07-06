@@ -19,8 +19,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@supabase/supabase-js'
 import { createElement } from 'react'
-import { ContractPDF, type ContractPDFProps } from './pdf/ContractPDF'
-import { AmendmentPDF, type AmendmentPDFProps } from './pdf/AmendmentPDF'
+import { ContractPDF, type ContractPDFProps } from './pdf/ContractPDF.js'
+import { AmendmentPDF, type AmendmentPDFProps } from './pdf/AmendmentPDF.js'
 
 interface RequestBody {
   type: 'contract' | 'amendment'

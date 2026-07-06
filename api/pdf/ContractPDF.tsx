@@ -1,5 +1,5 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer'
-import { formatDateFR } from './pdf-helpers'
+import { formatDateFR } from './pdf-helpers.js'
 
 // Charte graphique OOH MY AD ! — cohérente avec la landing page
 // Jaune #F5C400 + noir #0A0A0A, minimaliste

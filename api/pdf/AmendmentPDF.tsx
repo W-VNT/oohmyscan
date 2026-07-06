@@ -1,5 +1,5 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer'
-import { formatDateFR } from './pdf-helpers'
+import { formatDateFR } from './pdf-helpers.js'
 
 const c = {
   primary: '#0F172A',
