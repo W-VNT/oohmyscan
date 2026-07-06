@@ -14,9 +14,10 @@ import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/components/shared/Toast'
 import { PANEL_ZONES } from '@/lib/constants'
-import { pdf } from '@react-pdf/renderer'
-import { ContractPDF } from '@/lib/pdf/ContractPDF'
-import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
+// @react-pdf/renderer + templates lazy-loade dans generateAndUploadPDF pour
+// eviter les 400 KB au load initial. Voir InstallWizardPage pour details.
+import type { ContractPDFProps } from '@/lib/pdf/ContractPDF'
+import type { AmendmentPDFProps } from '@/lib/pdf/AmendmentPDF'
 import type { Location, Panel } from '@/types'
 
 type FlowType = 'new_location' | 'existing_location'
@@ -166,13 +167,24 @@ export function ContractStepper({ panel }: ContractStepperProps) {
     }
   }
 
-  // Generate PDF blob and upload to storage
+  // Generate PDF blob and upload to storage.
+  // @react-pdf/renderer + templates charges dynamiquement -> aucun cout au
+  // load initial de la page.
   async function generateAndUploadPDF(
     docNumber: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pdfElement: React.ReactElement<any>,
+    type: 'contract' | 'amendment',
+    props: ContractPDFProps | AmendmentPDFProps,
   ): Promise<string> {
-    const blob = await pdf(pdfElement).toBlob()
+    const [{ pdf }, { ContractPDF }, { AmendmentPDF }, { createElement }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('@/lib/pdf/ContractPDF'),
+      import('@/lib/pdf/AmendmentPDF'),
+      import('react'),
+    ])
+    const element = type === 'contract'
+      ? createElement(ContractPDF, props as ContractPDFProps)
+      : createElement(AmendmentPDF, props as AmendmentPDFProps)
+    const blob = await pdf(element as Parameters<typeof pdf>[0]).toBlob()
     const path = `contracts/${docNumber}.pdf`
     const { error: uploadErr } = await supabase.storage
       .from('panel-photos')
@@ -262,36 +274,32 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         if (rpcErr) throw rpcErr
         const amendmentNumber = numData as string
 
-        // Generate PDF
-        const storagePath = await generateAndUploadPDF(
+        const storagePath = await generateAndUploadPDF(amendmentNumber, 'amendment', {
           amendmentNumber,
-          <AmendmentPDF
-            amendmentNumber={amendmentNumber}
-            originalContractNumber={existingContract.contract_number}
-            originalSignedAt={existingContract.signed_at}
-            signedAt={now}
-            signedCity={location.city}
-            reason="panel_added"
-            establishment={{
-              name: location.name,
-              address: location.address,
-              postal_code: location.postal_code,
-              city: location.city,
-            }}
-            owner={{
-              first_name: location.owner_first_name,
-              last_name: location.owner_last_name,
-              role: location.owner_role,
-            }}
-            panelsAdded={[newPanelSnapshot]}
-            panelsRemoved={[]}
-            panelsAfter={allPanelsSnapshot}
-            signatureOwner={signatureOwner}
-            signatureOperator={signatureOperator}
-            company={company}
-            zoneLabels={fullZoneLabels}
-          />,
-        )
+          originalContractNumber: existingContract.contract_number,
+          originalSignedAt: existingContract.signed_at,
+          signedAt: now,
+          signedCity: location.city,
+          reason: 'panel_added',
+          establishment: {
+            name: location.name,
+            address: location.address,
+            postal_code: location.postal_code,
+            city: location.city,
+          },
+          owner: {
+            first_name: location.owner_first_name,
+            last_name: location.owner_last_name,
+            role: location.owner_role,
+          },
+          panelsAdded: [newPanelSnapshot],
+          panelsRemoved: [],
+          panelsAfter: allPanelsSnapshot,
+          signatureOwner,
+          signatureOperator,
+          company,
+          zoneLabels: fullZoneLabels,
+        })
 
         const { error: insertErr } = await supabase.from('contract_amendments').insert({
           contract_id: existingContract.id,
@@ -322,34 +330,30 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         if (rpcErr) throw rpcErr
         const newContractNumber = numData as string
 
-        // Generate PDF
-        const storagePath = await generateAndUploadPDF(
-          newContractNumber,
-          <ContractPDF
-            contractNumber={newContractNumber}
-            signedAt={now}
-            signedCity={location.city}
-            establishment={{
-              name: location.name,
-              address: location.address,
-              postal_code: location.postal_code,
-              city: location.city,
-              phone: location.phone,
-            }}
-            owner={{
-              first_name: location.owner_first_name,
-              last_name: location.owner_last_name,
-              role: location.owner_role,
-              email: location.owner_email,
-            }}
-            closingMonths={location.closing_months}
-            panels={allPanelsSnapshot}
-            signatureOwner={signatureOwner}
-            signatureOperator={signatureOperator}
-            company={company}
-            zoneLabels={fullZoneLabels}
-          />,
-        )
+        const storagePath = await generateAndUploadPDF(newContractNumber, 'contract', {
+          contractNumber: newContractNumber,
+          signedAt: now,
+          signedCity: location.city,
+          establishment: {
+            name: location.name,
+            address: location.address,
+            postal_code: location.postal_code,
+            city: location.city,
+            phone: location.phone,
+          },
+          owner: {
+            first_name: location.owner_first_name,
+            last_name: location.owner_last_name,
+            role: location.owner_role,
+            email: location.owner_email,
+          },
+          closingMonths: location.closing_months,
+          panels: allPanelsSnapshot,
+          signatureOwner,
+          signatureOperator,
+          company,
+          zoneLabels: fullZoneLabels,
+        })
 
         const { error: insertErr } = await supabase.from('panel_contracts').insert({
           location_id: location.id,

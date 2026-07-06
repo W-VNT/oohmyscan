@@ -17,8 +17,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Loader2, MapPin, Plus, Camera, Check, Building2, ChevronRight, FileCheck, Megaphone } from 'lucide-react'
-import { pdf } from '@react-pdf/renderer'
+// @react-pdf/renderer + templates ContractPDF/AmendmentPDF sont dynamiquement
+// importees dans handleFinalSave -> le bundle install (~500 KB gzip) tombe
+// a ~100 KB, +500ms d'attente unique au premier save (bundle cache ensuite).
+// Import de types uniquement (efface au compile-time).
 import type { DocumentProps } from '@react-pdf/renderer'
+import type { ContractPDFProps } from '@/lib/pdf/ContractPDF'
+import type { AmendmentPDFProps } from '@/lib/pdf/AmendmentPDF'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,8 +41,6 @@ import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { useActiveCampaigns } from '@/hooks/useCampaigns'
 import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
-import { ContractPDF } from '@/lib/pdf/ContractPDF'
-import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
 import { downscaleImage } from '@/lib/image-utils'
 import { enqueueInstall } from '@/lib/offline-mutation-queue'
 import { isNetworkError } from '@/lib/install-replay'
@@ -460,34 +463,32 @@ export function InstallWizardPage() {
           reference: p.reference,
         }))
 
-        const { path: pdfPath } = await generateAndUploadPDF(amendmentNumber, (
-          <AmendmentPDF
-            amendmentNumber={amendmentNumber}
-            originalContractNumber={existingContract.contract_number}
-            originalSignedAt={existingContract.signed_at}
-            signedAt={now}
-            signedCity={location.city}
-            reason="panel_added"
-            establishment={{
-              name: location.name,
-              address: location.address,
-              postal_code: location.postal_code,
-              city: location.city,
-            }}
-            owner={{
-              first_name: location.owner_first_name,
-              last_name: location.owner_last_name,
-              role: location.owner_role,
-            }}
-            panelsAdded={panelsToCreate}
-            panelsRemoved={[]}
-            panelsAfter={allPanelsSnapshot}
-            signatureOwner={sigOwnerForPdf}
-            signatureOperator={sigOperatorForPdf}
-            company={company}
-            zoneLabels={fullZoneLabels}
-          />
-        ))
+        const { path: pdfPath } = await generateAndUploadPDF(amendmentNumber, 'amendment', {
+          amendmentNumber,
+          originalContractNumber: existingContract.contract_number,
+          originalSignedAt: existingContract.signed_at,
+          signedAt: now,
+          signedCity: location.city,
+          reason: 'panel_added',
+          establishment: {
+            name: location.name,
+            address: location.address,
+            postal_code: location.postal_code,
+            city: location.city,
+          },
+          owner: {
+            first_name: location.owner_first_name,
+            last_name: location.owner_last_name,
+            role: location.owner_role,
+          },
+          panelsAdded: panelsToCreate,
+          panelsRemoved: [],
+          panelsAfter: allPanelsSnapshot,
+          signatureOwner: sigOwnerForPdf,
+          signatureOperator: sigOperatorForPdf,
+          company,
+          zoneLabels: fullZoneLabels,
+        })
 
         const { error: insertErr } = await supabase.from('contract_amendments').insert({
           contract_id: existingContract.id,
@@ -535,37 +536,35 @@ export function InstallWizardPage() {
           console.warn(`[install] contract_number ${candidate} deja pris, retry (${numRetries}/20)`)
         }
 
-        const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(contractNumber, (
-          <ContractPDF
-            contractNumber={contractNumber}
-            signedAt={now}
-            signedCity={location.city}
-            establishment={{
-              name: location.name,
-              address: location.address,
-              postal_code: location.postal_code,
-              city: location.city,
-              phone: location.phone,
-            }}
-            owner={{
-              first_name: location.owner_first_name,
-              last_name: location.owner_last_name,
-              role: location.owner_role,
-              email: location.owner_email,
-            }}
-            closingMonths={location.closing_months}
-            panels={panelsToCreate}
-            panelFormat={defaultPanelType ? {
-              name: defaultPanelType.name,
-              width_cm: defaultPanelType.width_cm,
-              height_cm: defaultPanelType.height_cm,
-            } : null}
-            signatureOwner={sigOwnerForPdf}
-            signatureOperator={sigOperatorForPdf}
-            company={company}
-            zoneLabels={fullZoneLabels}
-          />
-        ))
+        const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(contractNumber, 'contract', {
+          contractNumber,
+          signedAt: now,
+          signedCity: location.city,
+          establishment: {
+            name: location.name,
+            address: location.address,
+            postal_code: location.postal_code,
+            city: location.city,
+            phone: location.phone,
+          },
+          owner: {
+            first_name: location.owner_first_name,
+            last_name: location.owner_last_name,
+            role: location.owner_role,
+            email: location.owner_email,
+          },
+          closingMonths: location.closing_months,
+          panels: panelsToCreate,
+          panelFormat: defaultPanelType ? {
+            name: defaultPanelType.name,
+            width_cm: defaultPanelType.width_cm,
+            height_cm: defaultPanelType.height_cm,
+          } : null,
+          signatureOwner: sigOwnerForPdf,
+          signatureOperator: sigOperatorForPdf,
+          company,
+          zoneLabels: fullZoneLabels,
+        })
 
         const { error: insertErr } = await supabase.from('panel_contracts').insert({
           location_id: location.id,
@@ -1568,8 +1567,28 @@ async function fetchSignatureAsBase64(path: string): Promise<string> {
   return `data:image/png;base64,${btoa(binary)}`
 }
 
-async function generateAndUploadPDF(docNumber: string, element: React.ReactElement<DocumentProps>): Promise<{ path: string; blob: Blob }> {
-  const blob = await pdf(element).toBlob()
+/**
+ * Charge dynamiquement @react-pdf/renderer + le template PDF, rend le blob,
+ * l'upload. Le lazy-load evite les 400 KB gzip d'@react-pdf/renderer dans
+ * le bundle main de l'install (chargement uniquement quand on signe).
+ */
+async function generateAndUploadPDF(
+  docNumber: string,
+  type: 'contract' | 'amendment',
+  props: ContractPDFProps | AmendmentPDFProps,
+): Promise<{ path: string; blob: Blob }> {
+  // Import parallele : @react-pdf/renderer + les 2 templates.
+  // Vite les met dans un chunk lazy, cache apres 1er load.
+  const [{ pdf }, { ContractPDF }, { AmendmentPDF }, { createElement }] = await Promise.all([
+    import('@react-pdf/renderer'),
+    import('@/lib/pdf/ContractPDF'),
+    import('@/lib/pdf/AmendmentPDF'),
+    import('react'),
+  ])
+  const element = type === 'contract'
+    ? createElement(ContractPDF, props as ContractPDFProps)
+    : createElement(AmendmentPDF, props as AmendmentPDFProps)
+  const blob = await pdf(element as React.ReactElement<DocumentProps>).toBlob()
   const path = `contracts/${docNumber}.pdf`
   const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
     contentType: 'application/pdf', upsert: true,
