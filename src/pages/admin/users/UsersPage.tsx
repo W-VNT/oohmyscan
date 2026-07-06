@@ -8,7 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/shared/Toast'
 import { useConfirm } from '@/components/shared/ConfirmDialog'
-import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown, SlidersHorizontal, Pencil } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown, SlidersHorizontal, Pencil, Mail, Send } from 'lucide-react'
 
 type RoleFilter = 'all' | 'admin' | 'operator'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -58,7 +65,6 @@ export function UsersPage() {
   const [inviting, setInviting] = useState(false)
 
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null)
-  const [userMenuId, setUserMenuId] = useState<string | null>(null)
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
@@ -157,12 +163,64 @@ export function UsersPage() {
   }
 
   async function handleResetPassword(userId: string) {
-    setUserMenuId(null)
     try {
       const { data, error } = await supabase.functions.invoke('manage-user', { body: { action: 'reset_password', userId } })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
       toast(data.message || 'Email de réinitialisation envoyé')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erreur', 'error')
+    }
+  }
+
+  /** Recupere l'email du user cible via l'edge function manage-user (service role
+   *  cote serveur → acces auth.users). Retourne null en cas d'erreur. */
+  async function fetchUserEmail(userId: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-user', { body: { action: 'get_email', userId } })
+      if (error || data?.error) throw new Error(data?.error ?? error?.message ?? 'Erreur')
+      return typeof data?.email === 'string' ? data.email : null
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erreur', 'error')
+      return null
+    }
+  }
+
+  async function handleCopyEmail(userId: string) {
+    const email = await fetchUserEmail(userId)
+    if (!email) return
+    try {
+      await navigator.clipboard.writeText(email)
+      toast(`Email copié : ${email}`)
+    } catch {
+      toast(email, 'success')
+    }
+  }
+
+  async function handleResendInvite(user: Profile) {
+    const email = await fetchUserEmail(user.id)
+    if (!email) return
+    try {
+      await inviteUser.mutateAsync({ email, full_name: user.full_name, role: user.role })
+      toast(`Invitation renvoyée à ${email}`)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erreur', 'error')
+    }
+  }
+
+  async function handleChangeRole(user: Profile) {
+    const newRole = user.role === 'admin' ? 'operator' : 'admin'
+    const ok = await confirm({
+      title: `Passer ${user.full_name} en ${newRole === 'admin' ? 'administrateur' : 'opérateur'} ?`,
+      description: newRole === 'admin'
+        ? 'Cette personne aura accès complet au back-office (utilisateurs, campagnes, factures…).'
+        : 'Cette personne perdra l\'accès au back-office et n\'aura que l\'accès terrain PWA.',
+      confirmLabel: 'Changer le rôle',
+    })
+    if (!ok) return
+    try {
+      await updateUser.mutateAsync({ id: user.id, role: newRole })
+      toast(`Rôle mis à jour → ${newRole === 'admin' ? 'Administrateur' : 'Opérateur'}`)
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erreur', 'error')
     }
@@ -486,35 +544,7 @@ export function UsersPage() {
                         <Pencil className="mr-1.5 size-3.5" />
                         Modifier
                       </Button>
-                      {canDelete && (
-                        <div className="relative">
-                          <Button size="sm" variant="outline" onClick={() => setUserMenuId(userMenuId === user.id ? null : user.id)} aria-label="Plus d'actions">
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                          {userMenuId === user.id && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setUserMenuId(null)} />
-                              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-border bg-popover py-1 shadow-lg">
-                                <button onClick={() => handleResetPassword(user.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                                  <KeyRound className="size-3.5" /> Réinitialiser le mot de passe
-                                </button>
-                                <button onClick={async () => {
-                                  setUserMenuId(null)
-                                  const ok = await confirm({
-                                    title: `Supprimer le compte de ${user.full_name} ?`,
-                                    description: 'Cette action est irréversible. L\'utilisateur perdra l\'accès à la plateforme.',
-                                    confirmLabel: 'Supprimer le compte',
-                                    variant: 'destructive',
-                                  })
-                                  if (ok) handleDeleteUser(user.id)
-                                }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
-                                  <Trash2 className="size-3.5" /> Supprimer le compte
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )}
+                      {canDelete && <UserActionsMenu user={user} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} onCopyEmail={handleCopyEmail} onResendInvite={handleResendInvite} onChangeRole={handleChangeRole} confirm={confirm} />}
                     </>
                   )}
                 </div>
@@ -655,33 +685,7 @@ export function UsersPage() {
                       </td>
                       <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
                         {user.id !== currentUserId && (
-                          <div className="relative">
-                            <button onClick={() => setUserMenuId(userMenuId === user.id ? null : user.id)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
-                              <MoreHorizontal className="size-4" />
-                            </button>
-                            {userMenuId === user.id && (
-                              <>
-                                <div className="fixed inset-0 z-40" onClick={() => setUserMenuId(null)} />
-                                <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-border bg-popover py-1 shadow-lg">
-                                  <button onClick={() => handleResetPassword(user.id)} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                                    <KeyRound className="size-3.5" /> Réinitialiser le mot de passe
-                                  </button>
-                                  <button onClick={async () => {
-                                    setUserMenuId(null)
-                                    const ok = await confirm({
-                                      title: `Supprimer le compte de ${user.full_name} ?`,
-                                      description: 'Cette action est irréversible. L\'utilisateur perdra l\'accès à la plateforme.',
-                                      confirmLabel: 'Supprimer le compte',
-                                      variant: 'destructive',
-                                    })
-                                    if (ok) handleDeleteUser(user.id)
-                                  }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
-                                    <Trash2 className="size-3.5" /> Supprimer le compte
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
+                          <UserActionsMenu user={user} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} onCopyEmail={handleCopyEmail} onResendInvite={handleResendInvite} onChangeRole={handleChangeRole} confirm={confirm} variant="ghost" />
                         )}
                       </td>
                       {editingId && <td />}
@@ -705,5 +709,77 @@ export function UsersPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// ============================================================================
+// UserActionsMenu — kebab avec les 5 actions (base-ui, flip auto quand overflow)
+// ============================================================================
+interface UserActionsMenuProps {
+  user: Profile
+  variant?: 'outline' | 'ghost'
+  onDelete: (userId: string) => Promise<void>
+  onResetPassword: (userId: string) => Promise<void>
+  onCopyEmail: (userId: string) => Promise<void>
+  onResendInvite: (user: Profile) => Promise<void>
+  onChangeRole: (user: Profile) => Promise<void>
+  confirm: ReturnType<typeof useConfirm>
+}
+
+function UserActionsMenu({
+  user,
+  variant = 'outline',
+  onDelete,
+  onResetPassword,
+  onCopyEmail,
+  onResendInvite,
+  onChangeRole,
+  confirm,
+}: UserActionsMenuProps) {
+  const isInvited = user.status === 'invited'
+  const oppositeRoleLabel = user.role === 'admin' ? 'Opérateur' : 'Administrateur'
+
+  const triggerClass =
+    variant === 'ghost'
+      ? 'inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+      : 'inline-flex h-9 items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={triggerClass} aria-label="Plus d'actions">
+        <MoreHorizontal className="size-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {isInvited && (
+          <DropdownMenuItem onClick={() => onResendInvite(user)}>
+            <Send className="size-3.5" /> Renvoyer l'invitation
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={() => onCopyEmail(user.id)}>
+          <Mail className="size-3.5" /> Copier l'email
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onResetPassword(user.id)}>
+          <KeyRound className="size-3.5" /> Réinitialiser le mot de passe
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onChangeRole(user)}>
+          <Shield className="size-3.5" /> Passer en {oppositeRoleLabel}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={async () => {
+            const ok = await confirm({
+              title: `Supprimer le compte de ${user.full_name} ?`,
+              description: "Cette action est irréversible. L'utilisateur perdra l'accès à la plateforme.",
+              confirmLabel: 'Supprimer le compte',
+              variant: 'destructive',
+            })
+            if (ok) onDelete(user.id)
+          }}
+        >
+          <Trash2 className="size-3.5" /> Supprimer le compte
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

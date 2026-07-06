@@ -97,6 +97,30 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "get_email") {
+      // Retourne juste l'email du user cible. Utile cote client pour :
+      //  - Copier l'email dans le presse-papier
+      //  - Renvoyer une invitation (necessite email + full_name + role)
+      const { data: targetUser, error: getUserErr } =
+        await supabaseAdmin.auth.admin.getUserById(userId);
+      if (getUserErr || !targetUser?.user?.email) {
+        return new Response(
+          JSON.stringify({ error: "Utilisateur introuvable" }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+      return new Response(
+        JSON.stringify({ success: true, email: targetUser.user.email }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     if (action === "reset_password") {
       // Get user email
       const { data: targetUser, error: getUserErr } =
@@ -149,7 +173,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Action non reconnue (reset_password ou delete)" }),
+      JSON.stringify({ error: "Action non reconnue (get_email, reset_password, delete)" }),
       {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
