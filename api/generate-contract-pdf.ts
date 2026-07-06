@@ -21,6 +21,45 @@ interface RequestBody {
   props: ContractPDFProps | AmendmentPDFProps
 }
 
+/**
+ * Cache module-level : les dynamic imports (react-pdf/renderer + templates)
+ * coutent 2-4s au cold start. En stockant la promise ici, tous les warm hits
+ * reutilisent le meme chargement -> 0ms de cout apres le 1er invoke du
+ * container Vercel. Kick-off dès l'init du module (fire-and-forget) pour
+ * profiter du temps de bootstrap Node.
+ */
+type PdfModules = {
+  renderToBuffer: typeof import('@react-pdf/renderer').renderToBuffer
+  createElement: typeof import('react').createElement
+  ContractPDF: typeof import('./pdf/ContractPDF.js').ContractPDF
+  AmendmentPDF: typeof import('./pdf/AmendmentPDF.js').AmendmentPDF
+}
+
+let pdfModulesPromise: Promise<PdfModules> | null = null
+function loadPdfModules(): Promise<PdfModules> {
+  if (!pdfModulesPromise) {
+    pdfModulesPromise = Promise.all([
+      import('@react-pdf/renderer'),
+      import('react'),
+      import('./pdf/ContractPDF.js'),
+      import('./pdf/AmendmentPDF.js'),
+    ]).then(([reactPdf, react, contractMod, amendmentMod]) => ({
+      renderToBuffer: reactPdf.renderToBuffer,
+      createElement: react.createElement,
+      ContractPDF: contractMod.ContractPDF,
+      AmendmentPDF: amendmentMod.AmendmentPDF,
+    }))
+  }
+  return pdfModulesPromise
+}
+
+// Pre-warm : lance le chargement des ~la 1ere invocation du container.
+// Aucun coût si le container n'est jamais utilisé; gain massif dès le 1er hit.
+loadPdfModules().catch(() => {
+  // Silent, sera reprise a la 1ere requete si echec
+  pdfModulesPromise = null
+})
+
 interface SuccessResponse {
   pdfPath: string
   size: number
@@ -75,15 +114,9 @@ export default async function handler(
     }
 
     try {
-      // Chargement DYNAMIQUE des modules ESM-only (@react-pdf/renderer + les
-      // templates qui en dependent). Depuis un fichier CJS, seul le dynamic
-      // await import() peut charger de l'ESM.
-      const [{ renderToBuffer }, { createElement }, { ContractPDF }, { AmendmentPDF }] = await Promise.all([
-        import('@react-pdf/renderer'),
-        import('react'),
-        import('./pdf/ContractPDF.js'),
-        import('./pdf/AmendmentPDF.js'),
-      ])
+      // Utilise le cache module-level : 0ms sur warm hits (grosse difference
+      // avec les dynamic imports a chaque requete).
+      const { renderToBuffer, createElement, ContractPDF, AmendmentPDF } = await loadPdfModules()
 
       const element = body.type === 'contract'
         ? createElement(ContractPDF, body.props as ContractPDFProps)
