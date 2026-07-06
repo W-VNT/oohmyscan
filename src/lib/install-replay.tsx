@@ -256,11 +256,14 @@ export async function performInstallSave(
     sigOperatorForPdf = signOperator
   }
 
-  // 3. Insertion / update des panels par qr_code (idempotent)
+  // 3. Insertion / update des panels par qr_code (idempotent).
+  //    Nouveau flow (juillet 2026) : plus de photo/zone captures pendant l'install.
+  //    Les items en queue avant cette date peuvent encore avoir photoPath+zone : on
+  //    les traite normalement en backward-compat.
   const now = new Date().toISOString()
   const panelsToCreate: PanelSnapshot[] = []
   for (const p of installed) {
-    const zoneName = zoneLabel(p.zone)
+    const zoneName = p.zone ? zoneLabel(p.zone) : ''
     const autoName = location.name + (zoneName ? ` — ${zoneName}` : '')
     const reference = `PAN-${Date.now().toString(36).toUpperCase()}`
 
@@ -276,7 +279,7 @@ export async function performInstallSave(
         .from('panels')
         .update({
           location_id: location.id,
-          zone_label: p.zone,
+          zone_label: p.zone ?? null,
           name: autoName,
           address: location.address,
           city: location.city,
@@ -301,7 +304,7 @@ export async function performInstallSave(
           lat: input.lat ?? 0,
           lng: input.lng ?? 0,
           location_id: location.id,
-          zone_label: p.zone,
+          zone_label: p.zone ?? null,
           type: defaultPanelType?.name ?? null,
           status: 'active',
           installed_at: now,
@@ -314,19 +317,21 @@ export async function performInstallSave(
       realPanelId = created.id
     }
 
-    // Insert photo
-    const { error: photoErr } = await supabase.from('panel_photos').insert({
-      panel_id: realPanelId,
-      storage_path: p.photoPath,
-      photo_type: 'installation',
-      taken_at: now,
-      taken_by: userId,
-    })
-    if (photoErr) throw photoErr
+    // Insert photo (skip si nouveau flow qui n'en capture pas)
+    if (p.photoPath) {
+      const { error: photoErr } = await supabase.from('panel_photos').insert({
+        panel_id: realPanelId,
+        storage_path: p.photoPath,
+        photo_type: 'installation',
+        taken_at: now,
+        taken_by: userId,
+      })
+      if (photoErr) throw photoErr
+    }
 
     panelsToCreate.push({
       panel_id: realPanelId,
-      zone_label: p.zone,
+      zone_label: p.zone ?? '',
       qr_code: p.qrCode,
       reference: existing ? p.reference : reference,
     })
@@ -338,7 +343,7 @@ export async function performInstallSave(
     PANEL_ZONES.map((z) => [z.value, z.label]),
   )
   for (const p of panelsToCreate) {
-    if (p.zone_label.startsWith('custom:')) {
+    if (p.zone_label && p.zone_label.startsWith('custom:')) {
       fullZoneLabels[p.zone_label] = p.zone_label.slice(7)
     }
   }

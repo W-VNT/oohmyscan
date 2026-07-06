@@ -18,8 +18,12 @@ export interface InstalledPanelData {
   panelId: string
   qrCode: string
   reference: string
-  photoPath: string
-  zone: string
+  /** Legacy — plus capture depuis le nouveau flow (juillet 2026).
+   *  Reste optionnel pour ne pas casser les items deja en queue. */
+  photoPath?: string
+  /** Legacy — plus capture depuis le nouveau flow (juillet 2026).
+   *  Reste optionnel pour ne pas casser les items deja en queue. */
+  zone?: string
 }
 
 export interface PendingInstall {

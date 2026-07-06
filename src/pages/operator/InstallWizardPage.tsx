@@ -1,13 +1,14 @@
 /**
  * Wizard unifie d'installation panneau + contrat.
  *
- * Remplace l'ancienne paire RegisterPanelPage + ContractPage par un flow
- * lineaire en 5 ecrans (3 si avenant) :
+ * Flow rapide terrain (juillet 2026, simplifié suite retour operateurs) :
  *  1. Etablissement (selection ou creation)
- *  2. Photo + position dans le site
- *  3. Autre panneau ici ? (multi-panel optionnel)
- *  4. Signature bailleur
- *  5. Signature operateur
+ *  2. Scan panneau × N (loop rapide, sans photo/zone)
+ *  3. Signature bailleur
+ *  4. Signature operateur → save + PDF
+ *
+ * Photo/zone sont supprimes du flow install : ils seront captures plus tard
+ * pendant les visites terrain de type "verifier" quand le visuel est en place.
  *
  * Optimise pour un opérateur sur le terrain : zero vocabulaire metier,
  * boutons grand format, 1 question / ecran, GPS auto.
@@ -21,7 +22,6 @@ import type { DocumentProps } from '@react-pdf/renderer'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { SignatureCanvas } from '@/components/contract/SignatureCanvas'
 import { toast } from '@/components/shared/Toast'
 import { useGeolocation } from '@/hooks/useGeolocation'
@@ -34,7 +34,6 @@ import { useCompanyPublic } from '@/hooks/useCompanyPublic'
 import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
-import { PANEL_ZONES } from '@/lib/constants'
 import { ContractPDF } from '@/lib/pdf/ContractPDF'
 import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
 import { enqueueInstall } from '@/lib/offline-mutation-queue'
@@ -48,11 +47,9 @@ import type { Location } from '@/types'
 type Step =
   | 'location'
   | 'create_location'
-  | 'contact_form'       // Nouveau : nb panneaux prevus
+  | 'another'
   | 'sign_owner'
   | 'sign_operator'
-  | 'photo_zone'
-  | 'another'
   | 'saving'
   | 'success'
 
@@ -60,8 +57,6 @@ interface InstalledPanel {
   panelId: string
   qrCode: string
   reference: string
-  photoPath: string
-  zone: string  // ex: 'entrance' or 'custom:Bar piscine'
 }
 
 interface PanelSnapshot {
@@ -80,18 +75,16 @@ const SESSION_TTL_MS = 60 * 60 * 1000 // 1h
 interface PersistedSession {
   location: Location
   installed: InstalledPanel[]
-  /** Signatures base64 capturees avant scan des panneaux, uploadees au save final */
+  /** Signatures base64, si l'operateur a deja signe (rare : signatures sont a la fin). */
   signOwner?: string
   signOperator?: string
-  /** Nombre de panneaux annonces au gerant avant scan */
-  plannedPanelsCount?: number
   ts: number
 }
 
 function saveSession(
   location: Location,
   installed: InstalledPanel[],
-  extras?: { signOwner?: string; signOperator?: string; plannedPanelsCount?: number },
+  extras?: { signOwner?: string; signOperator?: string },
 ) {
   sessionStorage.setItem(
     SESSION_KEY,
@@ -165,14 +158,8 @@ export function InstallWizardPage() {
     city: '',
   })
   const [installed, setInstalled] = useState<InstalledPanel[]>([])
-  // Photo + zone du panneau en cours (panelId actuel)
-  const [currentPhoto, setCurrentPhoto] = useState<string | null>(null)
-  const [currentZone, setCurrentZone] = useState<string | null>(null)
-  const [customZone, setCustomZone] = useState('')
   const [signOwner, setSignOwner] = useState('')
   const [signOperator, setSignOperator] = useState('')
-  /** Nombre de panneaux annonces au gerant, capture avant les signatures */
-  const [plannedPanelsCount, setPlannedPanelsCount] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [savedContractNumber, setSavedContractNumber] = useState<string | null>(null)
   const [savedFirstPanelId, setSavedFirstPanelId] = useState<string | null>(null)
@@ -182,7 +169,8 @@ export function InstallWizardPage() {
 
   // ============== Restore session multi-panneau (continuation) ==============
   // Si on arrive avec ?continue=1, on restaure le wizard de la session precedente
-  // et on saute directement a l'ecran photo pour le nouveau panneau.
+  // et on ajoute le panneau qui vient d'etre scanne (URL panelId) a la liste
+  // installed[], puis on saute a l'ecran 'another' (le recap).
   const restoredRef = useRef(false)
   useEffect(() => {
     if (restoredRef.current || !continueFromSession) return
@@ -190,30 +178,21 @@ export function InstallWizardPage() {
     if (!persisted) return
     restoredRef.current = true
     setLocation(persisted.location)
-    setInstalled(persisted.installed)
     if (persisted.signOwner) setSignOwner(persisted.signOwner)
     if (persisted.signOperator) setSignOperator(persisted.signOperator)
-    if (persisted.plannedPanelsCount) setPlannedPanelsCount(String(persisted.plannedPanelsCount))
-    setStep('photo_zone')
-  }, [continueFromSession])
+    // Ajoute le panneau tout juste scanne (URL) a la liste. Guard contre les
+    // doubles si l'user re-navigate avec le meme panelId.
+    const alreadyIn = panelId ? persisted.installed.some((p) => p.qrCode === panelId) : true
+    const newInstalled = !alreadyIn && panelId
+      ? [...persisted.installed, { panelId, qrCode: panelId, reference: '' }]
+      : persisted.installed
+    setInstalled(newInstalled)
+    setStep('another')
+  }, [continueFromSession, panelId])
 
   // ============== Detect existing contract for amendment ==============
   const { data: existingContract, isLoading: contractLoading } = useLocationContract(location?.id)
   const isAmendment = !!existingContract
-
-  // Si le lieu a un contrat actif, on skip la partie contact + signature :
-  // on sauve la session et on navigate direct au scanner du 1er panneau.
-  const skippedRef = useRef(false)
-  useEffect(() => {
-    if (skippedRef.current) return
-    if (!location || contractLoading) return
-    if (step !== 'contact_form') return
-    if (isAmendment) {
-      skippedRef.current = true
-      saveSession(location, installed, { plannedPanelsCount: undefined })
-      navigate('/app/scan?install_session=1', { replace: true })
-    }
-  }, [location, contractLoading, isAmendment, step, installed, navigate])
 
   // ============== Default panel type ==============
   const defaultPanelType = useMemo(() => {
@@ -244,19 +223,14 @@ export function InstallWizardPage() {
   }
 
   // ============================================================================
-  // Passage a l'etape scan : save session (base64 sigs persistes) + navigate
+  // Passage a l'etape scan : sauve la session (avec sigs eventuelles) + navigate
   // ============================================================================
   function handleGoToScan() {
     if (!location) return
-    if (!signOwner || !signOperator) {
-      setError('Signatures manquantes')
-      return
-    }
     setError(null)
     saveSession(location, installed, {
-      signOwner,
-      signOperator,
-      plannedPanelsCount: plannedPanelsCount ? Number(plannedPanelsCount) : undefined,
+      signOwner: signOwner || undefined,
+      signOperator: signOperator || undefined,
     })
     navigate('/app/scan?install_session=1')
   }
@@ -282,19 +256,18 @@ export function InstallWizardPage() {
     setStep('saving')
     setError(null)
 
-    // Payload commun (utilise online ou queue offline)
+    // Payload commun (utilise online ou queue offline). Pas de photo/zone
+    // dans le nouveau flow — ils seront ajoutes plus tard via les visites
+    // "verifier" quand le visuel est en place.
     const savePayload = {
       location,
       installed: installed.map((p) => ({
         panelId: p.panelId,
         qrCode: p.qrCode,
         reference: p.reference,
-        photoPath: p.photoPath,
-        zone: p.zone,
       })),
       signOwner,
       signOperator,
-      plannedPanelsCount: plannedPanelsCount ? Number(plannedPanelsCount) : undefined,
       isAmendment,
       userId: session.user.id,
       lat: lat ?? undefined,
@@ -347,10 +320,10 @@ export function InstallWizardPage() {
 
       // 2. Insert each panel record (the panelId in URL is the QR code, not DB id)
       //    Cherche s'il existe deja par qr_code, sinon insert.
+      //    Nouveau flow (juillet 2026) : plus de photo/zone captures. Les
+      //    panneaux sont distingues via leur reference auto-generee `PAN-XXXX`.
       const panelsToCreate: PanelSnapshot[] = []
       for (const p of installed) {
-        const zoneName = zoneLabel(p.zone)
-        const autoName = location.name + (zoneName ? ` — ${zoneName}` : '')
         const reference = `PAN-${Date.now().toString(36).toUpperCase()}`
 
         // Existing panel ?
@@ -365,8 +338,8 @@ export function InstallWizardPage() {
           // Update existing
           const { error: updateErr } = await supabase.from('panels').update({
             location_id: location.id,
-            zone_label: p.zone,
-            name: autoName,
+            zone_label: null,
+            name: location.name,
             address: location.address,
             city: location.city,
             type: defaultPanelType?.name ?? null,
@@ -382,13 +355,13 @@ export function InstallWizardPage() {
           const { data: created, error: insertErr } = await supabase.from('panels').insert({
             qr_code: p.qrCode,
             reference,
-            name: autoName,
+            name: location.name,
             address: location.address,
             city: location.city,
             lat: lat ?? 0,
             lng: lng ?? 0,
             location_id: location.id,
-            zone_label: p.zone,
+            zone_label: null,
             type: defaultPanelType?.name ?? null,
             status: 'active',
             installed_at: new Date().toISOString(),
@@ -399,19 +372,9 @@ export function InstallWizardPage() {
           realPanelId = created.id
         }
 
-        // Insert photo record
-        const { error: photoErr } = await supabase.from('panel_photos').insert({
-          panel_id: realPanelId,
-          storage_path: p.photoPath,
-          photo_type: 'installation',
-          taken_at: new Date().toISOString(),
-          taken_by: session.user.id,
-        })
-        if (photoErr) throw photoErr
-
         panelsToCreate.push({
           panel_id: realPanelId,
-          zone_label: p.zone,
+          zone_label: '',
           qr_code: p.qrCode,
           reference: existing ? p.reference : reference,
         })
@@ -425,14 +388,10 @@ export function InstallWizardPage() {
       // 3. Create contract or amendment
       const now = new Date().toISOString()
       const company = getCompanyForPDF(companySettings)
-      const fullZoneLabels: Record<string, string> = Object.fromEntries(
-        PANEL_ZONES.map((z) => [z.value, z.label]),
-      )
-      for (const p of panelsToCreate) {
-        if (p.zone_label.startsWith('custom:')) {
-          fullZoneLabels[p.zone_label] = p.zone_label.slice(7)
-        }
-      }
+      // ContractPDF/AmendmentPDF ignorent zoneLabels — l'ancien flow y mettait
+      // les labels de zones (entree, comptoir, etc.) pour affichage. Le nouveau
+      // flow ne capture plus de zones, on passe un objet vide.
+      const fullZoneLabels: Record<string, string> = {}
 
       if (isAmendment && existingContract) {
         // Avenant : ajoute les panneaux a un contrat existant
@@ -617,21 +576,21 @@ export function InstallWizardPage() {
   // Render
   // ============================================================================
 
-  const totalSteps = isAmendment ? 4 : 5
+  // 3 etapes si amendment (lieu → scans → save), 4 sinon (+ signatures)
+  const totalSteps = isAmendment ? 3 : 4
   const stepNum = (() => {
     switch (step) {
       case 'location':
       case 'create_location':
         return 1
-      case 'photo_zone':
       case 'another':
         return 2
       case 'sign_owner':
-        return isAmendment ? 3 : 3
+        return 3
       case 'sign_operator':
-        return isAmendment ? 4 : 4
+        return 4
       default:
-        return 5
+        return totalSteps
     }
   })()
 
@@ -648,10 +607,19 @@ export function InstallWizardPage() {
             lat={lat}
             lng={lng}
             onSelect={(loc) => {
-              // Lieu existant : setLocation, puis on decidera dans useEffect
-              // en fonction du contrat existant (isAmendment).
+              // Lieu existant. Si l'user est entre en scannant un QR (panelId
+              // dans l'URL), on l'ajoute directement comme premier panneau et
+              // on va au recap. Sinon on l'envoie scanner.
               setLocation(loc)
-              setStep('contact_form')
+              if (panelId) {
+                const first = [{ panelId, qrCode: panelId, reference: '' }]
+                setInstalled(first)
+                saveSession(loc, first)
+                setStep('another')
+              } else {
+                saveSession(loc, [])
+                navigate('/app/scan?install_session=1')
+              }
             }}
             onCreateNew={() => setStep('create_location')}
             onSelectPlace={(place) => {
@@ -702,46 +670,22 @@ export function InstallWizardPage() {
                   .select()
                   .single()
                 if (error) throw error
-                setLocation(created as Location)
-                setStep('contact_form')
+                const loc = created as Location
+                setLocation(loc)
+                // Meme logique que le lieu existant : si scan-first, ajoute le
+                // panneau et va au recap. Sinon, envoie a la page de scan.
+                if (panelId) {
+                  const first = [{ panelId, qrCode: panelId, reference: '' }]
+                  setInstalled(first)
+                  saveSession(loc, first)
+                  setStep('another')
+                } else {
+                  saveSession(loc, [])
+                  navigate('/app/scan?install_session=1')
+                }
               } catch (e) {
                 toast(e instanceof Error ? e.message : 'Erreur création', 'error')
               }
-            }}
-          />
-        </>
-      )}
-
-      {step === 'photo_zone' && location && (
-        <>
-          {header(location.name, `Panneau ${installed.length + 1}`, () => {
-            if (installed.length === 0) setStep('location')
-            else setStep('another')
-          })}
-          <PhotoZoneStep
-            panelId={panelId!}
-            photoPath={currentPhoto}
-            zone={currentZone}
-            customZone={customZone}
-            onPhotoChange={setCurrentPhoto}
-            onZoneChange={setCurrentZone}
-            onCustomZoneChange={setCustomZone}
-            onNext={() => {
-              if (!currentPhoto || !currentZone) return
-              const finalZone = currentZone === 'other' ? `custom:${customZone.trim()}` : currentZone
-              // Le panelId de l'URL est le QR code (convention de ScanPage).
-              // La reference est generee a save time dans handleFinalSave.
-              setInstalled((prev) => [...prev, {
-                panelId: panelId!,
-                qrCode: panelId!,
-                reference: '',
-                photoPath: currentPhoto,
-                zone: finalZone,
-              }])
-              setCurrentPhoto(null)
-              setCurrentZone(null)
-              setCustomZone('')
-              setStep('another')
             }}
           />
         </>
@@ -754,75 +698,21 @@ export function InstallWizardPage() {
             location={location}
             installed={installed}
             isAmendment={isAmendment}
-            onScanAnother={() => {
-              // Persiste la session avec signatures pour re-hydrater apres scan
-              saveSession(location, installed, {
-                signOwner: signOwner || undefined,
-                signOperator: signOperator || undefined,
-                plannedPanelsCount: plannedPanelsCount ? Number(plannedPanelsCount) : undefined,
-              })
-              navigate('/app/scan?install_session=1')
+            contractLoading={contractLoading}
+            onScanAnother={handleGoToScan}
+            onFinish={() => {
+              // Amendment : on skip les signatures (reuse celles du contrat original)
+              // et on save direct. Sinon on passe aux signatures.
+              if (isAmendment) handleFinalSave()
+              else setStep('sign_owner')
             }}
-            onFinish={handleFinalSave}
           />
         </>
       )}
 
-      {step === 'contact_form' && location && !isAmendment && !contractLoading && (
-        <>
-          {header('Combien de panneaux ?', location.name, () => setStep('location'))}
-          <div className="space-y-4 pt-2">
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <p className="text-sm font-medium">Établissement</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">{location.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {[location.address, location.postal_code, location.city].filter(Boolean).join(', ') || '—'}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Gérant : {[location.owner_first_name, location.owner_last_name].filter(Boolean).join(' ') || '—'}
-              </p>
-            </div>
-            <div>
-              <label htmlFor="planned-count" className="mb-2 block text-sm font-medium">
-                Nombre de panneaux prévus <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="planned-count"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={20}
-                value={plannedPanelsCount}
-                onChange={(e) => setPlannedPanelsCount(e.target.value)}
-                placeholder="Ex: 3"
-                className="h-14 text-lg"
-                autoFocus
-              />
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                Convenu avec le gérant. Tu pourras en installer moins si besoin — le contrat reflètera ce que tu poses réellement.
-              </p>
-            </div>
-            <Button
-              className="h-12 w-full text-base"
-              disabled={!plannedPanelsCount || Number(plannedPanelsCount) < 1}
-              onClick={() => setStep('sign_owner')}
-            >
-              Passer à la signature
-            </Button>
-          </div>
-        </>
-      )}
-
-      {step === 'contact_form' && contractLoading && (
-        <div className="flex flex-col items-center gap-4 py-16">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Vérification du contrat…</p>
-        </div>
-      )}
-
       {step === 'sign_owner' && location && (
         <>
-          {header('Signature bailleur', `${location.owner_first_name} ${location.owner_last_name}`.trim() || 'Le bailleur signe ici', () => setStep('contact_form'))}
+          {header('Signature bailleur', `${location.owner_first_name} ${location.owner_last_name}`.trim() || 'Le bailleur signe ici', () => setStep('another'))}
           <SignatureStep
             label="Le bailleur signe ici"
             value={signOwner}
@@ -839,8 +729,8 @@ export function InstallWizardPage() {
             label="Signe à ton tour"
             value={signOperator}
             onChange={setSignOperator}
-            onNext={handleGoToScan}
-            nextLabel="Valider et scanner les panneaux"
+            onNext={handleFinalSave}
+            nextLabel="Signer et enregistrer"
           />
           {error && (
             <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -1156,104 +1046,28 @@ function CreateLocationStep({
 }
 
 // ============================================================================
-// Step 2 : PhotoZoneStep — photo + position dans le site
-// ============================================================================
-function PhotoZoneStep({
-  panelId,
-  photoPath,
-  zone,
-  customZone,
-  onPhotoChange,
-  onZoneChange,
-  onCustomZoneChange,
-  onNext,
-}: {
-  panelId: string
-  photoPath: string | null
-  zone: string | null
-  customZone: string
-  onPhotoChange: (path: string | null) => void
-  onZoneChange: (z: string | null) => void
-  onCustomZoneChange: (v: string) => void
-  onNext: () => void
-}) {
-  const canNext = !!photoPath && !!zone && (zone !== 'other' || customZone.trim().length > 0)
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <p className="mb-2 text-sm font-medium">Prends la photo du panneau installé</p>
-        <PhotoCapture
-          folder={`panels/${panelId}`}
-          onPhotoUploaded={onPhotoChange}
-        />
-      </div>
-
-      <div>
-        <p className="mb-2 text-sm font-medium">Où as-tu posé le panneau ?</p>
-        <div className="grid grid-cols-2 gap-2">
-          {PANEL_ZONES.map((z) => {
-            const isSelected = zone === z.value
-            return (
-              <button
-                key={z.value}
-                onClick={() => onZoneChange(z.value)}
-                className={`flex h-14 items-center justify-center rounded-xl border-2 text-sm font-medium transition-all ${
-                  isSelected
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-card hover:border-primary/50'
-                }`}
-              >
-                {z.label}
-              </button>
-            )
-          })}
-          <button
-            onClick={() => onZoneChange('other')}
-            className={`col-span-2 flex h-14 items-center justify-center rounded-xl border-2 text-sm font-medium transition-all ${
-              zone === 'other'
-                ? 'border-primary bg-primary/5 text-primary'
-                : 'border-dashed border-border bg-card hover:border-primary/50'
-            }`}
-          >
-            Autre…
-          </button>
-        </div>
-        {zone === 'other' && (
-          <Input
-            value={customZone}
-            onChange={(e) => onCustomZoneChange(e.target.value)}
-            placeholder="Ex: Terrasse sud, Salle de sport…"
-            className="mt-2 h-12 text-base"
-            autoFocus
-          />
-        )}
-      </div>
-
-      <Button onClick={onNext} disabled={!canNext} className="h-12 w-full text-base">
-        Suivant
-        <ChevronRight className="ml-1 size-4" />
-      </Button>
-    </div>
-  )
-}
-
-// ============================================================================
-// Step 3 : AnotherStep — recap + choix multi-panel
+// Step 2 : AnotherStep — recap + choix multi-panel
 // ============================================================================
 function AnotherStep({
   location,
   installed,
   isAmendment,
+  contractLoading,
   onScanAnother,
   onFinish,
 }: {
   location: Location
   installed: InstalledPanel[]
   isAmendment: boolean
+  contractLoading: boolean
   onScanAnother: () => void
   onFinish: () => void
 }) {
+  const finishLabel = isAmendment
+    ? `Signer l'avenant (${installed.length})`
+    : `Passer à la signature (${installed.length})`
+  const finishDisabled = installed.length === 0 || contractLoading
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card p-4">
@@ -1265,18 +1079,21 @@ function AnotherStep({
 
         {isAmendment && (
           <div className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
-            <strong>Avenant au contrat existant.</strong> Le bailleur signera l'ajout des nouveaux panneaux.
+            <strong>Avenant au contrat existant.</strong> Les signatures du contrat original sont réutilisées.
           </div>
         )}
 
         <div className="mt-4 space-y-1.5">
-          {installed.map((p, i) => (
-            <div key={p.panelId} className="flex items-center gap-2 text-sm">
-              <Check className="size-4 text-green-600" />
-              <span className="font-medium">Panneau {i + 1}</span>
-              <span className="text-muted-foreground">— {zoneLabel(p.zone)}</span>
-            </div>
-          ))}
+          {installed.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun panneau scanné pour l'instant.</p>
+          ) : (
+            installed.map((p, i) => (
+              <div key={p.panelId} className="flex items-center gap-2 text-sm">
+                <Check className="size-4 text-green-600" />
+                <span className="font-medium">Panneau {i + 1}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -1285,12 +1102,25 @@ function AnotherStep({
         className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background py-5 text-base font-medium text-primary hover:bg-muted/30"
       >
         <Camera className="size-5" />
-        Oui, en poser un de plus
+        {installed.length === 0 ? 'Scanner le premier panneau' : 'Scanner un panneau de plus'}
       </button>
 
-      <Button onClick={onFinish} className="h-14 w-full text-base font-semibold">
-        {installed.length > 0 ? "Non, terminer l'installation" : 'Terminer'}
-        <ChevronRight className="ml-1 size-5" />
+      <Button
+        onClick={onFinish}
+        disabled={finishDisabled}
+        className="h-14 w-full text-base font-semibold"
+      >
+        {contractLoading ? (
+          <>
+            <Loader2 className="mr-2 size-4 animate-spin" />
+            Vérification du contrat…
+          </>
+        ) : (
+          <>
+            {finishLabel}
+            <ChevronRight className="ml-1 size-5" />
+          </>
+        )}
       </Button>
     </div>
   )
@@ -1391,12 +1221,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   )
-}
-
-function zoneLabel(zone: string): string {
-  if (zone.startsWith('custom:')) return zone.slice(7)
-  const z = PANEL_ZONES.find((x) => x.value === zone)
-  return z?.label ?? zone
 }
 
 async function uploadSignature(dataUrl: string, prefix: string): Promise<string> {
