@@ -12,9 +12,9 @@ type SortOption = 'name' | 'city' | 'newest'
 type ContractFilter = 'all' | 'with_contract' | 'without_contract'
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'newest', label: 'Plus récents' },
   { value: 'name', label: 'Nom A-Z' },
   { value: 'city', label: 'Ville' },
-  { value: 'newest', label: 'Plus récents' },
 ]
 
 export function LocationsPage() {
@@ -24,7 +24,7 @@ export function LocationsPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [contractFilter, setContractFilter] = useState<ContractFilter>('all')
-  const [sort, setSort] = useState<SortOption>('name')
+  const [sort, setSort] = useState<SortOption>('newest')
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   // Panel counts per location
