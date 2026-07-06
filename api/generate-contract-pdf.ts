@@ -1,33 +1,23 @@
 /**
  * Vercel Serverless Function — génération PDF contrat / avenant côté serveur.
  *
- * Pourquoi : @react-pdf/renderer + fonts + images bouffent 30-50 MB de RAM
- * pendant le rendu. Sur téléphones bas de gamme d'opérateurs terrain, ça
- * crashe avec "Mémoire insuffisante". En déplaçant côté serveur :
- *   - Le client n'importe plus ContractPDF/AmendmentPDF -> bundle -400 KB
- *   - Le rendu se fait sur Node.js Vercel où la RAM est confortable
- *   - Le client reste simple : POST data + reçoit path Storage
- *
- * Auth : Bearer JWT Supabase du user. On valide via service role côté serveur.
- * Storage : upload PDF via service role (bypass RLS pour fiabilité).
+ * Compat CJS+ESM : Vercel compile ce .ts en .js et le charge par default
+ * en CJS. Les modules ESM-only (@react-pdf/renderer + les templates
+ * ContractPDF/AmendmentPDF qui en dependent) sont donc importes en
+ * dynamique via await import() — ca marche depuis un fichier CJS.
  *
  * Env vars Vercel requis :
  *   - VITE_SUPABASE_URL           (deja utilise en front)
  *   - SUPABASE_SERVICE_ROLE_KEY   (a ajouter)
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { renderToBuffer } from '@react-pdf/renderer'
+import type { ContractPDFProps } from './pdf/ContractPDF.js'
+import type { AmendmentPDFProps } from './pdf/AmendmentPDF.js'
 import { createClient } from '@supabase/supabase-js'
-import { createElement } from 'react'
-import { ContractPDF, type ContractPDFProps } from './pdf/ContractPDF.js'
-import { AmendmentPDF, type AmendmentPDFProps } from './pdf/AmendmentPDF.js'
 
 interface RequestBody {
   type: 'contract' | 'amendment'
-  /** Chemin final du PDF dans le bucket panel-photos, ex "contracts/CONT-2026-0042.pdf". */
   fileName: string
-  /** Props complètes à passer au composant. Les data URLs (logo + signatures)
-   *  sont déjà côté client. */
   props: ContractPDFProps | AmendmentPDFProps
 }
 
@@ -44,9 +34,6 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ): Promise<VercelResponse> {
-  // Try-catch global : capture aussi les exceptions synchrones (JSON.parse,
-  // createClient sur URL malforme, etc.) qui sortiraient sinon en HTTP 500
-  // generique sans message d'erreur exploitable cote client.
   try {
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' } satisfies ErrorResponse)
@@ -88,13 +75,21 @@ export default async function handler(
     }
 
     try {
-      // Rendu PDF
+      // Chargement DYNAMIQUE des modules ESM-only (@react-pdf/renderer + les
+      // templates qui en dependent). Depuis un fichier CJS, seul le dynamic
+      // await import() peut charger de l'ESM.
+      const [{ renderToBuffer }, { createElement }, { ContractPDF }, { AmendmentPDF }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('react'),
+        import('./pdf/ContractPDF.js'),
+        import('./pdf/AmendmentPDF.js'),
+      ])
+
       const element = body.type === 'contract'
         ? createElement(ContractPDF, body.props as ContractPDFProps)
         : createElement(AmendmentPDF, body.props as AmendmentPDFProps)
       const buffer = await renderToBuffer(element)
 
-      // Upload dans le bucket panel-photos (memes conventions que le front actuel).
       const { error: upErr } = await supabase.storage.from('panel-photos').upload(
         body.fileName,
         buffer,
@@ -124,7 +119,6 @@ export default async function handler(
   }
 }
 
-// Force Node.js runtime (par defaut sur les fonctions .tsx, mais explicite pour lisibilite)
 export const config = {
   runtime: 'nodejs',
   maxDuration: 30,
