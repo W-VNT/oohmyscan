@@ -40,3 +40,7 @@ supabase/.temp/
 
 # Temp migration files
 ALL_MIGRATIONS*.sql
+
+# Vercel API bundled outputs (built via scripts/build-api.mjs)
+/api/*.js
+/api/*.js.map
