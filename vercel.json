@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/generate-contract-pdf.ts": {
-      "includeFiles": "api/pdf/**"
-    }
-  },
   "rewrites": [
     {
       "source": "/((?!api/).*)",
