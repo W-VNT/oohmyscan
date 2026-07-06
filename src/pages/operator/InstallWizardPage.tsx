@@ -927,6 +927,7 @@ export function InstallWizardPage() {
           contractNumber={savedContractNumber}
           isAmendment={isAmendment}
           firstPanelId={savedFirstPanelId ?? installed[0]?.panelId ?? panelId!}
+          allDiffused={installed.length > 0 && installed.every((p) => !!p.pendingAssign)}
         />
       )}
     </div>
@@ -1458,13 +1459,17 @@ function SignatureStep({
 // Success step
 // ============================================================================
 function SuccessStep({
-  location, installedCount, contractNumber, isAmendment, firstPanelId,
+  location, installedCount, contractNumber, isAmendment, firstPanelId, allDiffused,
 }: {
   location: Location | null
   installedCount: number
   contractNumber: string | null
   isAmendment: boolean
   firstPanelId: string
+  /** true si tous les panneaux installes ont deja une diffusion inline pendant
+   *  le wizard. Si oui, on masque le CTA "Diffuser maintenant" (redondant) et
+   *  on met "Voir la fiche" en CTA principal. */
+  allDiffused: boolean
 }) {
   const navigate = useNavigate()
   return (
@@ -1485,24 +1490,39 @@ function SuccessStep({
       </div>
 
       <div className="mt-6 w-full max-w-sm space-y-2">
-        {/* CTA principal : enchainer directement sur la diffusion. Le poseur est
-            sur place, autant coller le visuel et prendre la photo maintenant. */}
-        <Button onClick={() => navigate(`/app/assign/${firstPanelId}`)} className="h-12 w-full">
-          <Megaphone className="mr-1.5 size-4" />
-          Diffuser maintenant
-        </Button>
-        {installedCount > 1 && (
-          <p className="text-[11px] text-muted-foreground">
-            Tu pourras diffuser les {installedCount - 1} autre{installedCount > 2 ? 's' : ''} panneau{installedCount > 2 ? 'x' : ''} depuis leur fiche.
-          </p>
+        {allDiffused ? (
+          <>
+            {/* Tous les panneaux ont deja ete diffuses -> "Voir la fiche" en principal */}
+            <Button onClick={() => navigate(`/app/panels/${firstPanelId}`)} className="h-12 w-full">
+              <FileCheck className="mr-1.5 size-4" />
+              Voir la fiche
+            </Button>
+            <Button onClick={() => navigate('/app/dashboard')} className="h-12 w-full" variant="ghost">
+              Retour au dashboard
+            </Button>
+          </>
+        ) : (
+          <>
+            {/* CTA principal : enchainer directement sur la diffusion. Le poseur est
+                sur place, autant coller le visuel et prendre la photo maintenant. */}
+            <Button onClick={() => navigate(`/app/assign/${firstPanelId}`)} className="h-12 w-full">
+              <Megaphone className="mr-1.5 size-4" />
+              Diffuser maintenant
+            </Button>
+            {installedCount > 1 && (
+              <p className="text-[11px] text-muted-foreground">
+                Tu pourras diffuser les {installedCount - 1} autre{installedCount > 2 ? 's' : ''} panneau{installedCount > 2 ? 'x' : ''} depuis leur fiche.
+              </p>
+            )}
+            <Button onClick={() => navigate(`/app/panels/${firstPanelId}`)} className="h-12 w-full" variant="outline">
+              <FileCheck className="mr-1.5 size-4" />
+              Voir la fiche
+            </Button>
+            <Button onClick={() => navigate('/app/dashboard')} className="h-12 w-full" variant="ghost">
+              Plus tard
+            </Button>
+          </>
         )}
-        <Button onClick={() => navigate(`/app/panels/${firstPanelId}`)} className="h-12 w-full" variant="outline">
-          <FileCheck className="mr-1.5 size-4" />
-          Voir la fiche
-        </Button>
-        <Button onClick={() => navigate('/app/dashboard')} className="h-12 w-full" variant="ghost">
-          Plus tard
-        </Button>
       </div>
     </div>
   )

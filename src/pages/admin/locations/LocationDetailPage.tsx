@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PANEL_ZONES } from '@/lib/constants'
-import { ArrowLeft, Loader2, PanelTop, Phone, Mail, MapPin, Calendar, Pencil, Eye, X, ExternalLink, Trash2, FileText } from 'lucide-react'
+import { ArrowLeft, Loader2, PanelTop, Phone, Mail, MapPin, Calendar, Pencil, Eye, X, ExternalLink, Trash2, FileText, Send } from 'lucide-react'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/components/shared/Toast'
@@ -95,6 +95,55 @@ export function LocationDetailPage() {
       return
     }
     setContractPdfUrl(data.signedUrl)
+  }
+
+  const [resending, setResending] = useState(false)
+  async function handleResendContract(storagePath: string, contractNumber: string) {
+    if (!location?.owner_email) {
+      toast('Pas d\'email bailleur renseigne sur ce lieu', 'error')
+      return
+    }
+    setResending(true)
+    try {
+      // Fetch PDF from Storage
+      const { data: blob, error: dlErr } = await supabase.storage
+        .from('panel-photos')
+        .download(storagePath)
+      if (dlErr || !blob) throw new Error(dlErr?.message ?? 'Impossible de recuperer le PDF')
+
+      // Blob -> base64 (sans le prefixe data:)
+      const buf = await blob.arrayBuffer()
+      const bytes = new Uint8Array(buf)
+      let binary = ''
+      const chunkSize = 0x8000
+      for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+      }
+      const pdfBase64 = btoa(binary)
+
+      // Sujet + corps generiques (les templates admin sont dans company_settings
+      // mais on n'a pas encore l'interpolation ici — on garde un mail simple).
+      const subject = `Contrat ${contractNumber} — renvoi`
+      const html = `<p>Bonjour ${location.owner_first_name ?? ''},</p><p>Vous trouverez ci-joint votre contrat d'installation N° ${contractNumber}.</p>`
+
+      const { error: invokeErr, data } = await supabase.functions.invoke('send-document-email', {
+        body: {
+          to: location.owner_email,
+          subject,
+          html,
+          pdfBase64,
+          pdfFilename: `contrat-${contractNumber}.pdf`,
+          documentType: 'contract',
+        },
+      })
+      if (invokeErr) throw invokeErr
+      if (data?.error) throw new Error(data.error)
+      toast(`Contrat renvoye a ${location.owner_email}`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur envoi email', 'error')
+    } finally {
+      setResending(false)
+    }
   }
 
   if (isLoading) {
@@ -422,6 +471,20 @@ export function LocationDetailPage() {
                       title="Voir le contrat"
                     >
                       <Eye className="size-4 text-muted-foreground" />
+                    </button>
+                  )}
+                  {contract.storage_path && location?.owner_email && (
+                    <button
+                      onClick={() => handleResendContract(contract.storage_path!, contract.contract_number)}
+                      disabled={resending}
+                      className="rounded-md p-1.5 transition-colors hover:bg-muted disabled:opacity-50"
+                      title={`Renvoyer le contrat a ${location.owner_email}`}
+                    >
+                      {resending ? (
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <Send className="size-4 text-muted-foreground" />
+                      )}
                     </button>
                   )}
                   <button
