@@ -38,6 +38,7 @@ import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
 import { ContractPDF } from '@/lib/pdf/ContractPDF'
 import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
+import { downscaleImage } from '@/lib/image-utils'
 import { enqueueInstall } from '@/lib/offline-mutation-queue'
 import { isNetworkError } from '@/lib/install-replay'
 import type { Location } from '@/types'
@@ -344,6 +345,16 @@ export function InstallWizardPage() {
         sigOperatorForPdf = signOperator
       }
 
+      // Downscale signatures pour PDF : reduit la RAM allouee au rendu
+      // (400x150 JPEG @0.7 ≈ 15KB vs signature originale ~100KB non compressee).
+      // Best-effort : si echec, on garde l'original.
+      try {
+        sigOwnerForPdf = await downscaleImage(sigOwnerForPdf, 400, 150, 'jpeg', 0.7)
+        sigOperatorForPdf = await downscaleImage(sigOperatorForPdf, 400, 150, 'jpeg', 0.7)
+      } catch (e) {
+        console.warn('[install] Downscale signatures failed, using originals', e)
+      }
+
       // 2. Insert each panel record (the panelId in URL is the QR code, not DB id)
       //    Cherche s'il existe deja par qr_code, sinon insert.
       //    Nouveau flow (juillet 2026) : plus de photo/zone captures. Les
@@ -414,6 +425,16 @@ export function InstallWizardPage() {
       // 3. Create contract or amendment
       const now = new Date().toISOString()
       const company = getCompanyForPDF(companySettings)
+      // Downscale logo pour PDF : 400x400 max, base64 JPEG ~30KB au lieu du
+      // fichier original (souvent 500KB+). Reduit drastiquement la RAM
+      // allouee au rendu react-pdf sur telephones bas de gamme.
+      if (company.logoUrl) {
+        try {
+          company.logoUrl = await downscaleImage(company.logoUrl, 400, 400, 'png')
+        } catch (e) {
+          console.warn('[install] Downscale logo failed, using original', e)
+        }
+      }
       // ContractPDF/AmendmentPDF ignorent zoneLabels — l'ancien flow y mettait
       // les labels de zones (entree, comptoir, etc.) pour affichage. Le nouveau
       // flow ne capture plus de zones, on passe un objet vide.

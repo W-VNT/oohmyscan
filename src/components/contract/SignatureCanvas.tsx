@@ -21,9 +21,17 @@ export function SignatureCanvas({ label, onSignature, value }: SignatureCanvasPr
     if (!ctx) return
 
     const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * 2
-    canvas.height = rect.height * 2
-    ctx.scale(2, 2)
+    // Resolution 1.5x pour un compromis crispness / RAM (avant : 2x).
+    // Sur telephone bas de gamme, 2x sur un canvas 400x150 -> 800x300px
+    // 4 canaux, la conversion en base64 explose la RAM.
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
+    canvas.width = rect.width * dpr
+    canvas.height = rect.height * dpr
+    ctx.scale(dpr, dpr)
+
+    // Fond blanc obligatoire pour JPEG (pas de transparence, ecraserait tout en noir)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, rect.width, rect.height)
 
     // Style
     ctx.strokeStyle = '#1a1a1a'
@@ -99,7 +107,10 @@ export function SignatureCanvas({ label, onSignature, value }: SignatureCanvasPr
     isDrawingRef.current = false
     const canvas = canvasRef.current
     if (!canvas || !hasDrawnRef.current) return
-    onSignature(canvas.toDataURL('image/png'))
+    // JPEG 0.7 au lieu de PNG : -60% de taille (~30-50KB vs 100-150KB) sans
+    // perte visible de qualite pour une signature. Cle pour tenir en RAM
+    // sur telephones bas de gamme.
+    onSignature(canvas.toDataURL('image/jpeg', 0.7))
   }, [onSignature])
 
   function clear() {
@@ -108,6 +119,9 @@ export function SignatureCanvas({ label, onSignature, value }: SignatureCanvasPr
     if (!ctx || !canvas) return
     const rect = canvas.getBoundingClientRect()
     ctx.clearRect(0, 0, rect.width, rect.height)
+    // Re-remplit fond blanc apres clear (evite qu'un JPEG partiel sorte noir)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, rect.width, rect.height)
     hasDrawnRef.current = false
     onSignature('')
   }

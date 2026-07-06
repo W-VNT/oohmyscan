@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Camera, X, Loader2, RotateCcw, Image as ImageIcon, CloudUpload } from 'lucide-react'
 import imageCompression from 'browser-image-compression'
 import { cn } from '@/lib/utils'
@@ -24,9 +24,23 @@ export function PhotoCapture({
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
   const pendingFileRef = useRef<File | null>(null)
+  /** URL blob a revoquer sur unmount / new preview / remove. Object URL est
+   *  environ 10x plus efficient en RAM qu'un data URL (data:image/...;base64,...)
+   *  car il ne duplique pas les bytes du Blob. */
+  const previewUrlRef = useRef<string | null>(null)
 
   const ALLOWED_TYPES = ALLOWED_IMAGE_TYPES
   const MAX_FILE_SIZE = MAX_IMAGE_SIZE
+
+  useEffect(() => {
+    // Cleanup au unmount : libere le blob URL en vie.
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current)
+        previewUrlRef.current = null
+      }
+    }
+  }, [])
 
   async function uploadFile(compressed: File) {
     setError(null)
@@ -82,10 +96,12 @@ export function PhotoCapture({
       // Keep compressed file for potential retry
       pendingFileRef.current = compressed
 
-      // Preview
-      const reader = new FileReader()
-      reader.onload = (ev) => setPreview(ev.target?.result as string)
-      reader.readAsDataURL(compressed)
+      // Preview via Object URL (vs data URL) : 10x moins de RAM sur mobile
+      // car pas de duplication base64 du fichier compresse.
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+      const blobUrl = URL.createObjectURL(compressed)
+      previewUrlRef.current = blobUrl
+      setPreview(blobUrl)
 
       await uploadFile(compressed)
     } catch (err) {
@@ -104,6 +120,10 @@ export function PhotoCapture({
     setError(null)
     setQueued(false)
     pendingFileRef.current = null
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current)
+      previewUrlRef.current = null
+    }
     if (cameraInputRef.current) cameraInputRef.current.value = ''
     if (galleryInputRef.current) galleryInputRef.current.value = ''
   }

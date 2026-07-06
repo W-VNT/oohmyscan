@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase'
 import { ContractPDF } from '@/lib/pdf/ContractPDF'
 import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
 import { PANEL_ZONES } from '@/lib/constants'
+import { downscaleImage } from '@/lib/image-utils'
 import type { Location } from '@/types'
 import type { InstalledPanelData } from '@/lib/offline-mutation-queue'
 import type { CompanyPublic } from '@/hooks/useCompanyPublic'
@@ -256,6 +257,15 @@ export async function performInstallSave(
     sigOperatorForPdf = signOperator
   }
 
+  // Downscale signatures pour le rendu PDF : reduit drastiquement la RAM
+  // allouee par react-pdf sur telephones bas de gamme. Best-effort.
+  try {
+    sigOwnerForPdf = await downscaleImage(sigOwnerForPdf, 400, 150, 'jpeg', 0.7)
+    sigOperatorForPdf = await downscaleImage(sigOperatorForPdf, 400, 150, 'jpeg', 0.7)
+  } catch (e) {
+    console.warn('[install-replay] Downscale signatures failed, using originals', e)
+  }
+
   // 3. Insertion / update des panels par qr_code (idempotent).
   //    Nouveau flow (juillet 2026) : plus de photo/zone captures pendant l'install.
   //    Les items en queue avant cette date peuvent encore avoir photoPath+zone : on
@@ -339,6 +349,14 @@ export async function performInstallSave(
 
   // 4. Génération PDF contrat (ou avenant) + insertion DB + email
   const company = getCompanyForPDF(companySettings)
+  // Downscale logo pour le rendu PDF (voir install-replay/InstallWizardPage).
+  if (company.logoUrl) {
+    try {
+      company.logoUrl = await downscaleImage(company.logoUrl, 400, 400, 'png')
+    } catch (e) {
+      console.warn('[install-replay] Downscale logo failed, using original', e)
+    }
+  }
   const fullZoneLabels: Record<string, string> = Object.fromEntries(
     PANEL_ZONES.map((z) => [z.value, z.label]),
   )
