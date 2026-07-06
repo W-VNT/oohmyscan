@@ -29,9 +29,7 @@ export function useCompanyPublic() {
     queryKey: ['company-public'],
     queryFn: async (): Promise<CompanyPublic | null> => {
       const { data, error } = await supabase
-        .from('company_public')
-        .select('*')
-        .limit(1)
+        .rpc('get_company_public')
         .maybeSingle()
       if (error) throw error
       return data as unknown as CompanyPublic | null

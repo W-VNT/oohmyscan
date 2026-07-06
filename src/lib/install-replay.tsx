@@ -202,7 +202,7 @@ export async function performInstallSave(
   // 1. Fetch companySettings + defaultPanelType + existingContract au replay time
   //    (utilise les infos actuelles, pas un snapshot périmé)
   const [settingsRes, panelTypesRes, existingContractRes] = await Promise.all([
-    supabase.from('company_public').select('*').limit(1).maybeSingle(),
+    supabase.rpc('get_company_public').maybeSingle(),
     supabase.from('panel_formats').select('*').eq('is_active', true),
     isAmendment
       ? supabase

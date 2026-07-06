@@ -1429,8 +1429,11 @@ export interface Database {
         }
         Relationships: []
       }
-      company_public: {
-        Row: {
+    }
+    Functions: {
+      get_company_public: {
+        Args: Record<string, never>
+        Returns: {
           id: string
           company_name: string | null
           address: string | null
@@ -1447,10 +1450,7 @@ export interface Database {
           email_contract_subject: string | null
           email_contract_body: string | null
         }
-        Relationships: []
       }
-    }
-    Functions: {
       get_next_quote_number: {
         Args: Record<string, never>
         Returns: string
