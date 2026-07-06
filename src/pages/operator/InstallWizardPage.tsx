@@ -511,10 +511,29 @@ export function InstallWizardPage() {
 
         setSavedContractNumber(amendmentNumber)
       } else {
-        // Nouveau contrat
-        const { data: numData, error: rpcErr } = await supabase.rpc('get_next_contract_number')
-        if (rpcErr) throw rpcErr
-        const contractNumber = numData as string
+        // Nouveau contrat. Retry avec un nouveau numero si le premier
+        // renvoye est deja pris (Postgrest 23505). Ca peut arriver si la
+        // sequence RPC est desynchronisee de max(contract_number) apres
+        // des inserts directs / partiels precedents.
+        let contractNumber: string
+        let numRetries = 0
+        while (true) {
+          const { data: numData, error: rpcErr } = await supabase.rpc('get_next_contract_number')
+          if (rpcErr) throw rpcErr
+          const candidate = numData as string
+          const { data: existing } = await supabase
+            .from('panel_contracts')
+            .select('id')
+            .eq('contract_number', candidate)
+            .maybeSingle()
+          if (!existing) {
+            contractNumber = candidate
+            break
+          }
+          numRetries++
+          if (numRetries >= 20) throw new Error(`get_next_contract_number renvoie des numeros deja pris (dernier: ${candidate})`)
+          console.warn(`[install] contract_number ${candidate} deja pris, retry (${numRetries}/20)`)
+        }
 
         const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(contractNumber, (
           <ContractPDF
