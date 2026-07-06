@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input'
 import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { SignatureCanvas } from '@/components/contract/SignatureCanvas'
 import { toast } from '@/components/shared/Toast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useAuth } from '@/hooks/useAuth'
 import { usePanelByQrCode } from '@/hooks/usePanels'
@@ -140,6 +141,7 @@ export function InstallWizardPage() {
   const { panelId } = useParams<{ panelId: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const confirm = useConfirm()
   const { session } = useAuth()
   const { lat, lng, requestPosition } = useGeolocation()
   const { data: companySettings } = useCompanyPublic()
@@ -180,6 +182,10 @@ export function InstallWizardPage() {
   const [savedFirstPanelId, setSavedFirstPanelId] = useState<string | null>(null)
   /** Campagne selectionnee au step 'diffuse_campaign', consommee au step 'diffuse_photo'. */
   const [diffuseCampaignId, setDiffuseCampaignId] = useState<string | null>(null)
+  /** true si l'operateur a cree un nouveau lieu dans cette session (insert
+   *  DB deja effectue). Utilise pour afficher un confirm de retour :
+   *  quitter le flow apres creation = orphelin en DB. */
+  const [createdLocationInSession, setCreatedLocationInSession] = useState(false)
 
   // ============== Campagnes actives assignees a l'operateur ==============
   const { data: activeCampaigns = [] } = useActiveCampaigns(session?.user?.id)
@@ -226,11 +232,29 @@ export function InstallWizardPage() {
   useEffect(() => { window.scrollTo(0, 0) }, [step])
 
   // ============== Render header (back + progress) ==============
+  // Wrap le onBack pour afficher un confirm si l'operateur a cree un nouveau
+  // lieu dans cette session. Retour = abandon = orphelin en DB (on ne peut
+  // pas rollback proprement sans la creation differee).
+  async function guardedBack(defaultAction: () => void) {
+    if (!createdLocationInSession || step === 'success' || step === 'saving') {
+      defaultAction()
+      return
+    }
+    const ok = await confirm({
+      title: 'Abandonner l\'installation ?',
+      description: `Le lieu "${location?.name ?? ''}" vient d'être créé. Si tu quittes maintenant, il sera abandonné mais restera dans la base — tu devras le rechercher au lieu de le recréer la prochaine fois.`,
+      confirmLabel: 'Abandonner',
+      variant: 'destructive',
+    })
+    if (ok) defaultAction()
+  }
+
   function header(title: string, subtitle?: string, onBack?: () => void) {
+    const back = onBack ?? (() => navigate(-1))
     return (
       <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-3 border-b border-border bg-background px-4 py-3">
         <button
-          onClick={onBack ?? (() => navigate(-1))}
+          onClick={() => guardedBack(back)}
           className="flex size-9 items-center justify-center rounded-full hover:bg-muted"
           aria-label="Retour"
         >
@@ -790,6 +814,7 @@ export function InstallWizardPage() {
                 if (error) throw error
                 const loc = created as Location
                 setLocation(loc)
+                setCreatedLocationInSession(true)
                 // Meme logique que le lieu existant : si scan-first, ajoute le
                 // panneau et propose la diffusion. Sinon, envoie a la page de scan.
                 if (panelId) {
@@ -1236,9 +1261,7 @@ function AnotherStep({
   onScanAnother: () => void
   onFinish: () => void
 }) {
-  const finishLabel = isAmendment
-    ? `Signer l'avenant (${installed.length})`
-    : `Passer à la signature (${installed.length})`
+  const finishLabel = isAmendment ? "Signer l'avenant" : 'Passer à la signature'
   const finishDisabled = installed.length === 0 || contractLoading
 
   return (
@@ -1285,7 +1308,7 @@ function AnotherStep({
         className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background py-5 text-base font-medium text-primary hover:bg-muted/30"
       >
         <Camera className="size-5" />
-        {installed.length === 0 ? 'Scanner le premier panneau' : 'Scanner un panneau de plus'}
+        {installed.length === 0 ? 'Scanner le premier panneau' : 'Scanner un panneau'}
       </button>
 
       <Button
@@ -1416,6 +1439,7 @@ function DiffusePhotoStep({
         <p className="mb-2 text-sm font-medium">Prends la photo du visuel posé sur le panneau</p>
         <PhotoCapture
           folder={`panels/${panelQrCode}/campaigns`}
+          stickyGallery
           onPhotoUploaded={(path) => {
             if (path) onDone(path)
           }}

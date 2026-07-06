@@ -10,12 +10,17 @@ interface PhotoCaptureProps {
   folder: string
   className?: string
   required?: boolean
+  /** Positionne le bouton "Choisir depuis la galerie" en fixed-bottom au-dessus
+   *  du BottomNav (32px + safe-area). Utile sur les ecrans de wizard mobile
+   *  ou l'action camera est primaire et la galerie secondaire. */
+  stickyGallery?: boolean
 }
 
 export function PhotoCapture({
   onPhotoUploaded,
   folder,
   className,
+  stickyGallery = false,
 }: PhotoCaptureProps) {
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -135,7 +140,7 @@ export function PhotoCapture({
           <img
             src={preview}
             alt="Aperçu"
-            className="h-48 w-full rounded-lg object-cover"
+            className="aspect-square w-full rounded-lg bg-muted/30 object-contain"
           />
           <button
             type="button"
@@ -153,7 +158,7 @@ export function PhotoCapture({
           )}
         </div>
       ) : uploading ? (
-        <div className="flex h-48 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 text-muted-foreground">
+        <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 text-muted-foreground">
           <Loader2 className="h-8 w-8 animate-spin" />
           <span className="text-sm">Compression et upload...</span>
         </div>
@@ -168,11 +173,17 @@ export function PhotoCapture({
             <Camera className="h-14 w-14" strokeWidth={1.5} />
             <span className="text-base font-medium">Prendre une photo</span>
           </button>
-          {/* Action secondaire : galerie */}
+          {/* Action secondaire : galerie.
+              Si stickyGallery : positionne fixe en bas, au-dessus du BottomNav
+              (h-16 + safe-area-inset-bottom). Sinon stack juste sous le camera. */}
           <button
             type="button"
             onClick={() => galleryInputRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className={cn(
+              'flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+              stickyGallery && 'fixed inset-x-4 z-40 mx-auto max-w-md',
+            )}
+            style={stickyGallery ? { bottom: 'calc(4rem + env(safe-area-inset-bottom) + 1.5rem)' } : undefined}
           >
             <ImageIcon className="h-4 w-4" />
             Choisir depuis la galerie
