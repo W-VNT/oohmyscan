@@ -501,6 +501,46 @@ export async function performInstallSave(
     }
   }
 
+  // 5. Assignations de campagne inline (diffusion "maintenant" pendant le
+  //    wizard install). On mappe qrCode → panel_id creee ci-dessus pour
+  //    router les inserts panel_campaigns. Best-effort : les erreurs sont
+  //    loggees mais ne bloquent pas le succes du save.
+  const panelIdByQrCode = new Map<string, string>()
+  for (let i = 0; i < installed.length; i++) {
+    panelIdByQrCode.set(installed[i].qrCode, panelsToCreate[i].panel_id)
+  }
+  for (const p of installed) {
+    if (!p.pendingAssign) continue
+    const realPanelId = panelIdByQrCode.get(p.qrCode)
+    if (!realPanelId) continue
+    try {
+      await supabase.from('panel_campaigns').insert({
+        panel_id: realPanelId,
+        campaign_id: p.pendingAssign.campaignId,
+        assigned_by: userId,
+        validation_photo_path: p.pendingAssign.photoPath,
+        validated_at: now,
+      })
+      await supabase.from('panel_photos').insert({
+        panel_id: realPanelId,
+        storage_path: p.pendingAssign.photoPath,
+        photo_type: 'campaign',
+        taken_by: userId,
+        taken_at: now,
+      })
+      await supabase
+        .from('panels')
+        .update({
+          status: 'active',
+          last_checked_at: now,
+          updated_at: now,
+        })
+        .eq('id', realPanelId)
+    } catch (e) {
+      console.warn('[install-replay] Diffusion inline failed for', p.qrCode, e)
+    }
+  }
+
   return {
     contractNumber,
     firstPanelId: panelsToCreate[0]?.panel_id ?? null,

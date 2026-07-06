@@ -24,6 +24,12 @@ export interface InstalledPanelData {
   /** Legacy — plus capture depuis le nouveau flow (juillet 2026).
    *  Reste optionnel pour ne pas casser les items deja en queue. */
   zone?: string
+  /** Diffusion inline lors du wizard : campagne + photo visuel pose.
+   *  Applique apres creation du panneau + contrat. */
+  pendingAssign?: {
+    campaignId: string
+    photoPath: string
+  }
 }
 
 export interface PendingInstall {

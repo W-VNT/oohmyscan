@@ -22,6 +22,7 @@ import type { DocumentProps } from '@react-pdf/renderer'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PhotoCapture } from '@/components/shared/PhotoCapture'
 import { SignatureCanvas } from '@/components/contract/SignatureCanvas'
 import { toast } from '@/components/shared/Toast'
 import { useGeolocation } from '@/hooks/useGeolocation'
@@ -32,6 +33,7 @@ import { reverseGeocodeAddress } from '@/lib/mapbox'
 import { useSearchLocations, useLocationContract } from '@/hooks/useLocations'
 import { useCompanyPublic } from '@/hooks/useCompanyPublic'
 import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
+import { useActiveCampaigns } from '@/hooks/useCampaigns'
 import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
 import { ContractPDF } from '@/lib/pdf/ContractPDF'
@@ -47,6 +49,9 @@ import type { Location } from '@/types'
 type Step =
   | 'location'
   | 'create_location'
+  | 'diffuse_choice'    // Après scan : "Diffuser maintenant ?"
+  | 'diffuse_campaign'  // Choix de la campagne
+  | 'diffuse_photo'     // Photo du visuel posé
   | 'another'
   | 'sign_owner'
   | 'sign_operator'
@@ -57,6 +62,12 @@ interface InstalledPanel {
   panelId: string
   qrCode: string
   reference: string
+  /** Diffusion inline choisie sur le terrain — applique au save final. */
+  pendingAssign?: {
+    campaignId: string
+    campaignName: string  // pour affichage recap
+    photoPath: string
+  }
 }
 
 interface PanelSnapshot {
@@ -163,6 +174,11 @@ export function InstallWizardPage() {
   const [error, setError] = useState<string | null>(null)
   const [savedContractNumber, setSavedContractNumber] = useState<string | null>(null)
   const [savedFirstPanelId, setSavedFirstPanelId] = useState<string | null>(null)
+  /** Campagne selectionnee au step 'diffuse_campaign', consommee au step 'diffuse_photo'. */
+  const [diffuseCampaignId, setDiffuseCampaignId] = useState<string | null>(null)
+
+  // ============== Campagnes actives assignees a l'operateur ==============
+  const { data: activeCampaigns = [] } = useActiveCampaigns(session?.user?.id)
 
   // ============== GPS init ==============
   useEffect(() => { requestPosition() }, [requestPosition])
@@ -170,7 +186,7 @@ export function InstallWizardPage() {
   // ============== Restore session multi-panneau (continuation) ==============
   // Si on arrive avec ?continue=1, on restaure le wizard de la session precedente
   // et on ajoute le panneau qui vient d'etre scanne (URL panelId) a la liste
-  // installed[], puis on saute a l'ecran 'another' (le recap).
+  // installed[], puis on propose la diffusion inline via 'diffuse_choice'.
   const restoredRef = useRef(false)
   useEffect(() => {
     if (restoredRef.current || !continueFromSession) return
@@ -183,11 +199,13 @@ export function InstallWizardPage() {
     // Ajoute le panneau tout juste scanne (URL) a la liste. Guard contre les
     // doubles si l'user re-navigate avec le meme panelId.
     const alreadyIn = panelId ? persisted.installed.some((p) => p.qrCode === panelId) : true
-    const newInstalled = !alreadyIn && panelId
-      ? [...persisted.installed, { panelId, qrCode: panelId, reference: '' }]
+    const justAdded = !alreadyIn && !!panelId
+    const newInstalled = justAdded
+      ? [...persisted.installed, { panelId: panelId!, qrCode: panelId!, reference: '' }]
       : persisted.installed
     setInstalled(newInstalled)
-    setStep('another')
+    // Panneau tout juste ajoute -> demande diffusion. Sinon recap.
+    setStep(justAdded ? 'diffuse_choice' : 'another')
   }, [continueFromSession, panelId])
 
   // ============== Detect existing contract for amendment ==============
@@ -259,12 +277,20 @@ export function InstallWizardPage() {
     // Payload commun (utilise online ou queue offline). Pas de photo/zone
     // dans le nouveau flow — ils seront ajoutes plus tard via les visites
     // "verifier" quand le visuel est en place.
+    // pendingAssign : diffusion inline (campagne + photo visuel) posee
+    // pendant le wizard, appliquee au save par install-replay.
     const savePayload = {
       location,
       installed: installed.map((p) => ({
         panelId: p.panelId,
         qrCode: p.qrCode,
         reference: p.reference,
+        pendingAssign: p.pendingAssign
+          ? {
+              campaignId: p.pendingAssign.campaignId,
+              photoPath: p.pendingAssign.photoPath,
+            }
+          : undefined,
       })),
       signOwner,
       signOperator,
@@ -548,9 +574,46 @@ export function InstallWizardPage() {
         }
       }
 
+      // 4. Diffusions inline (si l'operateur a choisi une campagne au moment
+      //    de scanner un panneau). Best-effort : les erreurs sont loggees
+      //    mais ne bloquent pas le succes de l'install.
+      const panelIdByQr = new Map<string, string>()
+      for (let i = 0; i < installed.length; i++) {
+        panelIdByQr.set(installed[i].qrCode, panelsToCreate[i].panel_id)
+      }
+      for (const p of installed) {
+        if (!p.pendingAssign) continue
+        const realPanelId = panelIdByQr.get(p.qrCode)
+        if (!realPanelId) continue
+        try {
+          await supabase.from('panel_campaigns').insert({
+            panel_id: realPanelId,
+            campaign_id: p.pendingAssign.campaignId,
+            assigned_by: session.user.id,
+            validation_photo_path: p.pendingAssign.photoPath,
+            validated_at: now,
+          })
+          await supabase.from('panel_photos').insert({
+            panel_id: realPanelId,
+            storage_path: p.pendingAssign.photoPath,
+            photo_type: 'campaign',
+            taken_by: session.user.id,
+            taken_at: now,
+          })
+          await supabase
+            .from('panels')
+            .update({ status: 'active', last_checked_at: now, updated_at: now })
+            .eq('id', realPanelId)
+        } catch (assignErr) {
+          console.warn('[install] Diffusion inline failed for', p.qrCode, assignErr)
+        }
+      }
+
       clearSession()
       setStep('success')
-      toast(isAmendment ? 'Avenant signé' : 'Installation enregistrée')
+      const diffCount = installed.filter((p) => p.pendingAssign).length
+      const baseMsg = isAmendment ? 'Avenant signé' : 'Installation enregistrée'
+      toast(diffCount > 0 ? `${baseMsg} — ${diffCount} campagne${diffCount > 1 ? 's' : ''} diffusée${diffCount > 1 ? 's' : ''}` : baseMsg)
     } catch (e) {
       // Fallback : si l'erreur ressemble a un souci reseau (perte cours de route),
       // on queue la mutation pour replay au retour. Sinon on remonte l'erreur.
@@ -577,6 +640,8 @@ export function InstallWizardPage() {
   // ============================================================================
 
   // 3 etapes si amendment (lieu → scans → save), 4 sinon (+ signatures)
+  // Les sous-etapes diffuse_* sont considerees comme du step 2 (scan/recap)
+  // pour ne pas polluer l'indicateur avec une infra transitoire par panneau.
   const totalSteps = isAmendment ? 3 : 4
   const stepNum = (() => {
     switch (step) {
@@ -584,6 +649,9 @@ export function InstallWizardPage() {
       case 'create_location':
         return 1
       case 'another':
+      case 'diffuse_choice':
+      case 'diffuse_campaign':
+      case 'diffuse_photo':
         return 2
       case 'sign_owner':
         return 3
@@ -609,13 +677,13 @@ export function InstallWizardPage() {
             onSelect={(loc) => {
               // Lieu existant. Si l'user est entre en scannant un QR (panelId
               // dans l'URL), on l'ajoute directement comme premier panneau et
-              // on va au recap. Sinon on l'envoie scanner.
+              // on propose la diffusion. Sinon on l'envoie scanner.
               setLocation(loc)
               if (panelId) {
                 const first = [{ panelId, qrCode: panelId, reference: '' }]
                 setInstalled(first)
                 saveSession(loc, first)
-                setStep('another')
+                setStep('diffuse_choice')
               } else {
                 saveSession(loc, [])
                 navigate('/app/scan?install_session=1')
@@ -673,12 +741,12 @@ export function InstallWizardPage() {
                 const loc = created as Location
                 setLocation(loc)
                 // Meme logique que le lieu existant : si scan-first, ajoute le
-                // panneau et va au recap. Sinon, envoie a la page de scan.
+                // panneau et propose la diffusion. Sinon, envoie a la page de scan.
                 if (panelId) {
                   const first = [{ panelId, qrCode: panelId, reference: '' }]
                   setInstalled(first)
                   saveSession(loc, first)
-                  setStep('another')
+                  setStep('diffuse_choice')
                 } else {
                   saveSession(loc, [])
                   navigate('/app/scan?install_session=1')
@@ -686,6 +754,60 @@ export function InstallWizardPage() {
               } catch (e) {
                 toast(e instanceof Error ? e.message : 'Erreur création', 'error')
               }
+            }}
+          />
+        </>
+      )}
+
+      {step === 'diffuse_choice' && location && (
+        <>
+          {header(location.name, `Panneau ${installed.length}`, () => setStep('another'))}
+          <DiffuseChoiceStep
+            hasCampaigns={activeCampaigns.length > 0}
+            onDiffuse={() => setStep('diffuse_campaign')}
+            onSkip={() => setStep('another')}
+          />
+        </>
+      )}
+
+      {step === 'diffuse_campaign' && location && (
+        <>
+          {header('Choisis la campagne', `Panneau ${installed.length}`, () => setStep('diffuse_choice'))}
+          <DiffuseCampaignStep
+            campaigns={activeCampaigns}
+            onSelect={(id) => {
+              setDiffuseCampaignId(id)
+              setStep('diffuse_photo')
+            }}
+          />
+        </>
+      )}
+
+      {step === 'diffuse_photo' && location && diffuseCampaignId && (
+        <>
+          {header('Photo du visuel posé', `Panneau ${installed.length}`, () => setStep('diffuse_campaign'))}
+          <DiffusePhotoStep
+            panelQrCode={installed[installed.length - 1]?.qrCode ?? ''}
+            campaign={activeCampaigns.find((c) => c.id === diffuseCampaignId) ?? null}
+            onDone={(photoPath) => {
+              const campaign = activeCampaigns.find((c) => c.id === diffuseCampaignId)
+              if (!campaign) return
+              setInstalled((prev) =>
+                prev.map((p, i) =>
+                  i === prev.length - 1
+                    ? {
+                        ...p,
+                        pendingAssign: {
+                          campaignId: campaign.id,
+                          campaignName: campaign.name,
+                          photoPath,
+                        },
+                      }
+                    : p,
+                ),
+              )
+              setDiffuseCampaignId(null)
+              setStep('another')
             }}
           />
         </>
@@ -1083,14 +1205,24 @@ function AnotherStep({
           </div>
         )}
 
-        <div className="mt-4 space-y-1.5">
+        <div className="mt-4 space-y-2">
           {installed.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucun panneau scanné pour l'instant.</p>
           ) : (
             installed.map((p, i) => (
-              <div key={p.panelId} className="flex items-center gap-2 text-sm">
-                <Check className="size-4 text-green-600" />
-                <span className="font-medium">Panneau {i + 1}</span>
+              <div key={p.panelId} className="flex items-start gap-2 text-sm">
+                <Check className="mt-0.5 size-4 shrink-0 text-green-600" />
+                <div className="min-w-0 flex-1">
+                  <span className="font-medium">Panneau {i + 1}</span>
+                  {p.pendingAssign ? (
+                    <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                      <Megaphone className="size-2.5" />
+                      {p.pendingAssign.campaignName}
+                    </span>
+                  ) : (
+                    <span className="ml-1.5 text-xs text-muted-foreground">— installé vide</span>
+                  )}
+                </div>
               </div>
             ))
           )}
@@ -1122,6 +1254,122 @@ function AnotherStep({
           </>
         )}
       </Button>
+    </div>
+  )
+}
+
+// ============================================================================
+// Step 2b : DiffuseChoiceStep — "Diffuser maintenant ?" apres un scan
+// ============================================================================
+function DiffuseChoiceStep({
+  hasCampaigns,
+  onDiffuse,
+  onSkip,
+}: {
+  hasCampaigns: boolean
+  onDiffuse: () => void
+  onSkip: () => void
+}) {
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="rounded-xl border border-border bg-card p-5 text-center">
+        <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/15">
+          <Check className="size-6 text-green-600" />
+        </div>
+        <p className="text-base font-semibold">Panneau enregistré</p>
+        <p className="mt-1 text-sm text-muted-foreground">Tu veux y poser un visuel maintenant ?</p>
+      </div>
+
+      {hasCampaigns ? (
+        <>
+          <Button onClick={onDiffuse} className="h-14 w-full text-base font-semibold">
+            <Megaphone className="mr-2 size-5" />
+            Diffuser une campagne
+          </Button>
+          <Button onClick={onSkip} variant="outline" className="h-12 w-full text-base">
+            Passer, laisser vide
+          </Button>
+        </>
+      ) : (
+        <>
+          <div className="rounded-lg bg-muted/50 p-3 text-center text-xs text-muted-foreground">
+            Aucune campagne active ne t'est assignée pour le moment.
+          </div>
+          <Button onClick={onSkip} className="h-14 w-full text-base font-semibold">
+            Continuer (panneau vide)
+            <ChevronRight className="ml-1 size-5" />
+          </Button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
+// Step 2c : DiffuseCampaignStep — selection de la campagne a poser
+// ============================================================================
+function DiffuseCampaignStep({
+  campaigns,
+  onSelect,
+}: {
+  campaigns: import('@/hooks/useCampaigns').CampaignWithClient[]
+  onSelect: (campaignId: string) => void
+}) {
+  return (
+    <div className="space-y-2 pt-2">
+      {campaigns.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Aucune campagne active disponible.
+        </p>
+      ) : (
+        campaigns.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => onSelect(c.id)}
+            className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/30"
+          >
+            <Megaphone className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-medium">{c.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{c.clients?.company_name ?? ''}</p>
+            </div>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+          </button>
+        ))
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
+// Step 2d : DiffusePhotoStep — photo du visuel pose sur le panneau
+// ============================================================================
+function DiffusePhotoStep({
+  panelQrCode,
+  campaign,
+  onDone,
+}: {
+  panelQrCode: string
+  campaign: import('@/hooks/useCampaigns').CampaignWithClient | null
+  onDone: (photoPath: string) => void
+}) {
+  if (!campaign) return null
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="rounded-lg border border-border bg-muted/30 p-3">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">Campagne</p>
+        <p className="mt-0.5 truncate font-medium">{campaign.name}</p>
+        <p className="truncate text-xs text-muted-foreground">{campaign.clients?.company_name ?? ''}</p>
+      </div>
+      <div>
+        <p className="mb-2 text-sm font-medium">Prends la photo du visuel posé sur le panneau</p>
+        <PhotoCapture
+          folder={`panels/${panelQrCode}/campaigns`}
+          onPhotoUploaded={(path) => {
+            if (path) onDone(path)
+          }}
+        />
+      </div>
     </div>
   )
 }
