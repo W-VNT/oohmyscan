@@ -1498,12 +1498,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 async function uploadSignature(dataUrl: string, prefix: string): Promise<string> {
-  const base64 = dataUrl.split(',')[1]
+  // Detecte le format depuis le prefixe data URL. Depuis le passage a JPEG
+  // dans SignatureCanvas (perf mobile), le mime peut etre jpeg. On aligne
+  // MIME + extension sur ce qui est reellement dans les bytes, sinon Supabase
+  // stocke des bytes JPEG etiquetes PNG → react-pdf serveur bug.
+  const mimeMatch = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+  if (!mimeMatch) throw new Error('Signature invalide (data URL malforme)')
+  const mime = mimeMatch[1] // 'image/jpeg' ou 'image/png'
+  const base64 = mimeMatch[2]
+  const ext = mime === 'image/jpeg' ? 'jpg' : 'png'
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-  const blob = new Blob([bytes], { type: 'image/png' })
-  const path = `signatures/${prefix}-${crypto.randomUUID()}.png`
+  const blob = new Blob([bytes], { type: mime })
+  const path = `signatures/${prefix}-${crypto.randomUUID()}.${ext}`
   const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
-    contentType: 'image/png', upsert: false,
+    contentType: mime, upsert: false,
   })
   if (error) throw error
   return path
@@ -1520,7 +1528,11 @@ async function fetchSignatureAsBase64(path: string): Promise<string> {
   const bytes = new Uint8Array(buf)
   let binary = ''
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
-  return `data:image/png;base64,${btoa(binary)}`
+  // Detecte le format depuis l'extension du path (jpg/jpeg → jpeg, sinon png).
+  // Evite de labeliser data:image/png alors que les bytes sont JPEG.
+  const isJpeg = /\.jpe?g$/i.test(path)
+  const mime = isJpeg ? 'image/jpeg' : 'image/png'
+  return `data:${mime};base64,${btoa(binary)}`
 }
 
 /**

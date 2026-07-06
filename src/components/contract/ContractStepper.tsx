@@ -166,13 +166,21 @@ export function ContractStepper({ panel }: ContractStepperProps) {
 
   // Upload signature image to storage, return the path
   async function uploadSignature(dataUrl: string, prefix: string): Promise<string> {
-    const base64 = dataUrl.split(',')[1]
+    // Detecte le format depuis le prefixe data URL. Depuis le passage a JPEG
+    // dans SignatureCanvas (perf mobile), le mime peut etre jpeg. On aligne
+    // MIME + extension sur les vrais bytes, sinon Supabase stocke des bytes
+    // JPEG etiquetes PNG → downstream (PDF gen serveur, amendment) foire.
+    const mimeMatch = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+    if (!mimeMatch) throw new Error('Signature invalide (data URL malforme)')
+    const mime = mimeMatch[1]
+    const base64 = mimeMatch[2]
+    const ext = mime === 'image/jpeg' ? 'jpg' : 'png'
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-    const blob = new Blob([bytes], { type: 'image/png' })
-    const path = `signatures/${prefix}-${crypto.randomUUID()}.png`
+    const blob = new Blob([bytes], { type: mime })
+    const path = `signatures/${prefix}-${crypto.randomUUID()}.${ext}`
     const { error: uploadErr } = await supabase.storage
       .from('panel-photos')
-      .upload(path, blob, { contentType: 'image/png' })
+      .upload(path, blob, { contentType: mime })
     if (uploadErr) throw uploadErr
     return path
   }

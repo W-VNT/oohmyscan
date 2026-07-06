@@ -58,12 +58,18 @@ function zoneLabel(zone: string): string {
 }
 
 async function uploadSignature(dataUrl: string, prefix: string): Promise<string> {
-  const base64 = dataUrl.split(',')[1]
+  // Meme fix que InstallWizardPage.uploadSignature : detecte le format
+  // depuis le prefixe (jpeg since juillet 2026, png historiquement).
+  const mimeMatch = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+  if (!mimeMatch) throw new Error('Signature invalide (data URL malforme)')
+  const mime = mimeMatch[1]
+  const base64 = mimeMatch[2]
+  const ext = mime === 'image/jpeg' ? 'jpg' : 'png'
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-  const blob = new Blob([bytes], { type: 'image/png' })
-  const path = `signatures/${prefix}-${crypto.randomUUID()}.png`
+  const blob = new Blob([bytes], { type: mime })
+  const path = `signatures/${prefix}-${crypto.randomUUID()}.${ext}`
   const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
-    contentType: 'image/png',
+    contentType: mime,
     upsert: false,
   })
   if (error) throw error
@@ -77,7 +83,10 @@ async function fetchSignatureAsBase64(path: string): Promise<string> {
   const bytes = new Uint8Array(buf)
   let binary = ''
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
-  return `data:image/png;base64,${btoa(binary)}`
+  // Detecte le format depuis l'extension (jpg/jpeg → jpeg, sinon png).
+  const isJpeg = /\.jpe?g$/i.test(path)
+  const mime = isJpeg ? 'image/jpeg' : 'image/png'
+  return `data:${mime};base64,${btoa(binary)}`
 }
 
 function getCompanyForPDF(settings: CompanyPublic | null | undefined) {
