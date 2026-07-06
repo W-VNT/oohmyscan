@@ -638,6 +638,7 @@ export function InstallWizardPage() {
     } catch (e) {
       // Fallback : si l'erreur ressemble a un souci reseau (perte cours de route),
       // on queue la mutation pour replay au retour. Sinon on remonte l'erreur.
+      console.error('[install] handleFinalSave error:', e)
       if (isNetworkError(e)) {
         try {
           await enqueueInstall(savePayload)
@@ -647,11 +648,21 @@ export function InstallWizardPage() {
           setStep('success')
           toast('Réseau perdu — enregistré localement, sync auto plus tard')
           return
-        } catch {
-          // fall through
+        } catch (queueErr) {
+          console.error('[install] enqueue fallback failed:', queueErr)
         }
       }
-      setError(e instanceof Error ? e.message : 'Erreur')
+      // Extraction de message enrichi : les erreurs Supabase (PostgrestError)
+      // ne sont pas des Error instances mais des objets { message, code, ... }
+      let errMsg = 'Erreur inconnue'
+      if (e instanceof Error) {
+        errMsg = e.message
+      } else if (e && typeof e === 'object') {
+        try { errMsg = JSON.stringify(e, null, 2) } catch { errMsg = String(e) }
+      } else {
+        errMsg = String(e)
+      }
+      setError(errMsg)
       setStep('another')
     }
   }
