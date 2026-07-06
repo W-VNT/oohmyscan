@@ -159,14 +159,14 @@ export function PhotoCapture({
         </div>
       ) : (
         <div className="space-y-2">
-          {/* Action principale : appareil photo */}
+          {/* Action principale : appareil photo — carre, grand, evident */}
           <button
             type="button"
             onClick={() => cameraInputRef.current?.click()}
-            className="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            className="flex aspect-square w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/50 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           >
-            <Camera className="h-8 w-8" />
-            <span className="text-sm font-medium">Prendre une photo</span>
+            <Camera className="h-14 w-14" strokeWidth={1.5} />
+            <span className="text-base font-medium">Prendre une photo</span>
           </button>
           {/* Action secondaire : galerie */}
           <button

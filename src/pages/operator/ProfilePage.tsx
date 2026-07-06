@@ -28,12 +28,13 @@ import {
   Moon,
   User,
   Camera,
+  Monitor,
 } from 'lucide-react'
 
 export function ProfilePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { session, profile, signOut } = useAuth()
+  const { session, profile, signOut, isAdmin } = useAuth()
   const setProfile = useAppStore((s) => s.setProfile)
 
   // Stats
@@ -467,6 +468,25 @@ export function ProfilePage() {
 
       {/* Notifications push */}
       <PushNotificationsCard />
+
+      {/* Back-office (admin only) */}
+      {isAdmin && (
+        <Card>
+          <CardContent className="p-0">
+            <button
+              onClick={() => navigate('/admin')}
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-3.5 text-left transition-colors hover:bg-muted/50"
+            >
+              <Monitor className="size-4 shrink-0 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Back-office</p>
+                <p className="text-xs text-muted-foreground">Accès admin (utilisateurs, campagnes, factures…)</p>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            </button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Spacer to push logout to bottom */}
       <div className="flex-1" />
