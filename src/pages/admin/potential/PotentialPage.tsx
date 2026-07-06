@@ -86,7 +86,7 @@ export function PotentialPage() {
         case 'newest': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         case 'oldest': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         case 'prospect': return a.prospect_name.localeCompare(b.prospect_name)
-        case 'city': return a.city.localeCompare(b.city)
+        case 'city': return (a.cities?.[0] ?? a.city).localeCompare(b.cities?.[0] ?? b.city)
         default: return 0
       }
     })
@@ -253,7 +253,7 @@ export function PotentialPage() {
                 </div>
                 <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span className="truncate">
-                    {req.city} · {req.radius_km} km
+                    {formatCitySummary(req.cities, req.city)} · {req.radius_km} km
                     {typology ? ` · ${typology}` : ''}
                   </span>
                   <code className="shrink-0 font-mono text-[10px]">{req.reference}</code>
@@ -327,7 +327,7 @@ export function PotentialPage() {
                     >
                       <td className="px-4 py-3 font-medium font-mono text-xs">{req.reference}</td>
                       <td className="px-4 py-3 font-medium">{req.prospect_name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{req.city}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatCitySummary(req.cities, req.city)}</td>
                       <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                         {(() => {
                           const r = req as typeof req & { business_type?: string | null }
@@ -363,4 +363,20 @@ export function PotentialPage() {
       </Card>
     </div>
   )
+}
+
+/**
+ * Format compact du peri­metre "ville" pour la liste des demandes.
+ * Affiche : "Lion-sur-mer + 5 villes" (1re ville + reste), ou juste la 1re
+ * si elle est seule. Fallback sur `fallback` si l'array cities est vide
+ * (anciennes fiches avant migration).
+ */
+function formatCitySummary(cities: string[] | null | undefined, fallback: string): string {
+  if (!cities || cities.length === 0) return fallback
+  // Retire le code postal ("Lion-sur-mer 14780" -> "Lion-sur-mer") pour un
+  // affichage plus lisible en tete de ligne.
+  const first = cities[0].replace(/\s+\d{4,5}\s*$/, '').trim()
+  if (cities.length === 1) return first
+  const rest = cities.length - 1
+  return `${first} + ${rest} ville${rest > 1 ? 's' : ''}`
 }
