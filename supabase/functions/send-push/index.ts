@@ -32,6 +32,8 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
+  "https://oohmyad.fr",
+  "https://www.oohmyad.fr",
   "https://oohmyscan.vercel.app",
   "http://localhost:5173",
 ].filter(Boolean) as string[];

@@ -2,6 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = [
   Deno.env.get("APP_URL"),
+  "https://oohmyad.fr",
+  "https://www.oohmyad.fr",
   "https://oohmyscan.vercel.app",
   "http://localhost:5173",
 ].filter(Boolean) as string[];
@@ -61,6 +63,10 @@ Deno.serve(async (req) => {
       .eq("id", caller.id)
       .single();
 
+    // Parse request body (deplace AVANT le check allowed pour que documentType
+    // soit defini au moment du check operator).
+    const { to, subject, html, pdfBase64, pdfFilename, documentType } = await req.json();
+
     // Admin peut tout envoyer. Operateur peut envoyer un contrat (juste apres
     // installation terrain, workflow legitime).
     const role = callerProfile?.role;
@@ -81,9 +87,6 @@ Deno.serve(async (req) => {
         },
       );
     }
-
-    // Parse request body
-    const { to, subject, html, pdfBase64, pdfFilename, documentType } = await req.json();
 
     if (!to || !subject || !html) {
       return new Response(
