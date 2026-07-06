@@ -35,6 +35,8 @@ export interface InstallSaveInput {
   signOperator: string
   plannedPanelsCount?: number
   isAmendment: boolean
+  /** true si le lieu doit etre inseree en DB au replay (creation locale). */
+  isNewLocation?: boolean
   userId: string
   lat?: number
   lng?: number
@@ -187,9 +189,34 @@ async function sendContractEmail(params: {
 export async function performInstallSave(
   input: InstallSaveInput,
 ): Promise<InstallSaveResult> {
-  const { location, installed, signOwner, signOperator, isAmendment, userId } = input
+  const { location, installed, signOwner, signOperator, isAmendment, isNewLocation, userId } = input
 
   if (installed.length === 0) throw new Error('Aucun panneau installé')
+
+  // Insertion differee du lieu si nouveau (creation locale dans le wizard).
+  // On insere avant le fetch des contrats/panneaux qui referencent location.id.
+  let effectiveLocation: Location = location
+  if (isNewLocation) {
+    const { data: created, error: locErr } = await supabase
+      .from('locations')
+      .insert({
+        name: location.name,
+        address: location.address,
+        postal_code: location.postal_code,
+        city: location.city,
+        phone: location.phone,
+        owner_first_name: location.owner_first_name,
+        owner_last_name: location.owner_last_name,
+        owner_role: location.owner_role,
+        owner_email: location.owner_email,
+        has_contract: false,
+        created_by: userId,
+      })
+      .select()
+      .single()
+    if (locErr) throw locErr
+    effectiveLocation = created as Location
+  }
 
   // 1. Fetch companySettings + defaultPanelType + existingContract au replay time
   //    (utilise les infos actuelles, pas un snapshot périmé)
@@ -200,7 +227,7 @@ export async function performInstallSave(
       ? supabase
           .from('panel_contracts')
           .select('*')
-          .eq('location_id', location.id)
+          .eq('location_id', effectiveLocation.id)
           .neq('status', 'terminated')
           .order('created_at', { ascending: false })
           .limit(1)
@@ -280,7 +307,7 @@ export async function performInstallSave(
       const { error: updErr } = await supabase
         .from('panels')
         .update({
-          location_id: location.id,
+          location_id: effectiveLocation.id,
           zone_label: p.zone ?? null,
           name: autoName,
           address: location.address,
@@ -305,7 +332,7 @@ export async function performInstallSave(
           city: location.city,
           lat: input.lat ?? 0,
           lng: input.lng ?? 0,
-          location_id: location.id,
+          location_id: effectiveLocation.id,
           zone_label: p.zone ?? null,
           type: defaultPanelType?.name ?? null,
           status: 'active',
@@ -373,7 +400,7 @@ export async function performInstallSave(
     const { data: existingPanels } = await supabase
       .from('panels')
       .select('id, qr_code, reference, zone_label')
-      .eq('location_id', location.id)
+      .eq('location_id', effectiveLocation.id)
     const allPanelsSnapshot: PanelSnapshot[] = (existingPanels ?? []).map((p) => ({
       panel_id: p.id,
       zone_label: p.zone_label ?? '',
@@ -414,7 +441,7 @@ export async function performInstallSave(
 
     const { error: insertErr } = await supabase.from('contract_amendments').insert({
       contract_id: existingContract.id,
-      location_id: location.id,
+      location_id: effectiveLocation.id,
       amendment_number: amendmentNumber,
       reason: 'panel_added',
       panels_added: panelsToCreate,
@@ -472,7 +499,7 @@ export async function performInstallSave(
     })
 
     const { error: insertErr } = await supabase.from('panel_contracts').insert({
-      location_id: location.id,
+      location_id: effectiveLocation.id,
       contract_number: contractNumber,
       establishment_name: location.name,
       establishment_address: location.address,

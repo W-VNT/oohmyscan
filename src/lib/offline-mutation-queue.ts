@@ -47,6 +47,10 @@ export interface PendingInstall {
     plannedPanelsCount?: number
     /** true = avenant (contrat déjà existant sur ce lieu). */
     isAmendment: boolean
+    /** true = le lieu n'a JAMAIS ete inseree en DB (creation locale dans le
+     *  wizard). Le replay doit alors inserer le lieu avant les panneaux/contrat.
+     *  L'id du location est un UUID temporaire genere cote client. */
+    isNewLocation?: boolean
     userId: string
     /** GPS approximatif au moment du save (fallback pour panels.lat/lng). */
     lat?: number
