@@ -1171,7 +1171,7 @@ function CreateLocationStep({
       .finally(() => setGeocoding(false))
   }, [lat, lng, data.address, data.postal_code, data.city])
 
-  const phoneValid = /^[\d\s+().-]{8,}$/.test(data.phone.trim())
+  const phoneValid = data.phone.trim() === '' || /^[\d\s+().-]{8,}$/.test(data.phone.trim())
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.owner_email.trim())
   const canSubmit = data.name.trim() && data.address.trim() && data.city.trim() &&
                     data.owner_first_name.trim() && data.owner_last_name.trim() &&
@@ -1218,7 +1218,7 @@ function CreateLocationStep({
         </Field>
       </div>
 
-      <Field label="Téléphone *">
+      <Field label="Téléphone (facultatif)">
         <Input value={data.phone} onChange={(e) => patch('phone', e.target.value)} placeholder="04 93 00 11 22" inputMode="tel" type="tel" className="h-12 text-base" />
         {data.phone.trim() && !phoneValid && (
           <p className="mt-1 text-[11px] text-destructive">Numéro invalide (au moins 8 chiffres)</p>

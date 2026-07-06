@@ -107,9 +107,7 @@ export function LocationForm({ onSubmit, initialData, panelCoords, submitLabel =
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email)) {
       e.owner_email = 'Email invalide'
     }
-    if (!form.phone.trim()) {
-      e.phone = 'Requis'
-    } else if (!/^[\d\s+()./-]{6,25}$/.test(form.phone.trim())) {
+    if (form.phone.trim() && !/^[\d\s+()./-]{6,25}$/.test(form.phone.trim())) {
       e.phone = 'Numéro invalide'
     }
     setErrors(e)
@@ -210,7 +208,7 @@ export function LocationForm({ onSubmit, initialData, panelCoords, submitLabel =
             {field('postal_code', 'Code postal', '69001')}
             {field('city', 'Ville', 'Lyon')}
           </div>
-          {field('phone', 'Téléphone *', '04 78 00 00 00', 'tel', { inputMode: 'tel', autoComplete: 'tel' })}
+          {field('phone', 'Téléphone (facultatif)', '04 78 00 00 00', 'tel', { inputMode: 'tel', autoComplete: 'tel' })}
         </div>
       </div>
 
