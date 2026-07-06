@@ -17,8 +17,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Loader2, MapPin, Plus, Camera, Check, Building2, ChevronRight, FileCheck, Megaphone } from 'lucide-react'
-import { pdf } from '@react-pdf/renderer'
-import type { DocumentProps } from '@react-pdf/renderer'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,9 +34,8 @@ import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { useActiveCampaigns } from '@/hooks/useCampaigns'
 import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
-import { ContractPDF } from '@/lib/pdf/ContractPDF'
-import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
 import { downscaleImage } from '@/lib/image-utils'
+import { generateContractPDFServer, downloadPDFBlob } from '@/lib/pdf-server'
 import { enqueueInstall } from '@/lib/offline-mutation-queue'
 import { isNetworkError } from '@/lib/install-replay'
 import type { Location } from '@/types'
@@ -460,34 +457,37 @@ export function InstallWizardPage() {
           reference: p.reference,
         }))
 
-        const { path: pdfPath } = await generateAndUploadPDF(amendmentNumber, (
-          <AmendmentPDF
-            amendmentNumber={amendmentNumber}
-            originalContractNumber={existingContract.contract_number}
-            originalSignedAt={existingContract.signed_at}
-            signedAt={now}
-            signedCity={location.city}
-            reason="panel_added"
-            establishment={{
+        // Rendu PDF cote serveur (evite les OOM sur mobiles bas de gamme).
+        const { pdfPath } = await generateContractPDFServer({
+          type: 'amendment',
+          fileName: `contracts/${amendmentNumber}.pdf`,
+          props: {
+            amendmentNumber,
+            originalContractNumber: existingContract.contract_number,
+            originalSignedAt: existingContract.signed_at,
+            signedAt: now,
+            signedCity: location.city,
+            reason: 'panel_added',
+            establishment: {
               name: location.name,
               address: location.address,
               postal_code: location.postal_code,
               city: location.city,
-            }}
-            owner={{
+            },
+            owner: {
               first_name: location.owner_first_name,
               last_name: location.owner_last_name,
               role: location.owner_role,
-            }}
-            panelsAdded={panelsToCreate}
-            panelsRemoved={[]}
-            panelsAfter={allPanelsSnapshot}
-            signatureOwner={sigOwnerForPdf}
-            signatureOperator={sigOperatorForPdf}
-            company={company}
-            zoneLabels={fullZoneLabels}
-          />
-        ))
+            },
+            panelsAdded: panelsToCreate,
+            panelsRemoved: [],
+            panelsAfter: allPanelsSnapshot,
+            signatureOwner: sigOwnerForPdf,
+            signatureOperator: sigOperatorForPdf,
+            company,
+            zoneLabels: fullZoneLabels,
+          },
+        })
 
         const { error: insertErr } = await supabase.from('contract_amendments').insert({
           contract_id: existingContract.id,
@@ -516,37 +516,40 @@ export function InstallWizardPage() {
         if (rpcErr) throw rpcErr
         const contractNumber = numData as string
 
-        const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(contractNumber, (
-          <ContractPDF
-            contractNumber={contractNumber}
-            signedAt={now}
-            signedCity={location.city}
-            establishment={{
+        // Rendu PDF cote serveur (evite les OOM sur mobiles bas de gamme).
+        const { pdfPath } = await generateContractPDFServer({
+          type: 'contract',
+          fileName: `contracts/${contractNumber}.pdf`,
+          props: {
+            contractNumber,
+            signedAt: now,
+            signedCity: location.city,
+            establishment: {
               name: location.name,
               address: location.address,
               postal_code: location.postal_code,
               city: location.city,
               phone: location.phone,
-            }}
-            owner={{
+            },
+            owner: {
               first_name: location.owner_first_name,
               last_name: location.owner_last_name,
               role: location.owner_role,
               email: location.owner_email,
-            }}
-            closingMonths={location.closing_months}
-            panels={panelsToCreate}
-            panelFormat={defaultPanelType ? {
+            },
+            closingMonths: location.closing_months,
+            panels: panelsToCreate,
+            panelFormat: defaultPanelType ? {
               name: defaultPanelType.name,
               width_cm: defaultPanelType.width_cm,
               height_cm: defaultPanelType.height_cm,
-            } : null}
-            signatureOwner={sigOwnerForPdf}
-            signatureOperator={sigOperatorForPdf}
-            company={company}
-            zoneLabels={fullZoneLabels}
-          />
-        ))
+            } : null,
+            signatureOwner: sigOwnerForPdf,
+            signatureOperator: sigOperatorForPdf,
+            company,
+            zoneLabels: fullZoneLabels,
+          },
+        })
 
         const { error: insertErr } = await supabase.from('panel_contracts').insert({
           location_id: location.id,
@@ -574,8 +577,10 @@ export function InstallWizardPage() {
 
         // Envoi automatique du contrat au gerant par email (si email fourni).
         // Best-effort : les erreurs sont juste toastees, elles ne bloquent
-        // pas l'enregistrement.
+        // pas l'enregistrement. Le PDF est redownload du Storage (pas rerender
+        // client-side) pour eviter la RAM allouee au blob.
         if (location.owner_email) {
+          const pdfBlob = await downloadPDFBlob(pdfPath)
           const res = await sendContractEmail({
             to: location.owner_email,
             contractNumber,
@@ -1516,16 +1521,6 @@ async function fetchSignatureAsBase64(path: string): Promise<string> {
   let binary = ''
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
   return `data:image/png;base64,${btoa(binary)}`
-}
-
-async function generateAndUploadPDF(docNumber: string, element: React.ReactElement<DocumentProps>): Promise<{ path: string; blob: Blob }> {
-  const blob = await pdf(element).toBlob()
-  const path = `contracts/${docNumber}.pdf`
-  const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
-    contentType: 'application/pdf', upsert: true,
-  })
-  if (error) throw error
-  return { path, blob }
 }
 
 /**

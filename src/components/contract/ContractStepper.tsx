@@ -14,9 +14,7 @@ import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/components/shared/Toast'
 import { PANEL_ZONES } from '@/lib/constants'
-import { pdf } from '@react-pdf/renderer'
-import { ContractPDF } from '@/lib/pdf/ContractPDF'
-import { AmendmentPDF } from '@/lib/pdf/AmendmentPDF'
+import { generateContractPDFServer } from '@/lib/pdf-server'
 import type { Location, Panel } from '@/types'
 
 type FlowType = 'new_location' | 'existing_location'
@@ -166,21 +164,6 @@ export function ContractStepper({ panel }: ContractStepperProps) {
     }
   }
 
-  // Generate PDF blob and upload to storage
-  async function generateAndUploadPDF(
-    docNumber: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pdfElement: React.ReactElement<any>,
-  ): Promise<string> {
-    const blob = await pdf(pdfElement).toBlob()
-    const path = `contracts/${docNumber}.pdf`
-    const { error: uploadErr } = await supabase.storage
-      .from('panel-photos')
-      .upload(path, blob, { contentType: 'application/pdf', upsert: true })
-    if (uploadErr) throw uploadErr
-    return path
-  }
-
   // Upload signature image to storage, return the path
   async function uploadSignature(dataUrl: string, prefix: string): Promise<string> {
     const base64 = dataUrl.split(',')[1]
@@ -262,36 +245,37 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         if (rpcErr) throw rpcErr
         const amendmentNumber = numData as string
 
-        // Generate PDF
-        const storagePath = await generateAndUploadPDF(
-          amendmentNumber,
-          <AmendmentPDF
-            amendmentNumber={amendmentNumber}
-            originalContractNumber={existingContract.contract_number}
-            originalSignedAt={existingContract.signed_at}
-            signedAt={now}
-            signedCity={location.city}
-            reason="panel_added"
-            establishment={{
+        // Rendu PDF cote serveur (evite les OOM sur mobiles bas de gamme).
+        const { pdfPath: storagePath } = await generateContractPDFServer({
+          type: 'amendment',
+          fileName: `contracts/${amendmentNumber}.pdf`,
+          props: {
+            amendmentNumber,
+            originalContractNumber: existingContract.contract_number,
+            originalSignedAt: existingContract.signed_at,
+            signedAt: now,
+            signedCity: location.city,
+            reason: 'panel_added',
+            establishment: {
               name: location.name,
               address: location.address,
               postal_code: location.postal_code,
               city: location.city,
-            }}
-            owner={{
+            },
+            owner: {
               first_name: location.owner_first_name,
               last_name: location.owner_last_name,
               role: location.owner_role,
-            }}
-            panelsAdded={[newPanelSnapshot]}
-            panelsRemoved={[]}
-            panelsAfter={allPanelsSnapshot}
-            signatureOwner={signatureOwner}
-            signatureOperator={signatureOperator}
-            company={company}
-            zoneLabels={fullZoneLabels}
-          />,
-        )
+            },
+            panelsAdded: [newPanelSnapshot],
+            panelsRemoved: [],
+            panelsAfter: allPanelsSnapshot,
+            signatureOwner,
+            signatureOperator,
+            company,
+            zoneLabels: fullZoneLabels,
+          },
+        })
 
         const { error: insertErr } = await supabase.from('contract_amendments').insert({
           contract_id: existingContract.id,
@@ -322,34 +306,35 @@ export function ContractStepper({ panel }: ContractStepperProps) {
         if (rpcErr) throw rpcErr
         const newContractNumber = numData as string
 
-        // Generate PDF
-        const storagePath = await generateAndUploadPDF(
-          newContractNumber,
-          <ContractPDF
-            contractNumber={newContractNumber}
-            signedAt={now}
-            signedCity={location.city}
-            establishment={{
+        // Rendu PDF cote serveur (evite les OOM sur mobiles bas de gamme).
+        const { pdfPath: storagePath } = await generateContractPDFServer({
+          type: 'contract',
+          fileName: `contracts/${newContractNumber}.pdf`,
+          props: {
+            contractNumber: newContractNumber,
+            signedAt: now,
+            signedCity: location.city,
+            establishment: {
               name: location.name,
               address: location.address,
               postal_code: location.postal_code,
               city: location.city,
               phone: location.phone,
-            }}
-            owner={{
+            },
+            owner: {
               first_name: location.owner_first_name,
               last_name: location.owner_last_name,
               role: location.owner_role,
               email: location.owner_email,
-            }}
-            closingMonths={location.closing_months}
-            panels={allPanelsSnapshot}
-            signatureOwner={signatureOwner}
-            signatureOperator={signatureOperator}
-            company={company}
-            zoneLabels={fullZoneLabels}
-          />,
-        )
+            },
+            closingMonths: location.closing_months,
+            panels: allPanelsSnapshot,
+            signatureOwner,
+            signatureOperator,
+            company,
+            zoneLabels: fullZoneLabels,
+          },
+        })
 
         const { error: insertErr } = await supabase.from('panel_contracts').insert({
           location_id: location.id,
