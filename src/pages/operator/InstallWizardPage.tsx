@@ -17,13 +17,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Loader2, MapPin, Plus, Camera, Check, Building2, ChevronRight, FileCheck, Megaphone } from 'lucide-react'
-// @react-pdf/renderer + templates ContractPDF/AmendmentPDF sont dynamiquement
-// importees dans handleFinalSave -> le bundle install (~500 KB gzip) tombe
-// a ~100 KB, +500ms d'attente unique au premier save (bundle cache ensuite).
-// Import de types uniquement (efface au compile-time).
-import type { DocumentProps } from '@react-pdf/renderer'
-import type { ContractPDFProps } from '@/lib/pdf/ContractPDF'
-import type { AmendmentPDFProps } from '@/lib/pdf/AmendmentPDF'
+// Le PDF contrat/avenant est genere cote serveur via l'edge fn
+// generate-contract-pdf (juillet 2026). Fini le rendu @react-pdf client-side
+// qui etouffait les vieux telephones. Le client insere juste la row DB puis
+// invoque la fonction avec le contract/amendment id.
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,7 +39,6 @@ import { useActivePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { useActiveCampaigns } from '@/hooks/useCampaigns'
 import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
-import { downscaleImage } from '@/lib/image-utils'
 import { enqueueInstall } from '@/lib/offline-mutation-queue'
 import { isNetworkError } from '@/lib/install-replay'
 import type { Location } from '@/types'
@@ -369,22 +365,15 @@ export function InstallWizardPage() {
     }
 
     try {
-      // 1. Upload signatures OU reutilise celles du contrat existant (amendement)
+      // 1. Upload signatures OU reutilise celles du contrat existant (amendement).
+      //    On ne garde que les paths storage : le rendu PDF est cote serveur
+      //    (edge fn generate-contract-pdf), qui download les signatures direct
+      //    depuis storage. Fini le base64 en state / le downscale client-side.
       let sigOwnerPath: string
       let sigOperatorPath: string
-      let sigOwnerForPdf: string
-      let sigOperatorForPdf: string
       if (isAmendment && existingContract) {
         sigOwnerPath = existingContract.signature_owner
         sigOperatorPath = existingContract.signature_operator
-        // Pour le PDF, on doit re-recuperer le base64 depuis storage
-        // (l'ancien code utilisait signOwner base64 en state).
-        const [ownerB64, operatorB64] = await Promise.all([
-          fetchSignatureAsBase64(sigOwnerPath),
-          fetchSignatureAsBase64(sigOperatorPath),
-        ])
-        sigOwnerForPdf = ownerB64
-        sigOperatorForPdf = operatorB64
       } else {
         const paths = await Promise.all([
           uploadSignature(signOwner, 'owner'),
@@ -392,18 +381,6 @@ export function InstallWizardPage() {
         ])
         sigOwnerPath = paths[0]
         sigOperatorPath = paths[1]
-        sigOwnerForPdf = signOwner
-        sigOperatorForPdf = signOperator
-      }
-
-      // Downscale signatures pour PDF : reduit la RAM allouee au rendu
-      // (400x150 JPEG @0.7 ≈ 15KB vs signature originale ~100KB non compressee).
-      // Best-effort : si echec, on garde l'original.
-      try {
-        sigOwnerForPdf = await downscaleImage(sigOwnerForPdf, 400, 150, 'jpeg', 0.7)
-        sigOperatorForPdf = await downscaleImage(sigOperatorForPdf, 400, 150, 'jpeg', 0.7)
-      } catch (e) {
-        console.warn('[install] Downscale signatures failed, using originals', e)
       }
 
       // 2. Insert each panel record (the panelId in URL is the QR code, not DB id)
@@ -474,22 +451,14 @@ export function InstallWizardPage() {
       }
 
       // 3. Create contract or amendment
+      //    Sequence : INSERT DB row avec storage_path=null -> invoke edge fn
+      //    generate-contract-pdf -> l'edge fn genere, upload et met a jour
+      //    storage_path. Le PDF n'est plus rendu cote client (fini l'OOM sur
+      //    vieux telephones). L'invocation edge est best-effort : si elle
+      //    echoue, la row DB est deja sauvegardee et un admin peut regenerer
+      //    depuis le back-office.
       const now = new Date().toISOString()
-      const company = getCompanyForPDF(companySettings)
-      // Downscale logo pour PDF : 400x400 max, base64 JPEG ~30KB au lieu du
-      // fichier original (souvent 500KB+). Reduit drastiquement la RAM
-      // allouee au rendu react-pdf sur telephones bas de gamme.
-      if (company.logoUrl) {
-        try {
-          company.logoUrl = await downscaleImage(company.logoUrl, 400, 400, 'png')
-        } catch (e) {
-          console.warn('[install] Downscale logo failed, using original', e)
-        }
-      }
-      // ContractPDF/AmendmentPDF ignorent zoneLabels — l'ancien flow y mettait
-      // les labels de zones (entree, comptoir, etc.) pour affichage. Le nouveau
-      // flow ne capture plus de zones, on passe un objet vide.
-      const fullZoneLabels: Record<string, string> = {}
+      const companyName = companySettings?.company_name ?? 'OOHMYAD'
 
       if (isAmendment && existingContract) {
         // Avenant : ajoute les panneaux a un contrat existant
@@ -511,34 +480,7 @@ export function InstallWizardPage() {
           reference: p.reference,
         }))
 
-        const { path: pdfPath } = await generateAndUploadPDF(amendmentNumber, 'amendment', {
-          amendmentNumber,
-          originalContractNumber: existingContract.contract_number,
-          originalSignedAt: existingContract.signed_at,
-          signedAt: now,
-          signedCity: location.city,
-          reason: 'panel_added',
-          establishment: {
-            name: location.name,
-            address: location.address,
-            postal_code: location.postal_code,
-            city: location.city,
-          },
-          owner: {
-            first_name: location.owner_first_name,
-            last_name: location.owner_last_name,
-            role: location.owner_role,
-          },
-          panelsAdded: panelsToCreate,
-          panelsRemoved: [],
-          panelsAfter: allPanelsSnapshot,
-          signatureOwner: sigOwnerForPdf,
-          signatureOperator: sigOperatorForPdf,
-          company,
-          zoneLabels: fullZoneLabels,
-        })
-
-        const { error: insertErr } = await supabase.from('contract_amendments').insert({
+        const { data: amendment, error: insertErr } = await supabase.from('contract_amendments').insert({
           contract_id: existingContract.id,
           location_id: location.id,
           amendment_number: amendmentNumber,
@@ -548,15 +490,18 @@ export function InstallWizardPage() {
           signature_owner: sigOwnerPath,
           signature_operator: sigOperatorPath,
           signed_at: now,
-          storage_path: pdfPath,
+          storage_path: null,
           created_by: session.user.id,
-        })
+        }).select('id').single()
         if (insertErr) throw insertErr
 
         await supabase
           .from('panel_contracts')
           .update({ status: 'amended' })
           .eq('id', existingContract.id)
+
+        // Genere le PDF cote serveur (fire-and-forget, pas d'email pour un avenant)
+        invokePdfGen(amendment.id, 'amendment')
 
         setSavedContractNumber(amendmentNumber)
       } else {
@@ -584,37 +529,7 @@ export function InstallWizardPage() {
           console.warn(`[install] contract_number ${candidate} deja pris, retry (${numRetries}/20)`)
         }
 
-        const { path: pdfPath, blob: pdfBlob } = await generateAndUploadPDF(contractNumber, 'contract', {
-          contractNumber,
-          signedAt: now,
-          signedCity: location.city,
-          establishment: {
-            name: location.name,
-            address: location.address,
-            postal_code: location.postal_code,
-            city: location.city,
-            phone: location.phone,
-          },
-          owner: {
-            first_name: location.owner_first_name,
-            last_name: location.owner_last_name,
-            role: location.owner_role,
-            email: location.owner_email,
-          },
-          closingMonths: location.closing_months,
-          panels: panelsToCreate,
-          panelFormat: defaultPanelType ? {
-            name: defaultPanelType.name,
-            width_cm: defaultPanelType.width_cm,
-            height_cm: defaultPanelType.height_cm,
-          } : null,
-          signatureOwner: sigOwnerForPdf,
-          signatureOperator: sigOperatorForPdf,
-          company,
-          zoneLabels: fullZoneLabels,
-        })
-
-        const { error: insertErr } = await supabase.from('panel_contracts').insert({
+        const { data: contract, error: insertErr } = await supabase.from('panel_contracts').insert({
           location_id: location.id,
           contract_number: contractNumber,
           establishment_name: location.name,
@@ -631,33 +546,29 @@ export function InstallWizardPage() {
           signature_owner: sigOwnerPath,
           signature_operator: sigOperatorPath,
           signed_at: now,
-          storage_path: pdfPath,
+          storage_path: null,
           created_by: session.user.id,
-        })
+        }).select('id').single()
         if (insertErr) throw insertErr
 
         setSavedContractNumber(contractNumber)
 
-        // Envoi automatique du contrat au gerant par email (si email fourni).
-        // Best-effort : les erreurs sont juste toastees, elles ne bloquent
-        // pas l'enregistrement.
+        // Genere le PDF cote serveur + envoi email (fire-and-forget).
+        // On n'attend PAS la reponse : le success step s'affiche
+        // immediatement apres l'INSERT, le PDF + email tournent en background.
+        // Trade-off : si l'edge fn crash, un admin peut regenerer / renvoyer.
+        invokePdfGen(contract.id, 'contract', location.owner_email ? {
+          to: location.owner_email,
+          ownerFirstName: location.owner_first_name || '',
+          ownerLastName: location.owner_last_name || '',
+          establishmentName: location.name,
+          companyName,
+          subjectTemplate: companySettings?.email_contract_subject ?? null,
+          bodyTemplate: companySettings?.email_contract_body ?? null,
+        } : undefined)
+
         if (location.owner_email) {
-          const res = await sendContractEmail({
-            to: location.owner_email,
-            contractNumber,
-            ownerFirstName: location.owner_first_name || '',
-            ownerLastName: location.owner_last_name || '',
-            establishmentName: location.name,
-            companyName: company.name,
-            subjectTemplate: companySettings?.email_contract_subject ?? null,
-            bodyTemplate: companySettings?.email_contract_body ?? null,
-            pdfBlob,
-          })
-          if (res.ok) {
-            toast(`Contrat envoyé à ${location.owner_email}`)
-          } else {
-            toast(`Contrat sauvegardé, envoi email échoué : ${res.error ?? 'erreur'}`, 'error')
-          }
+          toast(`Contrat sauvegardé — envoi de l'email au gérant en cours…`)
         }
       }
 
@@ -1601,148 +1512,48 @@ async function uploadSignature(dataUrl: string, prefix: string): Promise<string>
   return path
 }
 
-/**
- * Re-charge une signature depuis storage et la retourne en data URL base64,
- * pour re-injection dans le PDF (cas amendement ou signatures pas dans le state).
- */
-async function fetchSignatureAsBase64(path: string): Promise<string> {
-  const { data, error } = await supabase.storage.from('panel-photos').download(path)
-  if (error || !data) throw new Error(`Impossible de charger la signature ${path}`)
-  const buf = await data.arrayBuffer()
-  const bytes = new Uint8Array(buf)
-  let binary = ''
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
-  return `data:image/png;base64,${btoa(binary)}`
-}
-
-/**
- * Charge dynamiquement @react-pdf/renderer + le template PDF, rend le blob,
- * l'upload. Le lazy-load evite les 400 KB gzip d'@react-pdf/renderer dans
- * le bundle main de l'install (chargement uniquement quand on signe).
- */
-async function generateAndUploadPDF(
-  docNumber: string,
-  type: 'contract' | 'amendment',
-  props: ContractPDFProps | AmendmentPDFProps,
-): Promise<{ path: string; blob: Blob }> {
-  // Import parallele : @react-pdf/renderer + les 2 templates.
-  // Vite les met dans un chunk lazy, cache apres 1er load.
-  const [{ pdf }, { ContractPDF }, { AmendmentPDF }, { createElement }] = await Promise.all([
-    import('@react-pdf/renderer'),
-    import('@/lib/pdf/ContractPDF'),
-    import('@/lib/pdf/AmendmentPDF'),
-    import('react'),
-  ])
-  const element = type === 'contract'
-    ? createElement(ContractPDF, props as ContractPDFProps)
-    : createElement(AmendmentPDF, props as AmendmentPDFProps)
-  const blob = await pdf(element as React.ReactElement<DocumentProps>).toBlob()
-  const path = `contracts/${docNumber}.pdf`
-  const { error } = await supabase.storage.from('panel-photos').upload(path, blob, {
-    contentType: 'application/pdf', upsert: true,
-  })
-  if (error) throw error
-  return { path, blob }
-}
-
-/**
- * Convertit un Blob en string base64 (sans le prefixe data:) pour l'envoi
- * en tant que piece jointe email via la fonction edge.
- */
-async function blobToBase64(blob: Blob): Promise<string> {
-  const buf = await blob.arrayBuffer()
-  const bytes = new Uint8Array(buf)
-  let binary = ''
-  const chunkSize = 0x8000
-  for (let i = 0; i < bytes.byteLength; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
-  }
-  return btoa(binary)
-}
-
-/**
- * Interpole les variables dans un template texte/HTML.
- * Ex: "Bonjour {gerant_prenom}" + {gerant_prenom: "Marie"} → "Bonjour Marie"
- */
-function interpolate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '')
-}
-
-/** Fallback si aucun template n'est configure (rare, ne devrait pas arriver
- *  car la migration set des defaults). */
-const CONTRACT_EMAIL_FALLBACK_SUBJECT = 'Votre contrat d\'installation {numero} — {entreprise}'
-const CONTRACT_EMAIL_FALLBACK_BODY = `<p>Bonjour {gerant_prenom},</p><p>Vous trouverez ci-joint votre <strong>contrat d'autorisation d'installation N° {numero}</strong>, signé électroniquement.</p><p>L'équipe {entreprise}</p>`
-
-/**
- * Envoie le contrat par email au gerant via l'edge function send-document-email.
- * Utilise le template configure dans Reglages > Email (email_contract_subject/body)
- * avec interpolation des variables : {numero}, {gerant_prenom}, {gerant_nom},
- * {etablissement}, {entreprise}.
- * N'echoue jamais : les erreurs sont loggees mais ne bloquent pas le save.
- */
-async function sendContractEmail(params: {
+interface PdfEmailPayload {
   to: string
-  contractNumber: string
   ownerFirstName: string
   ownerLastName: string
   establishmentName: string
   companyName: string
   subjectTemplate: string | null
   bodyTemplate: string | null
-  pdfBlob: Blob
-}): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const vars = {
-      numero: params.contractNumber,
-      gerant_prenom: params.ownerFirstName,
-      gerant_nom: params.ownerLastName,
-      etablissement: params.establishmentName,
-      entreprise: params.companyName,
-    }
-    const subject = interpolate(
-      params.subjectTemplate || CONTRACT_EMAIL_FALLBACK_SUBJECT,
-      vars,
-    )
-    const html = interpolate(
-      params.bodyTemplate || CONTRACT_EMAIL_FALLBACK_BODY,
-      vars,
-    )
-    const pdfBase64 = await blobToBase64(params.pdfBlob)
-    const { error } = await supabase.functions.invoke('send-document-email', {
-      body: {
-        to: params.to,
-        subject,
-        html,
-        pdfBase64,
-        pdfFilename: `contrat-${params.contractNumber}.pdf`,
-        documentType: 'contract',
-      },
-    })
-    if (error) return { ok: false, error: error.message }
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Erreur inconnue' }
-  }
 }
 
-function getCompanyForPDF(settings: ReturnType<typeof useCompanyPublic>['data']) {
-  if (!settings) return {
-    name: 'OOHMYAD', address: null, city: null, postal_code: null,
-    siret: null, phone: null, email: null, logoUrl: null,
-  }
-  const logoUrl = settings.logo_path
-    ? supabase.storage.from('company-assets').getPublicUrl(settings.logo_path).data.publicUrl
-    : null
-  return {
-    name: settings.company_name ?? 'OOHMYAD',
-    address: settings.address ?? null,
-    city: settings.city ?? null,
-    postal_code: settings.postal_code ?? null,
-    siret: settings.siret ?? null,
-    phone: settings.phone ?? null,
-    email: settings.email ?? null,
-    logoUrl,
-  }
+/**
+ * Invoke l'edge function generate-contract-pdf en fire-and-forget.
+ * Ne renvoie rien : les erreurs sont logguees. Le client a deja fait
+ * l'INSERT contract cote DB, la row est safe. Si le PDF ou l'email echoue,
+ * l'admin peut regenerer / renvoyer depuis le back-office.
+ *
+ * L'edge fn s'occupe de : rendu PDF + upload storage + UPDATE storage_path
+ * + envoi email au gerant (si payload fourni).
+ */
+function invokePdfGen(
+  docId: string,
+  type: 'contract' | 'amendment',
+  email?: PdfEmailPayload,
+): void {
+  supabase.functions
+    .invoke('generate-contract-pdf', {
+      body: { contractId: docId, type, email },
+    })
+    .then(({ data, error }) => {
+      if (error) {
+        console.error('[install] PDF gen edge fn failed:', error)
+        return
+      }
+      const emailSent = (data as { emailSent?: boolean })?.emailSent
+      const emailError = (data as { emailError?: string })?.emailError
+      if (email && emailSent === false) {
+        console.warn('[install] Email non envoye :', emailError)
+      }
+    })
+    .catch((e) => {
+      console.error('[install] PDF gen invoke threw:', e)
+    })
 }
 
 // Re-export usePanelByQrCode for typing consistency (used elsewhere)
