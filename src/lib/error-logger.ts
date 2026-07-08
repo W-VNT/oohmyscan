@@ -1,10 +1,10 @@
 import { supabase } from '@/lib/supabase'
 
 /**
- * Categorisation des erreurs pour filtrage back-office.
+ * Categorisation des logs pour filtrage back-office.
  * Ajoute une valeur ici quand tu instrumentes un nouveau flow.
  */
-export type ErrorContext =
+export type LogContext =
   | 'install'         // wizard install / handleFinalSave / ensureLocationExists
   | 'scan'            // ScanPage, QR resolution
   | 'pdf'             // invocation edge fn generate-contract-pdf
@@ -12,42 +12,27 @@ export type ErrorContext =
   | 'auth'            // login / invite / role change
   | 'other'
 
+export type LogSeverity = 'info' | 'warn' | 'error'
+
 /**
- * Log une erreur cote client vers la table error_logs.
+ * Log un evenement client vers la table activity_logs.
  * Best-effort : les erreurs de log elles-memes sont swallow (pas de recursion).
  *
+ * @param severity 'info' pour une action normale, 'warn' pour un cas limite,
+ *                 'error' pour une erreur bloquante.
  * @param context Categorie large (install, scan, pdf...)
- * @param action Nom court du step qui a echoue (insert_location, invoke_pdf_gen...)
- * @param err L'erreur brute (Error, PostgrestError, unknown)
- * @param metadata Cle-valeurs libres qui aident au debug (location_id, panel_id, contract_number...)
+ * @param action Nom court du step (contract_signed, insert_location...)
+ * @param message Texte lisible (err.message ou description action)
+ * @param details Payload libre pour debug (location_id, panel_id, contract_number...)
  */
-export async function logError(
-  context: ErrorContext,
+async function log(
+  severity: LogSeverity,
+  context: LogContext,
   action: string,
-  err: unknown,
-  metadata?: Record<string, unknown>,
+  message: string,
+  details?: Record<string, unknown>,
 ): Promise<void> {
   try {
-    const message = err instanceof Error
-      ? err.message
-      : typeof err === 'object' && err !== null && 'message' in err
-        ? String((err as { message: unknown }).message)
-        : String(err)
-
-    // Extraction du max d'info sur l'erreur (Error stack, PostgrestError code/hint/details)
-    const details: Record<string, unknown> = {}
-    if (err instanceof Error) {
-      details.stack = err.stack
-      details.name = err.name
-    }
-    if (err && typeof err === 'object') {
-      const obj = err as Record<string, unknown>
-      for (const k of ['code', 'hint', 'details', 'status', 'statusText']) {
-        if (k in obj) details[k] = obj[k]
-      }
-    }
-    if (metadata) details.metadata = metadata
-
     // Snapshot user (best-effort, on log meme si getUser fail)
     let userId: string | null = null
     let userRole: string | null = null
@@ -64,18 +49,76 @@ export async function logError(
       }
     } catch { /* swallow */ }
 
-    await supabase.from('error_logs').insert({
+    await supabase.from('activity_logs').insert({
       user_id: userId,
       user_role: userRole,
+      severity,
       context,
       action,
       message: message.slice(0, 500),
-      details,
+      details: details ?? null,
       user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
       url: typeof window !== 'undefined' ? window.location.href : null,
     })
   } catch {
-    // Ne jamais throw depuis logError — recursion garantie
-    // (l'erreur de log echouerait a se logger elle-meme)
+    // Ne jamais throw depuis log() — recursion garantie
   }
+}
+
+/**
+ * Log une erreur (severity=error). Extrait automatiquement le message + stack
+ * + PostgrestError code/hint/details.
+ */
+export async function logError(
+  context: LogContext,
+  action: string,
+  err: unknown,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  const message = err instanceof Error
+    ? err.message
+    : typeof err === 'object' && err !== null && 'message' in err
+      ? String((err as { message: unknown }).message)
+      : String(err)
+
+  const details: Record<string, unknown> = {}
+  if (err instanceof Error) {
+    details.stack = err.stack
+    details.name = err.name
+  }
+  if (err && typeof err === 'object') {
+    const obj = err as Record<string, unknown>
+    for (const k of ['code', 'hint', 'details', 'status', 'statusText']) {
+      if (k in obj) details[k] = obj[k]
+    }
+  }
+  if (metadata) details.metadata = metadata
+
+  return log('error', context, action, message, details)
+}
+
+/**
+ * Log une action utilisateur (severity=info). Utile pour comprendre le
+ * parcours d'un operateur quand il rappelle : "j'ai fait X puis Y".
+ */
+export async function logAction(
+  context: LogContext,
+  action: string,
+  message: string,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  return log('info', context, action, message, metadata ? { metadata } : undefined)
+}
+
+/**
+ * Log un warning (severity=warn). Cas limite qui n'a pas casse le flow mais
+ * merite l'attention (ex: retry sur duplicate contract_number, fallback offline...)
+ */
+export async function logWarn(
+  context: LogContext,
+  action: string,
+  message: string,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  return log('warn', context, action, message, metadata ? { metadata } : undefined)
 }

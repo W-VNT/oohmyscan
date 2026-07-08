@@ -14,12 +14,13 @@ export interface AuditLog {
 export interface Database {
   public: {
     Tables: {
-      error_logs: {
+      activity_logs: {
         Row: {
           id: string
           created_at: string
           user_id: string | null
           user_role: string | null
+          severity: 'info' | 'warn' | 'error'
           context: string
           action: string
           message: string
@@ -35,6 +36,7 @@ export interface Database {
           created_at?: string
           user_id?: string | null
           user_role?: string | null
+          severity?: 'info' | 'warn' | 'error'
           context: string
           action: string
           message: string
@@ -50,6 +52,7 @@ export interface Database {
           created_at?: string
           user_id?: string | null
           user_role?: string | null
+          severity?: 'info' | 'warn' | 'error'
           context?: string
           action?: string
           message?: string

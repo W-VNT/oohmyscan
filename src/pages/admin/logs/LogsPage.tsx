@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { AlertCircle, CheckCircle2, ChevronRight, Loader2, Trash2, XCircle } from 'lucide-react'
-import { useErrorLogs, useMarkErrorResolved, useDeleteErrorLog, type ErrorLog } from '@/hooks/admin/useErrorLogs'
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Info, Loader2, Trash2, XCircle } from 'lucide-react'
+import { useActivityLogs, useMarkLogResolved, useDeleteLog, type ActivityLog, type LogSeverity } from '@/hooks/admin/useErrorLogs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +25,19 @@ const CONTEXT_COLORS: Record<string, string> = {
   other: 'bg-gray-100 text-gray-700 dark:bg-gray-500/10 dark:text-gray-300',
 }
 
+const SEVERITY_LABELS: Record<LogSeverity | 'all', string> = {
+  all: 'Toutes',
+  info: 'Actions',
+  warn: 'Warnings',
+  error: 'Erreurs',
+}
+
+function severityIcon(sev: LogSeverity, className = 'size-4') {
+  if (sev === 'error') return <AlertCircle className={`${className} text-red-500`} />
+  if (sev === 'warn') return <AlertTriangle className={`${className} text-amber-500`} />
+  return <Info className={`${className} text-blue-500`} />
+}
+
 function formatRelativeDate(dateStr: string): string {
   const now = new Date()
   const date = new Date(dateStr)
@@ -40,16 +53,18 @@ function formatRelativeDate(dateStr: string): string {
 
 export function LogsPage() {
   const [contextFilter, setContextFilter] = useState<string>('all')
-  const [onlyUnresolved, setOnlyUnresolved] = useState(true)
-  const [selected, setSelected] = useState<ErrorLog | null>(null)
+  const [severityFilter, setSeverityFilter] = useState<LogSeverity | 'all'>('all')
+  const [onlyUnresolved, setOnlyUnresolved] = useState(false)
+  const [selected, setSelected] = useState<ActivityLog | null>(null)
 
-  const { data: logs = [], isLoading } = useErrorLogs({
+  const { data: logs = [], isLoading } = useActivityLogs({
     context: contextFilter,
+    severity: severityFilter,
     onlyUnresolved,
     limit: 200,
   })
-  const markResolved = useMarkErrorResolved()
-  const deleteLog = useDeleteErrorLog()
+  const markResolved = useMarkLogResolved()
+  const deleteLog = useDeleteLog()
   const confirm = useConfirm()
 
   const contexts = useMemo(() => {
@@ -60,7 +75,7 @@ export function LogsPage() {
   async function handleDelete(id: string) {
     const ok = await confirm({
       title: 'Supprimer ce log ?',
-      description: "L'erreur sera définitivement retirée de la base.",
+      description: "L'entrée sera définitivement retirée de la base.",
       confirmLabel: 'Supprimer',
       variant: 'destructive',
     })
@@ -74,7 +89,7 @@ export function LogsPage() {
     }
   }
 
-  async function toggleResolved(log: ErrorLog) {
+  async function toggleResolved(log: ActivityLog) {
     try {
       await markResolved.mutateAsync({ id: log.id, resolved: !log.resolved })
     } catch (e) {
@@ -86,8 +101,28 @@ export function LogsPage() {
     <div className="space-y-4">
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="space-y-3 p-4">
+          {/* Severity row */}
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground">Sévérité :</span>
+            {(['all', 'error', 'warn', 'info'] as const).map((sev) => (
+              <button
+                key={sev}
+                onClick={() => setSeverityFilter(sev)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  severityFilter === sev
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {sev !== 'all' && severityIcon(sev as LogSeverity, 'size-3')}
+                {SEVERITY_LABELS[sev]}
+              </button>
+            ))}
+          </div>
+          {/* Context row */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground">Contexte :</span>
             {contexts.map((ctx) => (
               <button
                 key={ctx}
@@ -126,9 +161,9 @@ export function LogsPage() {
             ) : logs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <CheckCircle2 className="mb-3 size-10 text-green-500" />
-                <p className="text-sm font-medium">Aucune erreur</p>
+                <p className="text-sm font-medium">Aucun log</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {onlyUnresolved ? 'Tout est résolu !' : 'Rien à afficher pour ce filtre.'}
+                  Rien à afficher pour ce filtre.
                 </p>
               </div>
             ) : (
@@ -141,8 +176,8 @@ export function LogsPage() {
                       selected?.id === log.id ? 'bg-muted/60' : ''
                     }`}
                   >
-                    <div className={`mt-0.5 shrink-0 ${log.resolved ? 'text-green-500' : 'text-red-500'}`}>
-                      {log.resolved ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
+                    <div className="mt-0.5 shrink-0">
+                      {log.resolved ? <CheckCircle2 className="size-4 text-green-500" /> : severityIcon(log.severity)}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -182,9 +217,12 @@ export function LogsPage() {
             <CardContent className="space-y-4 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <Badge className={`${CONTEXT_COLORS[selected.context] ?? CONTEXT_COLORS.other} border-transparent`}>
-                    {CONTEXT_LABELS[selected.context] ?? selected.context}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {severityIcon(selected.severity, 'size-4')}
+                    <Badge className={`${CONTEXT_COLORS[selected.context] ?? CONTEXT_COLORS.other} border-transparent`}>
+                      {CONTEXT_LABELS[selected.context] ?? selected.context}
+                    </Badge>
+                  </div>
                   <p className="mt-2 text-xs font-mono text-muted-foreground">{selected.action}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {new Date(selected.created_at).toLocaleString('fr-FR')}

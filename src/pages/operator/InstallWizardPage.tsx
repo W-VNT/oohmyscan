@@ -41,7 +41,7 @@ import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
 import { enqueueInstall } from '@/lib/offline-mutation-queue'
 import { isNetworkError } from '@/lib/install-replay'
-import { logError } from '@/lib/error-logger'
+import { logError, logAction } from '@/lib/error-logger'
 import type { Location } from '@/types'
 
 // ============================================================================
@@ -255,6 +255,17 @@ export function InstallWizardPage() {
     })
     if (!ok) return
 
+    // Trace de l'abandon (action utile pour comprendre les retours intempestifs)
+    if (location) {
+      void logAction('install', 'wizard_abandoned', `Abandon de l'installation "${location.name}"`, {
+        location_id: location.id,
+        location_name: location.name,
+        step_at_abandon: step,
+        panels_scanned: installed.length,
+        created_location_in_session: createdLocationInSession,
+      })
+    }
+
     // Rollback : supprime le lieu qui vient d'etre cree pour eviter l'orphelin.
     // Best-effort : si le delete echoue (RLS, reseau), on log mais on laisse
     // partir l'user quand meme (la migration SQL de cleanup s'en chargera).
@@ -398,6 +409,12 @@ export function InstallWizardPage() {
       if (currentLocation.id !== location.id) {
         // Le lieu a ete recree avec un nouvel id -> update state pour la suite
         setLocation(currentLocation)
+        void logAction('install', 'location_recreated',
+          `Lieu "${location.name}" recree (id ${location.id} disparu)`, {
+            old_location_id: location.id,
+            new_location_id: currentLocation.id,
+            location_name: location.name,
+          })
       }
 
       // 2. Insert each panel record (the panelId in URL is the QR code, not DB id)
@@ -520,6 +537,15 @@ export function InstallWizardPage() {
         // Genere le PDF cote serveur (fire-and-forget, pas d'email pour un avenant)
         invokePdfGen(amendment.id, 'amendment')
 
+        void logAction('install', 'amendment_signed',
+          `Avenant ${amendmentNumber} signe pour "${currentLocation.name}"`, {
+            amendment_id: amendment.id,
+            amendment_number: amendmentNumber,
+            parent_contract_id: existingContract.id,
+            location_id: currentLocation.id,
+            panels_added_count: panelsToCreate.length,
+          })
+
         setSavedContractNumber(amendmentNumber)
       } else {
         // Nouveau contrat. Retry avec un nouveau numero si le premier
@@ -569,6 +595,17 @@ export function InstallWizardPage() {
         if (insertErr) throw insertErr
 
         setSavedContractNumber(contractNumber)
+
+        void logAction('install', 'contract_signed',
+          `Contrat ${contractNumber} signe pour "${currentLocation.name}"`, {
+            contract_id: contract.id,
+            contract_number: contractNumber,
+            location_id: currentLocation.id,
+            location_name: currentLocation.name,
+            city: currentLocation.city,
+            panels_count: panelsToCreate.length,
+            owner_email_provided: !!currentLocation.owner_email,
+          })
 
         // Genere le PDF cote serveur + envoi email (fire-and-forget).
         // On n'attend PAS la reponse : le success step s'affiche
