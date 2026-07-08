@@ -14,6 +14,54 @@ export interface AuditLog {
 export interface Database {
   public: {
     Tables: {
+      error_logs: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string | null
+          user_role: string | null
+          context: string
+          action: string
+          message: string
+          details: Record<string, unknown> | null
+          user_agent: string | null
+          url: string | null
+          resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          user_role?: string | null
+          context: string
+          action: string
+          message: string
+          details?: Record<string, unknown> | null
+          user_agent?: string | null
+          url?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          user_role?: string | null
+          context?: string
+          action?: string
+          message?: string
+          details?: Record<string, unknown> | null
+          user_agent?: string | null
+          url?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           id: string

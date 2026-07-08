@@ -41,6 +41,7 @@ import { supabase } from '@/lib/supabase'
 import { isValidUUID } from '@/lib/utils'
 import { enqueueInstall } from '@/lib/offline-mutation-queue'
 import { isNetworkError } from '@/lib/install-replay'
+import { logError } from '@/lib/error-logger'
 import type { Location } from '@/types'
 
 // ============================================================================
@@ -258,10 +259,13 @@ export function InstallWizardPage() {
     // Best-effort : si le delete echoue (RLS, reseau), on log mais on laisse
     // partir l'user quand meme (la migration SQL de cleanup s'en chargera).
     if (createdLocationInSession && location) {
-      try {
-        await supabase.from('locations').delete().eq('id', location.id)
-      } catch (e) {
-        console.warn('[install] cleanup lieu orphelin echoue', e)
+      const { error: delErr } = await supabase.from('locations').delete().eq('id', location.id)
+      if (delErr) {
+        console.warn('[install] cleanup lieu orphelin echoue', delErr)
+        void logError('install', 'guarded_back_delete', delErr, {
+          location_id: location.id,
+          location_name: location.name,
+        })
       }
       clearSession()
     }
@@ -360,6 +364,7 @@ export function InstallWizardPage() {
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Impossible de sauvegarder localement')
         setStep('another')
+        void logError('offline_replay', 'enqueue_install', e, { location_id: location?.id })
       }
       return
     }
@@ -616,6 +621,11 @@ export function InstallWizardPage() {
             .eq('id', realPanelId)
         } catch (assignErr) {
           console.warn('[install] Diffusion inline failed for', p.qrCode, assignErr)
+          void logError('install', 'diffuse_inline', assignErr, {
+            qr_code: p.qrCode,
+            panel_id: realPanelId,
+            campaign_id: p.pendingAssign.campaignId,
+          })
         }
       }
 
@@ -628,6 +638,12 @@ export function InstallWizardPage() {
       // Fallback : si l'erreur ressemble a un souci reseau (perte cours de route),
       // on queue la mutation pour replay au retour. Sinon on remonte l'erreur.
       console.error('[install] handleFinalSave error:', e)
+      void logError('install', 'handle_final_save', e, {
+        location_id: location?.id,
+        location_name: location?.name,
+        installed_count: installed.length,
+        is_amendment: isAmendment,
+      })
       if (isNetworkError(e)) {
         try {
           await enqueueInstall(savePayload)
@@ -639,6 +655,7 @@ export function InstallWizardPage() {
           return
         } catch (queueErr) {
           console.error('[install] enqueue fallback failed:', queueErr)
+          void logError('install', 'enqueue_fallback', queueErr, { location_id: location?.id })
         }
       }
       // Extraction de message enrichi : les erreurs Supabase (PostgrestError)
@@ -775,6 +792,10 @@ export function InstallWizardPage() {
                 }
               } catch (e) {
                 toast(e instanceof Error ? e.message : 'Erreur création', 'error')
+                void logError('install', 'insert_location', e, {
+                  name: newLocationData.name,
+                  city: newLocationData.city,
+                })
               }
             }}
           />
@@ -1608,16 +1629,19 @@ function invokePdfGen(
     .then(({ data, error }) => {
       if (error) {
         console.error('[install] PDF gen edge fn failed:', error)
+        void logError('pdf', 'invoke_pdf_gen', error, { doc_id: docId, type })
         return
       }
       const emailSent = (data as { emailSent?: boolean })?.emailSent
       const emailError = (data as { emailError?: string })?.emailError
       if (email && emailSent === false) {
         console.warn('[install] Email non envoye :', emailError)
+        void logError('pdf', 'email_send', new Error(emailError ?? 'unknown'), { doc_id: docId, type, to: email.to })
       }
     })
     .catch((e) => {
       console.error('[install] PDF gen invoke threw:', e)
+      void logError('pdf', 'invoke_pdf_gen_throw', e, { doc_id: docId, type })
     })
 }
 

@@ -17,7 +17,9 @@ import {
   SearchCheck,
   Landmark,
   Inbox,
+  AlertCircle,
 } from 'lucide-react'
+import { useUnresolvedErrorCount } from '@/hooks/admin/useErrorLogs'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/app.store'
@@ -42,6 +44,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin/users': 'Utilisateurs',
   '/admin/potential': 'Potentiel',
   '/admin/reports': 'Rapports',
+  '/admin/logs': "Journal d'erreurs",
   '/admin/profile': 'Profil',
   '/admin/settings': 'Paramètres',
 }
@@ -82,6 +85,7 @@ const navSections = [
   },
   {
     items: [
+      { to: '/admin/logs', icon: AlertCircle, label: "Journal d'erreurs" },
       { to: '/admin/settings', icon: Settings, label: 'Paramètres' },
     ],
   },
@@ -91,6 +95,7 @@ export function AdminLayout() {
   const { profile } = useAuth()
   const { sidebarOpen, toggleSidebar } = useAppStore()
   const { pathname } = useLocation()
+  const { data: unresolvedCount = 0 } = useUnresolvedErrorCount()
 
   const { data: avatarUrl } = useQuery({
     queryKey: ['avatar-url', profile?.avatar_url],
@@ -150,25 +155,34 @@ export function AdminLayout() {
             <div key={sIdx}>
               {sIdx > 0 && <div className="my-2 border-t border-border" />}
               <div className="space-y-0.5">
-                {section.items.map(({ to, icon: Icon, label, end }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    end={end}
-                    onClick={() => useAppStore.setState({ sidebarOpen: false })}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      )
-                    }
-                  >
-                    <Icon className="size-4" />
-                    {label}
-                  </NavLink>
-                ))}
+                {section.items.map(({ to, icon: Icon, label, end }) => {
+                  const isLogs = to === '/admin/logs'
+                  const badgeCount = isLogs ? unresolvedCount : 0
+                  return (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      end={end}
+                      onClick={() => useAppStore.setState({ sidebarOpen: false })}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )
+                      }
+                    >
+                      <Icon className="size-4" />
+                      <span className="flex-1">{label}</span>
+                      {badgeCount > 0 && (
+                        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                          {badgeCount > 99 ? '99+' : badgeCount}
+                        </span>
+                      )}
+                    </NavLink>
+                  )
+                })}
               </div>
             </div>
           ))}

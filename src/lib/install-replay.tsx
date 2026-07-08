@@ -15,6 +15,7 @@
 
 import { supabase } from '@/lib/supabase'
 import { PANEL_ZONES } from '@/lib/constants'
+import { logError } from '@/lib/error-logger'
 import type { Location } from '@/types'
 import type { InstalledPanelData } from '@/lib/offline-mutation-queue'
 import type { CompanyPublic } from '@/hooks/useCompanyPublic'
@@ -95,16 +96,19 @@ function invokePdfGen(
     .then(({ data, error }) => {
       if (error) {
         console.error('[install-replay] PDF gen edge fn failed:', error)
+        void logError('offline_replay', 'invoke_pdf_gen', error, { doc_id: docId, type })
         return
       }
       const emailSent = (data as { emailSent?: boolean })?.emailSent
       const emailError = (data as { emailError?: string })?.emailError
       if (email && emailSent === false) {
         console.warn('[install-replay] Email non envoye :', emailError)
+        void logError('offline_replay', 'email_send', new Error(emailError ?? 'unknown'), { doc_id: docId, type, to: email.to })
       }
     })
     .catch((e) => {
       console.error('[install-replay] PDF gen invoke threw:', e)
+      void logError('offline_replay', 'invoke_pdf_gen_throw', e, { doc_id: docId, type })
     })
 }
 
@@ -378,6 +382,10 @@ export async function performInstallSave(
         .eq('id', realPanelId)
     } catch (e) {
       console.warn('[install-replay] Diffusion inline failed for', p.qrCode, e)
+      void logError('offline_replay', 'diffuse_inline', e, {
+        qr_code: p.qrCode,
+        panel_id: realPanelId,
+      })
     }
   }
 

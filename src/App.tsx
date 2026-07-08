@@ -66,6 +66,7 @@ const InvoiceDetailPage = lazy(() => import('@/pages/admin/invoices/InvoiceDetai
 const PotentialPage = lazy(() => import('@/pages/admin/potential/PotentialPage').then((m) => ({ default: m.PotentialPage })))
 const PotentialNewPage = lazy(() => import('@/pages/admin/potential/PotentialNewPage').then((m) => ({ default: m.PotentialNewPage })))
 const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })))
+const LogsPage = lazy(() => import('@/pages/admin/logs/LogsPage').then((m) => ({ default: m.LogsPage })))
 const CampaignReportEditorPage = lazy(() => import('@/pages/admin/reports/CampaignReportEditorPage').then((m) => ({ default: m.CampaignReportEditorPage })))
 const AdminProfilePage = lazy(() => import('@/pages/admin/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
@@ -201,6 +202,7 @@ export default function App() {
                   <Route path="potential/:id" element={<PotentialNewPage />} />
                   <Route path="qr" element={<QRPage />} />
                   <Route path="users" element={<UsersPage />} />
+                  <Route path="logs" element={<LogsPage />} />
                   <Route path="reports" element={<ReportsPage />} />
                   <Route path="campaigns/:campaignId/report" element={<CampaignReportEditorPage />} />
                   <Route path="profile" element={<AdminProfilePage />} />

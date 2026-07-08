@@ -6,6 +6,7 @@ import { extractPanelId } from '@/hooks/useQRScanner'
 import { usePanelByQrCode } from '@/hooks/usePanels'
 import { supabase } from '@/lib/supabase'
 import { useConfirm } from '@/components/shared/ConfirmDialog'
+import { logError } from '@/lib/error-logger'
 
 const INSTALL_SESSION_KEY = 'install_wizard_session'
 interface PartialInstallSession {
@@ -64,10 +65,13 @@ export function ScanPage() {
     })
     if (!ok) return
     if (isNew) {
-      try {
-        await supabase.from('locations').delete().eq('id', sess.location.id)
-      } catch (e) {
-        console.warn('[scan] cleanup lieu orphelin echoue', e)
+      const { error: delErr } = await supabase.from('locations').delete().eq('id', sess.location.id)
+      if (delErr) {
+        console.warn('[scan] cleanup lieu orphelin echoue', delErr)
+        void logError('scan', 'handle_back_delete', delErr, {
+          location_id: sess.location.id,
+          location_name: sess.location.name,
+        })
       }
     }
     sessionStorage.removeItem(INSTALL_SESSION_KEY)
