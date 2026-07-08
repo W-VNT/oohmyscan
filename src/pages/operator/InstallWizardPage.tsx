@@ -499,7 +499,6 @@ export function InstallWizardPage() {
       //    echoue, la row DB est deja sauvegardee et un admin peut regenerer
       //    depuis le back-office.
       const now = new Date().toISOString()
-      const companyName = companySettings?.company_name ?? 'OOHMYAD'
 
       if (isAmendment && existingContract) {
         // Avenant : ajoute les panneaux a un contrat existant
@@ -614,23 +613,10 @@ export function InstallWizardPage() {
             owner_email_provided: !!currentLocation.owner_email,
           })
 
-        // Genere le PDF cote serveur + envoi email (fire-and-forget).
-        // On n'attend PAS la reponse : le success step s'affiche
-        // immediatement apres l'INSERT, le PDF + email tournent en background.
-        // Trade-off : si l'edge fn crash, un admin peut regenerer / renvoyer.
-        invokePdfGen(contract.id, 'contract', currentLocation.owner_email ? {
-          to: currentLocation.owner_email,
-          ownerFirstName: currentLocation.owner_first_name || '',
-          ownerLastName: currentLocation.owner_last_name || '',
-          establishmentName: currentLocation.name,
-          companyName,
-          subjectTemplate: companySettings?.email_contract_subject ?? null,
-          bodyTemplate: companySettings?.email_contract_body ?? null,
-        } : undefined)
-
-        if (currentLocation.owner_email) {
-          toast(`Contrat sauvegardé — envoi de l'email au gérant en cours…`)
-        }
+        // Genere le PDF cote serveur (fire-and-forget). L'envoi email au
+        // gerant est desactive : l'admin l'envoie manuellement depuis la
+        // fiche lieu (bouton "Renvoyer contrat") apres verification.
+        invokePdfGen(contract.id, 'contract')
       }
 
       // 4. Diffusions inline (si l'operateur a choisi une campagne au moment
@@ -1191,8 +1177,9 @@ function CreateLocationStep({
       .finally(() => setGeocoding(false))
   }, [lat, lng, data.address, data.postal_code, data.city])
 
-  const canSubmit = data.name.trim() && data.address.trim() && data.city.trim() &&
-                    data.owner_first_name.trim() && data.owner_last_name.trim()
+  // Seuls le nom d'etablissement + l'adresse sont obligatoires. Toutes les
+  // infos du proprietaire (prenom, nom, tel, email) sont facultatives.
+  const canSubmit = data.name.trim() && data.address.trim() && data.city.trim()
 
   return (
     <div className="space-y-3">
@@ -1227,10 +1214,10 @@ function CreateLocationStep({
       <p className="text-sm font-medium">Le propriétaire</p>
 
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Prénom *">
+        <Field label="Prénom (facultatif)">
           <Input value={data.owner_first_name} onChange={(e) => patch('owner_first_name', e.target.value)} placeholder="Marie" className="h-12 text-base" />
         </Field>
-        <Field label="Nom *">
+        <Field label="Nom (facultatif)">
           <Input value={data.owner_last_name} onChange={(e) => patch('owner_last_name', e.target.value)} placeholder="Martin" className="h-12 text-base" />
         </Field>
       </div>

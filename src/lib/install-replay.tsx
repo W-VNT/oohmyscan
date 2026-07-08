@@ -253,12 +253,11 @@ export async function performInstallSave(
     })
   }
 
-  // 4. Insertion DB contrat/avenant + generation PDF cote serveur + email
-  const companyName = companySettings?.company_name ?? 'OOHMYAD'
-
+  // 4. Insertion DB contrat/avenant + generation PDF cote serveur.
+  //    Envoi email desactive : admin l'envoie manuellement depuis la fiche.
   let contractNumber = ''
-  let emailSent = false
-  let emailError: string | null = null
+  const emailSent = false
+  const emailError: string | null = null
 
   if (isAmendment && existingContract) {
     // Amendement
@@ -327,22 +326,9 @@ export async function performInstallSave(
     }).select('id').single()
     if (insertErr) throw insertErr
 
-    // PDF + email cote serveur en fire-and-forget. Le client considere le
-    // save comme reussi des l'INSERT. Si l'edge fn crash, admin peut
-    // regenerer / renvoyer depuis le back-office.
-    invokePdfGen(contract.id, 'contract', location.owner_email ? {
-      to: location.owner_email,
-      ownerFirstName: location.owner_first_name || '',
-      ownerLastName: location.owner_last_name || '',
-      establishmentName: location.name,
-      companyName,
-      subjectTemplate: companySettings?.email_contract_subject ?? null,
-      bodyTemplate: companySettings?.email_contract_body ?? null,
-    } : undefined)
-
-    // On considere l'email "en cours d'envoi" : le vrai statut sera visible
-    // cote admin (logs edge fn) apres la fin async.
-    if (location.owner_email) emailSent = true
+    // PDF cote serveur en fire-and-forget. Envoi email desactive : l'admin
+    // l'envoie manuellement depuis la fiche lieu apres verification.
+    invokePdfGen(contract.id, 'contract')
   }
 
   // 5. Assignations de campagne inline (diffusion "maintenant" pendant le
