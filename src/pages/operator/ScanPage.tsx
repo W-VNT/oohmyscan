@@ -5,13 +5,12 @@ import { QRScanner } from '@/components/qr/QRScanner'
 import { extractPanelId } from '@/hooks/useQRScanner'
 import { usePanelByQrCode } from '@/hooks/usePanels'
 import { supabase } from '@/lib/supabase'
-import { useConfirm } from '@/components/shared/ConfirmDialog'
-import { logError } from '@/lib/error-logger'
 
 const INSTALL_SESSION_KEY = 'install_wizard_session'
 interface PartialInstallSession {
   location?: { id: string; name: string }
   isNewLocation?: boolean
+  installed?: Array<{ qrCode: string }>
 }
 function readInstallSession(): PartialInstallSession | null {
   try {
@@ -34,48 +33,34 @@ type AlertState = {
 
 export function ScanPage() {
   const navigate = useNavigate()
-  const confirm = useConfirm()
   const [searchParams] = useSearchParams()
   const mode: ScanMode = (searchParams.get('mode') as ScanMode) || 'install'
   /** Si vrai : continuation d'une session multi-panneau du wizard install. */
   const installSession = searchParams.get('install_session') === '1'
 
-  // Guard sur le retour : si l'operateur est en cours d'install et a cree
-  // un nouveau lieu (isNewLocation dans la session), le back doit proposer
-  // le cleanup du lieu pour eviter les orphelins/doublons.
-  async function handleBack() {
+  // En install_session, le retour ne DOIT PAS proposer l'abandon : il retourne
+  // simplement au wizard qui affichera le recap avec les panneaux deja scannes.
+  // L'abandon reste possible depuis le wizard directement (via guardedBack).
+  // Cas typique : operateur clique "Ajouter panneau", change d'avis, clique
+  // retour -> il retrouve son panneau 1 et peut finir la signature.
+  function handleBack() {
     if (!installSession) {
       navigate(-1)
       return
     }
     const sess = readInstallSession()
-    if (!sess?.location) {
-      navigate(-1)
-      return
+    // On repasse par le wizard avec ?continue=1 pour restaurer la session.
+    // Le panelId de l'URL n'a pas d'importance ici : le wizard restore l'etat
+    // depuis sessionStorage. On passe le dernier QR scanne pour rester dans
+    // la meme famille d'URL (utile pour l'historique et debug).
+    const lastQr = sess?.installed?.[sess.installed.length - 1]?.qrCode
+    if (lastQr) {
+      navigate(`/app/install/${lastQr}?continue=1`, { replace: true })
+    } else {
+      // Pas encore de panneau scanne : retour au dashboard (pas moyen de
+      // reprendre proprement le wizard sans un QR de reference).
+      navigate('/app/dashboard')
     }
-    const isNew = sess.isNewLocation === true
-    const description = isNew
-      ? `Le lieu "${sess.location.name}" vient d'être créé. Si tu confirmes l'abandon, il sera SUPPRIMÉ de la base — tu pourras le recréer proprement la prochaine fois.`
-      : `Tu vas perdre les scans / signatures en cours pour "${sess.location.name}". Le lieu lui-même reste intact.`
-    const ok = await confirm({
-      title: 'Abandonner l\'installation ?',
-      description,
-      confirmLabel: 'Abandonner',
-      variant: 'destructive',
-    })
-    if (!ok) return
-    if (isNew) {
-      const { error: delErr } = await supabase.from('locations').delete().eq('id', sess.location.id)
-      if (delErr) {
-        console.warn('[scan] cleanup lieu orphelin echoue', delErr)
-        void logError('scan', 'handle_back_delete', delErr, {
-          location_id: sess.location.id,
-          location_name: sess.location.name,
-        })
-      }
-    }
-    sessionStorage.removeItem(INSTALL_SESSION_KEY)
-    navigate('/app/dashboard')
   }
 
   const [scannedId, setScannedId] = useState<string | null>(null)
