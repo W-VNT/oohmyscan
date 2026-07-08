@@ -383,6 +383,18 @@ export function InstallWizardPage() {
         sigOperatorPath = paths[1]
       }
 
+      // 2. Verifie que le lieu existe encore en DB. Cas limite : la session
+      //    a survecu (sessionStorage ou IDB queue) mais la row locations a ete
+      //    supprimee entretemps (guardedBack, cleanup, admin). Sans ce check
+      //    l'INSERT panels plante en 23503 (FK panels.location_id -> locations).
+      //    Fix : on re-INSERT le lieu avec les donnees en state, et on met
+      //    location.id a jour.
+      const currentLocation = await ensureLocationExists(location, session.user.id)
+      if (currentLocation.id !== location.id) {
+        // Le lieu a ete recree avec un nouvel id -> update state pour la suite
+        setLocation(currentLocation)
+      }
+
       // 2. Insert each panel record (the panelId in URL is the QR code, not DB id)
       //    Cherche s'il existe deja par qr_code, sinon insert.
       //    Nouveau flow (juillet 2026) : plus de photo/zone captures. Les
@@ -402,11 +414,11 @@ export function InstallWizardPage() {
         if (existing) {
           // Update existing
           const { error: updateErr } = await supabase.from('panels').update({
-            location_id: location.id,
+            location_id: currentLocation.id,
             zone_label: null,
-            name: location.name,
-            address: location.address,
-            city: location.city,
+            name: currentLocation.name,
+            address: currentLocation.address,
+            city: currentLocation.city,
             type: defaultPanelType?.name ?? null,
             status: 'active',
             installed_at: new Date().toISOString(),
@@ -420,12 +432,12 @@ export function InstallWizardPage() {
           const { data: created, error: insertErr } = await supabase.from('panels').insert({
             qr_code: p.qrCode,
             reference,
-            name: location.name,
-            address: location.address,
-            city: location.city,
+            name: currentLocation.name,
+            address: currentLocation.address,
+            city: currentLocation.city,
             lat: lat ?? 0,
             lng: lng ?? 0,
-            location_id: location.id,
+            location_id: currentLocation.id,
             zone_label: null,
             type: defaultPanelType?.name ?? null,
             status: 'active',
@@ -472,7 +484,7 @@ export function InstallWizardPage() {
         const { data: existingPanels } = await supabase
           .from('panels')
           .select('id, qr_code, reference, zone_label')
-          .eq('location_id', location.id)
+          .eq('location_id', currentLocation.id)
         const allPanelsSnapshot: PanelSnapshot[] = (existingPanels ?? []).map((p) => ({
           panel_id: p.id,
           zone_label: p.zone_label ?? '',
@@ -482,7 +494,7 @@ export function InstallWizardPage() {
 
         const { data: amendment, error: insertErr } = await supabase.from('contract_amendments').insert({
           contract_id: existingContract.id,
-          location_id: location.id,
+          location_id: currentLocation.id,
           amendment_number: amendmentNumber,
           reason: 'panel_added',
           panels_added: panelsToCreate,
@@ -530,18 +542,18 @@ export function InstallWizardPage() {
         }
 
         const { data: contract, error: insertErr } = await supabase.from('panel_contracts').insert({
-          location_id: location.id,
+          location_id: currentLocation.id,
           contract_number: contractNumber,
-          establishment_name: location.name,
-          establishment_address: location.address,
-          establishment_postal_code: location.postal_code,
-          establishment_city: location.city,
-          establishment_phone: location.phone,
-          owner_last_name: location.owner_last_name,
-          owner_first_name: location.owner_first_name,
-          owner_role: location.owner_role,
-          owner_email: location.owner_email,
-          closing_months: location.closing_months,
+          establishment_name: currentLocation.name,
+          establishment_address: currentLocation.address,
+          establishment_postal_code: currentLocation.postal_code,
+          establishment_city: currentLocation.city,
+          establishment_phone: currentLocation.phone,
+          owner_last_name: currentLocation.owner_last_name,
+          owner_first_name: currentLocation.owner_first_name,
+          owner_role: currentLocation.owner_role,
+          owner_email: currentLocation.owner_email,
+          closing_months: currentLocation.closing_months,
           panels_snapshot: panelsToCreate,
           signature_owner: sigOwnerPath,
           signature_operator: sigOperatorPath,
@@ -557,17 +569,17 @@ export function InstallWizardPage() {
         // On n'attend PAS la reponse : le success step s'affiche
         // immediatement apres l'INSERT, le PDF + email tournent en background.
         // Trade-off : si l'edge fn crash, un admin peut regenerer / renvoyer.
-        invokePdfGen(contract.id, 'contract', location.owner_email ? {
-          to: location.owner_email,
-          ownerFirstName: location.owner_first_name || '',
-          ownerLastName: location.owner_last_name || '',
-          establishmentName: location.name,
+        invokePdfGen(contract.id, 'contract', currentLocation.owner_email ? {
+          to: currentLocation.owner_email,
+          ownerFirstName: currentLocation.owner_first_name || '',
+          ownerLastName: currentLocation.owner_last_name || '',
+          establishmentName: currentLocation.name,
           companyName,
           subjectTemplate: companySettings?.email_contract_subject ?? null,
           bodyTemplate: companySettings?.email_contract_body ?? null,
         } : undefined)
 
-        if (location.owner_email) {
+        if (currentLocation.owner_email) {
           toast(`Contrat sauvegardé — envoi de l'email au gérant en cours…`)
         }
       }
@@ -1362,6 +1374,11 @@ function DiffusePhotoStep({
   campaign: import('@/hooks/useCampaigns').CampaignWithClient | null
   onDone: (photoPath: string) => void
 }) {
+  // On garde le path en state pour laisser l'operateur reviewer la photo
+  // avant validation. Tant que capturedPath est set, on affiche le preview
+  // (via PhotoCapture) + un bouton "Valider cette photo". Le X du preview
+  // reset le state via onRemove -> operateur peut re-taker.
+  const [capturedPath, setCapturedPath] = useState<string | null>(null)
   if (!campaign) return null
   return (
     <div className="space-y-4 pt-2">
@@ -1371,15 +1388,25 @@ function DiffusePhotoStep({
         <p className="truncate text-xs text-muted-foreground">{campaign.clients?.company_name ?? ''}</p>
       </div>
       <div>
-        <p className="mb-2 text-sm font-medium">Prends la photo du visuel posé sur le panneau</p>
+        <p className="mb-2 text-sm font-medium">
+          {capturedPath ? 'Vérifie la photo puis valide ↓' : 'Prends la photo du visuel posé sur le panneau'}
+        </p>
         <PhotoCapture
           folder={`panels/${panelQrCode}/campaigns`}
-          stickyGallery
-          onPhotoUploaded={(path) => {
-            if (path) onDone(path)
-          }}
+          stickyGallery={!capturedPath}
+          onPhotoUploaded={(path) => setCapturedPath(path)}
+          onRemove={() => setCapturedPath(null)}
         />
       </div>
+      {capturedPath && (
+        <Button
+          onClick={() => onDone(capturedPath)}
+          className="h-14 w-full text-base font-semibold"
+        >
+          Valider cette photo
+          <ChevronRight className="ml-1 size-5" />
+        </Button>
+      )}
     </div>
   )
 }
@@ -1510,6 +1537,44 @@ async function uploadSignature(dataUrl: string, prefix: string): Promise<string>
   })
   if (error) throw error
   return path
+}
+
+/**
+ * Verifie que le lieu existe encore en DB. Cas limite : la session (sessionStorage
+ * ou IDB queue offline) a survecu mais la row locations a ete supprimee entretemps
+ * (guardedBack, cleanup_orphan_locations, delete admin). Sans ce check l'INSERT
+ * panels plante en 23503 (FK panels_location_id_fkey).
+ *
+ * Si la row existe -> renvoie location tel quel.
+ * Si la row n'existe plus -> re-INSERT avec les donnees du state et renvoie la
+ * nouvelle row (avec un id different). L'appelant doit setLocation(new) si l'id
+ * a change pour que la suite du flow utilise la bonne row.
+ */
+async function ensureLocationExists(location: Location, userId: string): Promise<Location> {
+  const { data: existing } = await supabase
+    .from('locations')
+    .select('id')
+    .eq('id', location.id)
+    .maybeSingle()
+  if (existing) return location
+
+  console.warn('[install] Location', location.id, 'n\'existe plus en DB, re-creation avec les donnees en state')
+  const { data: recreated, error } = await supabase.from('locations').insert({
+    name: location.name,
+    address: location.address,
+    postal_code: location.postal_code,
+    city: location.city,
+    phone: location.phone,
+    owner_first_name: location.owner_first_name,
+    owner_last_name: location.owner_last_name,
+    owner_role: location.owner_role,
+    owner_email: location.owner_email,
+    closing_months: location.closing_months,
+    has_contract: false,
+    created_by: userId,
+  }).select().single()
+  if (error) throw new Error(`Impossible de recreer le lieu : ${error.message}`)
+  return recreated as Location
 }
 
 interface PdfEmailPayload {

@@ -14,6 +14,9 @@ interface PhotoCaptureProps {
    *  du BottomNav (32px + safe-area). Utile sur les ecrans de wizard mobile
    *  ou l'action camera est primaire et la galerie secondaire. */
   stickyGallery?: boolean
+  /** Notifie le parent quand l'user clique sur la croix pour retirer le preview.
+   *  Utile quand le parent tient un state derive du path (ex : bouton Valider). */
+  onRemove?: () => void
 }
 
 export function PhotoCapture({
@@ -21,6 +24,7 @@ export function PhotoCapture({
   folder,
   className,
   stickyGallery = false,
+  onRemove,
 }: PhotoCaptureProps) {
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -131,6 +135,7 @@ export function PhotoCapture({
     }
     if (cameraInputRef.current) cameraInputRef.current.value = ''
     if (galleryInputRef.current) galleryInputRef.current.value = ''
+    onRemove?.()
   }
 
   return (
