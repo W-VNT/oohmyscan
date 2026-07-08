@@ -232,43 +232,50 @@ export function InstallWizardPage() {
   // Scroll top on step change
   useEffect(() => { window.scrollTo(0, 0) }, [step])
 
-  // ============== Render header (back + progress) ==============
-  // Wrap le onBack pour afficher un confirm des que le lieu est renseigne.
-  // Cas particulier : si le lieu a ete CREE dans cette session et que
-  // l'user confirme l'abandon, on SUPPRIME le lieu de la base pour eviter
-  // les orphelins et permettre a l'user de re-creer sans doublon la
-  // prochaine fois.
-  const stepsWithoutBackGuard = new Set(['location', 'create_location', 'saving', 'success'])
-  async function guardedBack(defaultAction: () => void) {
-    if (!location || stepsWithoutBackGuard.has(step)) {
-      defaultAction()
+  // ============== Retour ==============
+  //
+  // Deux comportements distincts pour le bouton retour :
+  //
+  // 1. backToPrev(prevStep) : retour INTERNE au wizard entre 2 steps
+  //    (ex: sign_operator -> sign_owner). Aucun confirm, aucune suppression.
+  //    L'operateur revient a l'etape precedente en gardant tout l'etat.
+  //
+  // 2. exitWizard() : retour qui SORT du wizard (depuis 'location' ou
+  //    'another'). Confirm "Abandonner ?" avec suppression du lieu si il
+  //    vient d'etre cree dans cette session. Seul endroit ou on delete.
+  //
+  // Regle utilisateur : le retour est possible partout ; la suppression du
+  // lieu ne se fait que quand on remonte jusqu'a l'ecran "location".
+  function backToPrev(prevStep: Step) {
+    return () => setStep(prevStep)
+  }
+
+  async function exitWizard() {
+    // Rien a proteger (pas de lieu, ou on est sur les steps sans state)
+    if (!location || step === 'location' || step === 'create_location') {
+      navigate(-1)
       return
     }
     const description = createdLocationInSession
       ? `Le lieu "${location.name}" vient d'être créé. Si tu confirmes l'abandon, il sera SUPPRIMÉ de la base — tu pourras le recréer proprement la prochaine fois.`
       : `Tu vas perdre les scans / signatures en cours pour "${location.name}". Le lieu lui-même reste intact.`
     const ok = await confirm({
-      title: 'Abandonner l\'installation ?',
+      title: "Abandonner l'installation ?",
       description,
       confirmLabel: 'Abandonner',
       variant: 'destructive',
     })
     if (!ok) return
 
-    // Trace de l'abandon (action utile pour comprendre les retours intempestifs)
-    if (location) {
-      void logAction('install', 'wizard_abandoned', `Abandon de l'installation "${location.name}"`, {
-        location_id: location.id,
-        location_name: location.name,
-        step_at_abandon: step,
-        panels_scanned: installed.length,
-        created_location_in_session: createdLocationInSession,
-      })
-    }
+    void logAction('install', 'wizard_abandoned', `Abandon de l'installation "${location.name}"`, {
+      location_id: location.id,
+      location_name: location.name,
+      step_at_abandon: step,
+      panels_scanned: installed.length,
+      created_location_in_session: createdLocationInSession,
+    })
 
     // Rollback : supprime le lieu qui vient d'etre cree pour eviter l'orphelin.
-    // Best-effort : si le delete echoue (RLS, reseau), on log mais on laisse
-    // partir l'user quand meme (la migration SQL de cleanup s'en chargera).
     if (createdLocationInSession && location) {
       const { error: delErr } = await supabase.from('locations').delete().eq('id', location.id)
       if (delErr) {
@@ -278,17 +285,17 @@ export function InstallWizardPage() {
           location_name: location.name,
         })
       }
-      clearSession()
     }
-    defaultAction()
+    clearSession()
+    navigate(-1)
   }
 
   function header(title: string, subtitle?: string, onBack?: () => void) {
-    const back = onBack ?? (() => navigate(-1))
+    const back = onBack ?? exitWizard
     return (
       <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-3 border-b border-border bg-background px-4 py-3">
         <button
-          onClick={() => guardedBack(back)}
+          onClick={back}
           className="flex size-9 items-center justify-center rounded-full hover:bg-muted"
           aria-label="Retour"
         >
@@ -786,7 +793,7 @@ export function InstallWizardPage() {
 
       {step === 'create_location' && (
         <>
-          {header('Nouvel établissement', 'Renseigne les infos du proprio', () => setStep('location'))}
+          {header('Nouvel établissement', 'Renseigne les infos du proprio', backToPrev('location'))}
           <CreateLocationStep
             initial={newLocationData}
             lat={lat}
@@ -841,7 +848,7 @@ export function InstallWizardPage() {
 
       {step === 'diffuse_choice' && location && (
         <>
-          {header(location.name, `Panneau ${installed.length}`, () => setStep('another'))}
+          {header(location.name, `Panneau ${installed.length}`, backToPrev('another'))}
           <DiffuseChoiceStep
             hasCampaigns={activeCampaigns.length > 0}
             onDiffuse={() => setStep('diffuse_campaign')}
@@ -852,7 +859,7 @@ export function InstallWizardPage() {
 
       {step === 'diffuse_campaign' && location && (
         <>
-          {header('Choisis la campagne', `Panneau ${installed.length}`, () => setStep('diffuse_choice'))}
+          {header('Choisis la campagne', `Panneau ${installed.length}`, backToPrev('diffuse_choice'))}
           <DiffuseCampaignStep
             campaigns={activeCampaigns}
             onSelect={(id) => {
@@ -865,7 +872,7 @@ export function InstallWizardPage() {
 
       {step === 'diffuse_photo' && location && diffuseCampaignId && (
         <>
-          {header('Photo du visuel posé', `Panneau ${installed.length}`, () => setStep('diffuse_campaign'))}
+          {header('Photo du visuel posé', `Panneau ${installed.length}`, backToPrev('diffuse_campaign'))}
           <DiffusePhotoStep
             panelQrCode={installed[installed.length - 1]?.qrCode ?? ''}
             campaign={activeCampaigns.find((c) => c.id === diffuseCampaignId) ?? null}
@@ -914,7 +921,7 @@ export function InstallWizardPage() {
 
       {step === 'sign_owner' && location && (
         <>
-          {header('Signature bailleur', `${location.owner_first_name} ${location.owner_last_name}`.trim() || 'Le bailleur signe ici', () => setStep('another'))}
+          {header('Signature bailleur', `${location.owner_first_name} ${location.owner_last_name}`.trim() || 'Le bailleur signe ici', backToPrev('another'))}
           <SignatureStep
             label="Le bailleur signe ici"
             value={signOwner}
@@ -926,7 +933,7 @@ export function InstallWizardPage() {
 
       {step === 'sign_operator' && (
         <>
-          {header('Ta signature', 'À ton tour', () => setStep('sign_owner'))}
+          {header('Ta signature', 'À ton tour', backToPrev('sign_owner'))}
           <SignatureStep
             label="Signe à ton tour"
             value={signOperator}
