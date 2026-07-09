@@ -98,6 +98,7 @@ export function CampaignDetailPage() {
     notes: '',
     status: '' as CampaignStatus | '',
     operator_user_ids: [] as string[],
+    panel_format_id: '',
   })
 
   // Cloning state
@@ -193,6 +194,7 @@ export function CampaignDetailPage() {
       notes: campaign.notes ?? '',
       status: campaign.status as CampaignStatus,
       operator_user_ids: (campaign as Record<string, unknown>).operator_user_ids as string[] ?? [],
+      panel_format_id: (campaign as Record<string, unknown>).panel_format_id as string ?? '',
     })
     setEditing(true)
   }
@@ -228,6 +230,7 @@ export function CampaignDetailPage() {
           notes: editForm.notes.trim() || null,
           status: (editForm.status || campaign.status) as CampaignStatus,
           operator_user_ids: editForm.operator_user_ids,
+          panel_format_id: editForm.panel_format_id || null,
         })
         .eq('id', id)
       if (error) throw error
@@ -506,6 +509,30 @@ export function CampaignDetailPage() {
                       ))}
                     </select>
                   </div>
+                </div>
+
+                {/* Row 1b : Format de support (determine le workflow terrain) */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Format de support
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      Change le workflow opérateur (QR / dépôt / panneau libre)
+                    </span>
+                  </label>
+                  <select
+                    value={editForm.panel_format_id}
+                    onChange={(e) => setEditForm((f) => ({ ...f, panel_format_id: e.target.value }))}
+                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm sm:h-9"
+                  >
+                    <option value="">Aucun format défini</option>
+                    {panelTypes?.filter((t) => t.is_active).map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                        {t.workflow_type === 'deposit' ? ' — Dépôt (sans QR)' : ''}
+                        {t.workflow_type === 'free_panel' ? ' — Panneau libre (sans QR)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Row 2: Date début | Date fin | Budget | Panneaux cible */}
