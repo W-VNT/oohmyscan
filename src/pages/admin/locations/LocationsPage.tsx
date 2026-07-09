@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Landmark, Search, Loader2, Filter, ArrowUpDown, PanelTop, FileCheck, Download, X, Smartphone } from 'lucide-react'
+import { Landmark, Search, Loader2, Filter, ArrowUpDown, PanelTop, FileCheck, Download, X, Smartphone, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type SortOption = 'name' | 'city' | 'newest'
@@ -35,6 +35,24 @@ export function LocationsPage() {
         .from('panels')
         .select('location_id')
         .not('location_id', 'is', null)
+      const counts = new Map<string, number>()
+      for (const row of data ?? []) {
+        if (row.location_id) {
+          counts.set(row.location_id, (counts.get(row.location_id) ?? 0) + 1)
+        }
+      }
+      return counts
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Free panel counts per location (poses sans QR liees a un lieu)
+  const { data: freePanelCounts = new Map<string, number>() } = useQuery({
+    queryKey: ['location-free-panel-counts'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('campaign_free_panels')
+        .select('location_id')
       const counts = new Map<string, number>()
       for (const row of data ?? []) {
         if (row.location_id) {
@@ -217,6 +235,10 @@ export function LocationsPage() {
         ) : (
           filtered.map((location) => {
             const panelCount = panelCounts.get(location.id) ?? 0
+            const freeCount = freePanelCounts.get(location.id) ?? 0
+            const hasQrPanels = panelCount > 0
+            // Le badge contrat n'a de sens que pour les lieux avec panneaux QR.
+            // Un lieu qui n'a que des panneaux libres n'a pas besoin de contrat.
             return (
               <button
                 key={location.id}
@@ -225,15 +247,17 @@ export function LocationsPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="truncate font-medium">{location.name}</span>
-                  {location.has_contract ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-600">
-                      <FileCheck className="size-3" />
-                      Signé
-                    </span>
-                  ) : (
-                    <span className="inline-flex shrink-0 items-center rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-medium text-orange-600">
-                      Non signé
-                    </span>
+                  {hasQrPanels && (
+                    location.has_contract ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-600">
+                        <FileCheck className="size-3" />
+                        Signé
+                      </span>
+                    ) : (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-medium text-orange-600">
+                        Non signé
+                      </span>
+                    )
                   )}
                 </div>
                 <p className="truncate text-xs text-muted-foreground">
@@ -241,9 +265,25 @@ export function LocationsPage() {
                 </p>
                 <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                   <span className="truncate">{location.owner_first_name} {location.owner_last_name}</span>
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-medium">
-                    <PanelTop className="size-3" />
-                    {panelCount}
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {panelCount > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-medium" title="Panneaux QR">
+                        <PanelTop className="size-3" />
+                        {panelCount}
+                      </span>
+                    )}
+                    {freeCount > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 font-medium text-orange-700 dark:text-orange-400" title="Panneaux libres">
+                        <MapPin className="size-3" />
+                        {freeCount}
+                      </span>
+                    )}
+                    {panelCount === 0 && freeCount === 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-medium">
+                        <PanelTop className="size-3" />
+                        0
+                      </span>
+                    )}
                   </span>
                 </div>
               </button>
@@ -301,6 +341,8 @@ export function LocationsPage() {
                 ) : (
                   filtered.map((location) => {
                     const panelCount = panelCounts.get(location.id) ?? 0
+                    const freeCount = freePanelCounts.get(location.id) ?? 0
+                    const hasQrPanels = panelCount > 0
                     return (
                       <tr
                         key={location.id}
@@ -318,25 +360,49 @@ export function LocationsPage() {
                           {location.owner_first_name} {location.owner_last_name}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Link
-                            to={`/admin/panels?location=${location.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-primary/10 hover:text-primary"
-                          >
-                            <PanelTop className="size-3" />
-                            {panelCount}
-                          </Link>
+                          <div className="inline-flex items-center gap-1.5">
+                            {panelCount > 0 && (
+                              <Link
+                                to={`/admin/panels?location=${location.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium transition-colors hover:bg-primary/10 hover:text-primary"
+                                title="Panneaux QR"
+                              >
+                                <PanelTop className="size-3" />
+                                {panelCount}
+                              </Link>
+                            )}
+                            {freeCount > 0 && (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:text-orange-400"
+                                title="Panneaux libres (sans QR)"
+                              >
+                                <MapPin className="size-3" />
+                                {freeCount}
+                              </span>
+                            )}
+                            {panelCount === 0 && freeCount === 0 && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium">
+                                <PanelTop className="size-3" />
+                                0
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {location.has_contract ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-[10px] font-medium text-green-600">
-                              <FileCheck className="size-3" />
-                              Signé
-                            </span>
+                          {hasQrPanels ? (
+                            location.has_contract ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-[10px] font-medium text-green-600">
+                                <FileCheck className="size-3" />
+                                Signé
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-orange-500/15 px-2.5 py-0.5 text-[10px] font-medium text-orange-600">
+                                Non signé
+                              </span>
+                            )
                           ) : (
-                            <span className="inline-flex items-center rounded-full bg-orange-500/15 px-2.5 py-0.5 text-[10px] font-medium text-orange-600">
-                              Non signé
-                            </span>
+                            <span className="text-[10px] text-muted-foreground">—</span>
                           )}
                         </td>
                       </tr>

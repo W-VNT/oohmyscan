@@ -98,6 +98,52 @@ export function useCampaignReportData(campaignId: string | undefined) {
         }
       }
 
+      // 3b. Panneaux libres (campagnes free_panel) — chaque row campaign_free_panels
+      //     = 1 pose = 1 photo unitaire liee a un lieu (notre DB). On les
+      //     transforme en PanelLite virtuels + PhotoLite pour qu'ils remontent
+      //     dans les stats/carte comme les vrais panneaux.
+      const { data: freePanelsRows, error: freeError } = await supabase
+        .from('campaign_free_panels')
+        .select('id, location_id, photo_path, lat, lng, created_at, locations(id, name, city, address, postal_code)')
+        .eq('campaign_id', campaignId)
+        .order('created_at', { ascending: false })
+      if (freeError) throw freeError
+
+      for (const fp of (freePanelsRows ?? []) as unknown as Array<{
+        id: string
+        location_id: string
+        photo_path: string
+        lat: number | null
+        lng: number | null
+        created_at: string
+        locations: { id: string; name: string | null; city: string | null; address: string | null; postal_code: string | null } | null
+      }>) {
+        const loc = fp.locations
+        const postal_code = loc?.postal_code || (loc?.address ? extractPostalFromAddress(loc.address) : null)
+        const virtualPanel: PanelLite = {
+          id: fp.id,
+          reference: `LIBRE-${fp.id.slice(0, 8).toUpperCase()}`,
+          name: loc?.name ?? null,
+          city: loc?.city ?? null,
+          address: loc?.address ?? null,
+          postal_code,
+          lat: fp.lat ?? 0,
+          lng: fp.lng ?? 0,
+        }
+        panels.push(virtualPanel)
+        // Photo associee
+        const photo: PhotoLite = {
+          id: fp.id,
+          panel_id: fp.id,
+          storage_path: fp.photo_path,
+          photo_type: 'campaign',
+          taken_at: fp.created_at,
+        }
+        const list = photosByPanelId.get(fp.id) ?? []
+        list.push(photo)
+        photosByPanelId.set(fp.id, list)
+      }
+
       const totalPhotos = Array.from(photosByPanelId.values()).reduce(
         (sum, l) => sum + l.length,
         0,
@@ -112,15 +158,16 @@ export function useCampaignReportData(campaignId: string | undefined) {
         panelsByRegion.set(region, list)
       }
 
-      // 5. Nombre de lieux uniques dans la campagne
-      const locationIds = new Set(
-        (assignments ?? [])
-          .map((a) => {
-            const p = Array.isArray(a.panels) ? a.panels[0] : a.panels
-            return (p as { location_id?: string | null })?.location_id
-          })
-          .filter(Boolean),
-      )
+      // 5. Nombre de lieux uniques dans la campagne (QR + free_panel)
+      const locationIds = new Set<string>()
+      for (const a of (assignments ?? [])) {
+        const p = Array.isArray(a.panels) ? a.panels[0] : a.panels
+        const lid = (p as { location_id?: string | null })?.location_id
+        if (lid) locationIds.add(lid)
+      }
+      for (const fp of (freePanelsRows ?? []) as unknown as Array<{ location_id: string }>) {
+        if (fp.location_id) locationIds.add(fp.location_id)
+      }
 
       // 6. Stats reseau globales (count panneaux et lieux totaux)
       const [{ count: totalPanelsAll }, { count: totalLocationsAll }] = await Promise.all([

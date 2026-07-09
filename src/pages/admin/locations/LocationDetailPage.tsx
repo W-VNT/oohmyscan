@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useLocation, useLocationPanels, useLocationContract, useContractAmendments, useUpdateLocation, useDeleteLocation, useDeleteContract } from '@/hooks/useLocations'
+import { useLocationFreePanels } from '@/hooks/admin/useLocationFreePanels'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,7 @@ export function LocationDetailPage() {
   const navigate = useNavigate()
   const { data: location, isLoading } = useLocation(id)
   const { data: panels } = useLocationPanels(id)
+  const { data: freePanels } = useLocationFreePanels(id)
   const { data: contract } = useLocationContract(id)
   const { data: amendments } = useContractAmendments(contract?.id)
   const updateLocation = useUpdateLocation()
@@ -214,8 +216,8 @@ export function LocationDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Info lieu */}
-        <Card>
+        {/* Info lieu — prend toute la largeur si aucun panneau QR (evite carte vide) */}
+        <Card className={!panels?.length ? 'lg:col-span-2' : ''}>
           <CardContent className="p-4 sm:p-5">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Informations
@@ -395,17 +397,16 @@ export function LocationDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Panneaux */}
-        <Card>
-          <CardContent className="p-4 sm:p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                Panneaux ({panels?.length ?? 0})
-              </h2>
-            </div>
-            {!panels?.length ? (
-              <EmptyState icon={PanelTop} title="Aucun panneau rattaché" size="inline" />
-            ) : (
+        {/* Panneaux QR — cachee si aucun panneau. Reapparaitra automatiquement
+            si un jour un panneau QR est ajoute a ce lieu via install wizard. */}
+        {panels && panels.length > 0 && (
+          <Card>
+            <CardContent className="p-4 sm:p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  Panneaux ({panels.length})
+                </h2>
+              </div>
               <div className="space-y-1.5">
                 {panels.map((panel) => (
                   <Link
@@ -431,9 +432,47 @@ export function LocationDetailPage() {
                   </Link>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Panneaux libres (poses sans QR liees a ce lieu) */}
+        {freePanels && freePanels.length > 0 && (
+          <Card>
+            <CardContent className="p-4 sm:p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  Panneaux libres ({freePanels.length})
+                </h2>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {freePanels.map((fp) => {
+                  const publicUrl = supabase.storage
+                    .from('panel-photos')
+                    .getPublicUrl(fp.photo_path).data.publicUrl
+                  return (
+                    <div key={fp.id} className="group relative overflow-hidden rounded-lg border border-border">
+                      <img
+                        src={publicUrl}
+                        alt={`Panneau libre ${fp.campaign?.name ?? ''}`}
+                        className="aspect-square w-full object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-2">
+                        <p className="truncate text-[11px] font-medium text-white">
+                          {fp.campaign?.name ?? 'Campagne inconnue'}
+                        </p>
+                        <p className="truncate text-[10px] text-white/80">
+                          {new Date(fp.created_at).toLocaleDateString('fr-FR')}
+                          {fp.operator?.full_name && ` · ${fp.operator.full_name}`}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Contrat */}

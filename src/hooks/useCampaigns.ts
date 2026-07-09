@@ -66,7 +66,7 @@ export function useCampaign(id: string | undefined) {
     queryFn: async (): Promise<CampaignWithClient> => {
       const { data, error } = await supabase
         .from('campaigns')
-        .select('*, clients(id, company_name)')
+        .select('*, clients(id, company_name), campaign_format:panel_formats!campaigns_panel_format_id_fkey(id, name, has_qr_code, workflow_type)')
         .eq('id', id!)
         .single()
       if (error) throw error

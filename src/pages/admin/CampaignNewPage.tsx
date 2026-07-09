@@ -22,6 +22,7 @@ interface CampaignForm {
   budget: string
   target_panel_count: string
   notes: string
+  panel_format_id: string
 }
 
 interface StagedVisual {
@@ -39,6 +40,7 @@ const emptyForm: CampaignForm = {
   budget: '',
   target_panel_count: '',
   notes: '',
+  panel_format_id: '',
 }
 
 export function CampaignNewPage() {
@@ -88,12 +90,15 @@ export function CampaignNewPage() {
     )
   }
 
-  // Détecte le workflow de la campagne en fonction des formats des visuels
+  // Détecte le workflow — priorité au format campagne (top-level), fallback visuels
+  const campaignFormat = form.panel_format_id
+    ? panelTypes?.find((t) => t.id === form.panel_format_id)
+    : null
   const formatsByVisual = stagedVisuals.map((v) =>
-    v.formatId ? panelTypes?.find((t) => t.id === v.formatId) : null,
+    v.formatId ? panelTypes?.find((t) => t.id === v.formatId) : campaignFormat,
   )
-  const hasQrVisuals = formatsByVisual.some((f) => f?.has_qr_code === true)
-  const hasNonQrVisuals = formatsByVisual.some((f) => f?.has_qr_code === false)
+  const hasQrVisuals = campaignFormat?.has_qr_code === true || formatsByVisual.some((f) => f?.has_qr_code === true)
+  const hasNonQrVisuals = campaignFormat?.has_qr_code === false || formatsByVisual.some((f) => f?.has_qr_code === false)
   const isDepositOnly = hasNonQrVisuals && !hasQrVisuals
   const isMixed = hasQrVisuals && hasNonQrVisuals
 
@@ -124,6 +129,10 @@ export function CampaignNewPage() {
       setError('La date de fin doit être après la date de début')
       return
     }
+    if (!form.panel_format_id) {
+      setError('Le format de support est requis')
+      return
+    }
 
     setSaving(true)
     try {
@@ -140,6 +149,7 @@ export function CampaignNewPage() {
         status: 'draft',
         created_by: session?.user?.id,
         operator_user_ids: assignedOperators,
+        panel_format_id: form.panel_format_id,
       })
 
       // 2. Upload staged visuals
@@ -160,7 +170,7 @@ export function CampaignNewPage() {
               campaign_id: campaign.id,
               storage_path: path,
               file_name: visual.file.name,
-              panel_format_id: visual.formatId || null,
+              panel_format_id: visual.formatId || form.panel_format_id || null,
               sort_order: i + 1,
             })
           if (insertError) throw insertError
@@ -232,6 +242,31 @@ export function CampaignNewPage() {
                 <option value="draft">Brouillon</option>
               </select>
             </div>
+          </div>
+
+          {/* Row 1b : Format de support (determine le workflow operateur) */}
+          <div>
+            <label htmlFor="campaign-format" className="mb-2 block text-sm font-medium">
+              Format de support <span className="text-red-500">*</span>
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                Détermine le workflow terrain (panneau QR / dépôt / panneau libre)
+              </span>
+            </label>
+            <select
+              id="campaign-format"
+              value={form.panel_format_id}
+              onChange={(e) => setForm((f) => ({ ...f, panel_format_id: e.target.value }))}
+              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Sélectionner un format</option>
+              {panelTypes?.filter((t) => t.is_active).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                  {t.workflow_type === 'deposit' ? ' — Dépôt (sans QR)' : ''}
+                  {t.workflow_type === 'free_panel' ? ' — Panneau libre (sans QR)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Row 2: Date début | Date fin | Budget | Panneaux cible (caché si dépôt) */}

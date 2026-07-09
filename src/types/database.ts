@@ -314,6 +314,7 @@ export interface Database {
           created_by: string | null
           created_at: string
           operator_user_ids: string[]
+          panel_format_id: string | null
         }
         Insert: {
           id?: string
@@ -329,6 +330,7 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           operator_user_ids?: string[]
+          panel_format_id?: string | null
         }
         Update: {
           id?: string
@@ -344,6 +346,7 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           operator_user_ids?: string[]
+          panel_format_id?: string | null
         }
         Relationships: []
       }
@@ -446,6 +449,7 @@ export interface Database {
           description: string | null
           is_active: boolean
           has_qr_code: boolean
+          workflow_type: 'qr' | 'deposit' | 'free_panel'
           created_at: string
         }
         Insert: {
@@ -456,6 +460,7 @@ export interface Database {
           description?: string | null
           is_active?: boolean
           has_qr_code?: boolean
+          workflow_type?: 'qr' | 'deposit' | 'free_panel'
           created_at?: string
         }
         Update: {
@@ -466,6 +471,43 @@ export interface Database {
           description?: string | null
           is_active?: boolean
           has_qr_code?: boolean
+          workflow_type?: 'qr' | 'deposit' | 'free_panel'
+          created_at?: string
+        }
+        Relationships: []
+      }
+      campaign_free_panels: {
+        Row: {
+          id: string
+          campaign_id: string
+          operator_id: string
+          location_id: string
+          photo_path: string
+          lat: number | null
+          lng: number | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          operator_id: string
+          location_id: string
+          photo_path: string
+          lat?: number | null
+          lng?: number | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          operator_id?: string
+          location_id?: string
+          photo_path?: string
+          lat?: number | null
+          lng?: number | null
+          notes?: string | null
           created_at?: string
         }
         Relationships: []

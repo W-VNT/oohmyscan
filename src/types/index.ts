@@ -44,9 +44,15 @@ export type InvoiceWithClient = Invoice & {
   clients: { company_name: string } | null
 }
 
-/** Campaign row with the joined `clients(id, company_name)` relation */
+/** Campaign row with the joined `clients(id, company_name)` and `panel_formats` relations */
 export type CampaignWithClient = Campaign & {
   clients: { id: string; company_name: string } | null
+  campaign_format?: {
+    id: string
+    name: string
+    has_qr_code: boolean
+    workflow_type: 'qr' | 'deposit' | 'free_panel'
+  } | null
 }
 
 /** QR stock item with the joined `panels(reference)` relation */

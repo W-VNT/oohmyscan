@@ -33,6 +33,7 @@ const InstallWizardPage = lazy(() => import('@/pages/operator/InstallWizardPage'
 const AssignCampaignPage = lazy(() => import('@/pages/operator/AssignCampaignPage').then((m) => ({ default: m.AssignCampaignPage })))
 const DiffusePage = lazy(() => import('@/pages/operator/DiffusePage').then((m) => ({ default: m.DiffusePage })))
 const DepositWizardPage = lazy(() => import('@/pages/operator/DepositWizardPage').then((m) => ({ default: m.DepositWizardPage })))
+const FreePanelWizardPage = lazy(() => import('@/pages/operator/FreePanelWizardPage').then((m) => ({ default: m.FreePanelWizardPage })))
 const OperatorDashboardPage = lazy(() => import('@/pages/operator/OperatorDashboardPage').then((m) => ({ default: m.OperatorDashboardPage })))
 const OperatorPanelsPage = lazy(() => import('@/pages/operator/OperatorPanelsPage').then((m) => ({ default: m.OperatorPanelsPage })))
 const OperatorMapPage = lazy(() => import('@/pages/operator/OperatorMapPage').then((m) => ({ default: m.OperatorMapPage })))
@@ -169,6 +170,7 @@ export default function App() {
                   <Route path="/app/diffuse" element={<DiffusePage />} />
                   <Route path="/app/notifications" element={<NotificationsPage />} />
                   <Route path="/app/deposit/:campaignId" element={<DepositWizardPage />} />
+                  <Route path="/app/free-panel/:campaignId" element={<FreePanelWizardPage />} />
                   <Route path="/app/contract/:panelId" element={<ContractPage />} />
                   <Route path="/app/locations/:id" element={<OperatorLocationPage />} />
                   <Route path="/app/activity" element={<ActivityPage />} />

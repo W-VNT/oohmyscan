@@ -9,6 +9,7 @@ export interface PanelType {
   description: string | null
   is_active: boolean
   has_qr_code: boolean
+  workflow_type: 'qr' | 'deposit' | 'free_panel'
   created_at: string
 }
 

@@ -6,6 +6,7 @@ import { useClients } from '@/hooks/admin/useClients'
 import { useUsers } from '@/hooks/admin/useUsers'
 import { usePanelTypes } from '@/hooks/admin/usePanelTypes'
 import { useCampaignDeposits } from '@/hooks/admin/useCampaignDeposits'
+import { useCampaignFreePanels } from '@/hooks/admin/useCampaignFreePanels'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { toast } from '@/components/shared/Toast'
@@ -47,11 +48,11 @@ function useCampaignVisuals(campaignId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaign_visuals')
-        .select('*, panel_formats(name, has_qr_code)')
+        .select('*, panel_formats(name, has_qr_code, workflow_type)')
         .eq('campaign_id', campaignId!)
         .order('sort_order')
       if (error) throw error
-      return data as (typeof data[number] & { panel_formats: { name: string; has_qr_code: boolean } | null })[]
+      return data as (typeof data[number] & { panel_formats: { name: string; has_qr_code: boolean; workflow_type: 'qr' | 'deposit' | 'free_panel' } | null })[]
     },
     enabled: !!campaignId,
   })
@@ -109,6 +110,8 @@ export function CampaignDetailPage() {
 
   // Campaign deposits (sous-bocks, sets de table)
   const { data: deposits } = useCampaignDeposits(id)
+  // Campaign free panels (pose unitaire sans QR liee a un lieu)
+  const { data: freePanels } = useCampaignFreePanels(id)
 
   const { data: assignments } = useQuery({
     queryKey: ['campaign-panels', id],
@@ -353,12 +356,27 @@ export function CampaignDetailPage() {
   }
 
   const clientName = campaign.clients?.company_name ?? ''
-  const assignedCount = assignments?.length ?? 0
+
+  // Workflow : priorite au format campagne top-level (nouveau flow), fallback
+  // sur les visuels (backward compat pour campagnes anciennes sans campaign.panel_format_id).
+  const campaignWorkflow = campaign.campaign_format?.workflow_type
+    ?? (visuals?.length ? visuals[0].panel_formats?.workflow_type : undefined)
+  const isDepositCampaign = campaignWorkflow === 'deposit'
+  const isFreePanelCampaign = campaignWorkflow === 'free_panel'
+
+  // Compteur "panneaux poses" englobe TOUS les types selon le workflow :
+  //  - qr    : assignments (panels QR poses via panel_campaigns)
+  //  - free_panel : freePanels (photos unitaires liees a un lieu)
+  //  - deposit    : deposits (chaque row = 1 passage, la quantite est
+  //                 secondaire — le KPI qui compte c'est le nb de lieux
+  //                 touches, deja affiche dans la section Depots)
+  const assignedCount = isFreePanelCampaign
+    ? (freePanels?.length ?? 0)
+    : isDepositCampaign
+      ? (deposits?.length ?? 0)
+      : (assignments?.length ?? 0)
   const target = campaign.target_panel_count
   const progressPct = target && target > 0 ? Math.min((assignedCount / target) * 100, 100) : null
-
-  // Workflow : si tous les visuels sont sur des formats sans QR, c'est une campagne dépôt
-  const isDepositCampaign = !!visuals?.length && visuals.every((v) => v.panel_formats?.has_qr_code === false)
 
   return (
     <div className="space-y-8">
@@ -778,8 +796,83 @@ export function CampaignDetailPage() {
             </div>
           )}
 
+          {/* Panneaux libres (campagnes free_panel) */}
+          {isFreePanelCampaign && (
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-orange-600" />
+                <h3 className="font-semibold">
+                  Panneaux libres ({freePanels?.length ?? 0})
+                </h3>
+              </div>
+
+              {freePanels && freePanels.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Total posé</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums">{freePanels.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Lieux uniques</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums">
+                      {new Set(freePanels.map((p) => p.location_id)).size}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Opérateurs</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums">
+                      {new Set(freePanels.map((p) => p.operator_id)).size}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!freePanels?.length ? (
+                <EmptyState
+                  icon={MapPin}
+                  title="Aucun panneau libre posé"
+                  description="Les poses apparaîtront ici dès que les opérateurs commenceront la diffusion sur le terrain."
+                  size="inline"
+                />
+              ) : (
+                <div className="mt-4 divide-y divide-border">
+                  {freePanels.map((p) => (
+                    <div key={p.id} className="flex items-start gap-3 py-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-orange-500/10">
+                        <MapPin className="size-4 text-orange-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{p.location?.name ?? '—'}</p>
+                        {p.location?.city && (
+                          <p className="truncate text-xs text-muted-foreground">
+                            {p.location.city}{p.location.postal_code ? ` · ${p.location.postal_code}` : ''}
+                          </p>
+                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <UserIcon className="size-3" />
+                            {p.operator?.full_name ?? '—'}
+                          </span>
+                          <span>{new Date(p.created_at).toLocaleDateString('fr-FR')}</span>
+                        </div>
+                      </div>
+                      {p.location?.id && (
+                        <Link
+                          to={`/admin/locations/${p.location.id}`}
+                          className="shrink-0 text-xs text-primary underline"
+                        >
+                          Fiche lieu
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Assigned panels (campagnes QR) */}
-          {!isDepositCampaign && (
+          {!isDepositCampaign && !isFreePanelCampaign && (
           <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <div className="flex items-center gap-2">
               <PanelTop className="h-4 w-4" />
