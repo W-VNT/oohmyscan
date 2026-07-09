@@ -367,17 +367,13 @@ export function CampaignDetailPage() {
   const isDepositCampaign = campaignWorkflow === 'deposit'
   const isFreePanelCampaign = campaignWorkflow === 'free_panel'
 
-  // Compteur "panneaux poses" englobe TOUS les types selon le workflow :
-  //  - qr    : assignments (panels QR poses via panel_campaigns)
-  //  - free_panel : freePanels (photos unitaires liees a un lieu)
-  //  - deposit    : deposits (chaque row = 1 passage, la quantite est
-  //                 secondaire — le KPI qui compte c'est le nb de lieux
-  //                 touches, deja affiche dans la section Depots)
-  const assignedCount = isFreePanelCampaign
-    ? (freePanels?.length ?? 0)
-    : isDepositCampaign
-      ? (deposits?.length ?? 0)
-      : (assignments?.length ?? 0)
+  // Compteur "panneaux poses" = SOMME de toutes les sources, quel que soit le
+  // workflow actuel. Un admin qui switch le format d'une campagne existante
+  // garde ainsi l'historique visible (panneaux QR deja poses + depots +
+  // panneaux libres tous cumules). Chaque source = 1 pose sur le terrain.
+  const assignedCount = (assignments?.length ?? 0)
+    + (deposits?.length ?? 0)
+    + (freePanels?.length ?? 0)
   const target = campaign.target_panel_count
   const progressPct = target && target > 0 ? Math.min((assignedCount / target) * 100, 100) : null
 
