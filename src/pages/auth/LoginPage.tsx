@@ -101,7 +101,7 @@ export function LoginPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         // Update profile status to active on first login
-        await supabase.from('profiles').update({ is_active: true }).eq('id', session.user.id)
+        await supabase.from('profiles').update({ is_active: true, status: 'active' }).eq('id', session.user.id)
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
         navigate(profile?.role === 'admin' ? '/admin' : '/app/dashboard')
       } else {
