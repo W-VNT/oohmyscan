@@ -75,7 +75,7 @@ export function OperatorDashboardPage() {
       //    Une campagne sans operator_user_ids = non assignée = pas visible ici.
       const { data: campaigns, error: cErr } = await supabase
         .from('campaigns')
-        .select('id, name, client_id, clients(company_name), start_date, end_date, target_panel_count')
+        .select('id, name, client_id, clients(company_name), start_date, end_date, target_panel_count, panel_format_id, campaign_format:panel_formats!campaigns_panel_format_id_fkey(workflow_type)')
         .eq('status', 'active')
         .contains('operator_user_ids', [session!.user.id])
       if (cErr) throw cErr
@@ -86,26 +86,29 @@ export function OperatorDashboardPage() {
         clients: { company_name: string } | null;
         start_date: string; end_date: string;
         target_panel_count: number | null;
+        panel_format_id: string | null;
+        campaign_format: { workflow_type: 'qr' | 'deposit' | 'free_panel' } | null;
       }[]
 
       const campaignIds = typed.map((c) => c.id)
 
-      // 2. Get active assignments for these campaigns (single query)
-      const { data: allAssignments } = await supabase
-        .from('panel_campaigns')
-        .select('campaign_id')
-        .in('campaign_id', campaignIds)
-        .is('unassigned_at', null)
+      // 2. Get active assignments + deposits + free_panels for these campaigns
+      const [assignRes, depRes, freeRes] = await Promise.all([
+        supabase.from('panel_campaigns').select('campaign_id').in('campaign_id', campaignIds).is('unassigned_at', null),
+        supabase.from('campaign_deposits').select('campaign_id').in('campaign_id', campaignIds),
+        supabase.from('campaign_free_panels').select('campaign_id').in('campaign_id', campaignIds),
+      ])
 
-      // 3. Count per campaign in memory
+      // 3. Somme des 3 sources : le compteur reflete tous les types de pose
       const totalCounts = new Map<string, number>()
-      for (const a of allAssignments ?? []) {
-        totalCounts.set(a.campaign_id, (totalCounts.get(a.campaign_id) ?? 0) + 1)
-      }
+      for (const a of assignRes.data ?? []) totalCounts.set(a.campaign_id, (totalCounts.get(a.campaign_id) ?? 0) + 1)
+      for (const d of depRes.data ?? []) totalCounts.set(d.campaign_id, (totalCounts.get(d.campaign_id) ?? 0) + 1)
+      for (const f of freeRes.data ?? []) totalCounts.set(f.campaign_id, (totalCounts.get(f.campaign_id) ?? 0) + 1)
 
       return typed.map((c) => ({
         ...c,
         totalPanels: totalCounts.get(c.id) ?? 0,
+        workflow: c.campaign_format?.workflow_type ?? 'qr' as const,
       }))
     },
     enabled: !!session,
@@ -306,7 +309,13 @@ export function OperatorDashboardPage() {
                     </Link>
                     {!isDone && (
                       <Link
-                        to={`/app/scan?mode=campaign&campaign=${campaign.id}`}
+                        to={
+                          campaign.workflow === 'deposit'
+                            ? `/app/deposit/${campaign.id}`
+                            : campaign.workflow === 'free_panel'
+                              ? `/app/free-panel/${campaign.id}`
+                              : `/app/scan?mode=campaign&campaign=${campaign.id}`
+                        }
                         className={cn(
                           buttonVariants({ size: 'sm' }),
                           'flex-1 gap-1.5'
