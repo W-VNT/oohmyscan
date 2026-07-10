@@ -197,6 +197,13 @@ export function SettingsPage() {
     try { await updateSettings.mutateAsync({ default_panel_type_id: id }); toast(id ? 'Type par défaut défini' : 'Type par défaut retiré') }
     catch { toast('Erreur', 'error') }
   }
+  const [editingDescId, setEditingDescId] = useState<string | null>(null)
+  const [editingDesc, setEditingDesc] = useState('')
+  async function saveDesc(id: string) {
+    try { await updateType.mutateAsync({ id, description: editingDesc.trim() || null }); setEditingDescId(null); toast('Description mise à jour') }
+    catch { toast('Erreur lors de la mise à jour', 'error') }
+  }
+
   async function toggleHasQr(t: { id: string; name: string; has_qr_code: boolean }) {
     const next = !t.has_qr_code
     const ok = await confirm({
@@ -498,13 +505,14 @@ export function SettingsPage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-1.5">
               {activeTypes.map((t) => {
                 const isDefault = settings?.default_panel_type_id === t.id
+                const isEditingDesc = editingDescId === t.id
                 return (
-                  <div key={t.id} className={`group relative flex items-center gap-1 rounded-full border bg-background px-3 py-1 text-xs font-medium transition-colors hover:border-foreground/30 ${t.has_qr_code ? 'border-border' : 'border-emerald-500/30 bg-emerald-500/5'}`}>
-                    <button onClick={() => setDefaultType(isDefault ? null : t.id)} className="mr-0.5" title={isDefault ? 'Retirer le défaut' : 'Définir par défaut'} aria-label={isDefault ? 'Retirer le défaut' : 'Définir comme type par défaut'}>
-                      <Star className={`size-3 ${isDefault ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/40 hover:text-yellow-400'}`} />
+                  <div key={t.id} className={`group flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-xs font-medium transition-colors hover:border-foreground/30 ${t.has_qr_code ? 'border-border' : 'border-emerald-500/30 bg-emerald-500/5'}`}>
+                    <button onClick={() => setDefaultType(isDefault ? null : t.id)} title={isDefault ? 'Retirer le défaut' : 'Définir par défaut'} aria-label={isDefault ? 'Retirer le défaut' : 'Définir comme type par défaut'}>
+                      <Star className={`size-3.5 ${isDefault ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/40 hover:text-yellow-400'}`} />
                     </button>
                     <button
                       onClick={() => toggleHasQr(t)}
@@ -512,11 +520,35 @@ export function SettingsPage() {
                       aria-label={t.has_qr_code ? `${t.name} — avec QR` : `${t.name} — sans QR (dépôt)`}
                       className="text-muted-foreground hover:text-foreground"
                     >
-                      {t.has_qr_code ? <QrCode className="size-3" /> : <Package className="size-3 text-emerald-600" />}
+                      {t.has_qr_code ? <QrCode className="size-3.5" /> : <Package className="size-3.5 text-emerald-600" />}
                     </button>
-                    <span>{t.name}</span>
-                    <button onClick={() => handleDeleteType(t.id)} className="ml-0.5 hidden text-red-500 hover:text-red-400 group-hover:inline-flex" title="Supprimer ce type" aria-label={`Supprimer le type ${t.name}`}>
-                      <X className="size-3" />
+                    <span className="shrink-0 min-w-16">{t.name}</span>
+                    <div className="flex-1 min-w-0">
+                      {isEditingDesc ? (
+                        <Input
+                          autoFocus
+                          value={editingDesc}
+                          onChange={(e) => setEditingDesc(e.target.value)}
+                          onBlur={() => saveDesc(t.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveDesc(t.id)
+                            if (e.key === 'Escape') setEditingDescId(null)
+                          }}
+                          placeholder="Description libre (ex: format affiche standard)"
+                          className="h-7 text-xs"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => { setEditingDescId(t.id); setEditingDesc(t.description ?? '') }}
+                          className="w-full text-left text-muted-foreground/80 hover:text-foreground truncate"
+                          title="Cliquer pour modifier la description"
+                        >
+                          {t.description || <span className="italic opacity-60">— ajouter une description</span>}
+                        </button>
+                      )}
+                    </div>
+                    <button onClick={() => handleDeleteType(t.id)} className="hidden text-red-500 hover:text-red-400 group-hover:inline-flex" title="Supprimer ce type" aria-label={`Supprimer le type ${t.name}`}>
+                      <X className="size-3.5" />
                     </button>
                   </div>
                 )
