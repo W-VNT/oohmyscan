@@ -262,8 +262,8 @@ export function CampaignNewPage() {
               {panelTypes?.filter((t) => t.is_active).map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
-                  {t.workflow_type === 'deposit' ? ' — Dépôt (sans QR)' : ''}
-                  {t.workflow_type === 'free_panel' ? ' — Panneau libre (sans QR)' : ''}
+                  {t.workflow_type === 'deposit' ? ' · Dépôt' : ''}
+                  {t.workflow_type === 'free_panel' ? ' · Sans QR' : ''}
                 </option>
               ))}
             </select>
