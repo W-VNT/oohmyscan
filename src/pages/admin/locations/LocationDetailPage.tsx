@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PANEL_ZONES } from '@/lib/constants'
-import { ArrowLeft, Loader2, PanelTop, Phone, Mail, MapPin, Calendar, Pencil, Eye, X, ExternalLink, Trash2, FileText, Send } from 'lucide-react'
+import { ArrowLeft, Loader2, PanelTop, Phone, Mail, MapPin, Calendar, Pencil, Eye, X, ExternalLink, Trash2, FileText, Send, ChevronLeft, ChevronRight } from 'lucide-react'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/components/shared/Toast'
@@ -48,6 +48,7 @@ export function LocationDetailPage() {
   const hasSignedContract = !!contract
   const isFieldLocked = hasSignedContract
   const [contractPdfUrl, setContractPdfUrl] = useState<string | null>(null)
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({
     name: '', address: '', postal_code: '', city: '', phone: '',
     owner_first_name: '', owner_last_name: '', owner_role: '', owner_email: '', closing_months: '',
@@ -446,12 +447,17 @@ export function LocationDetailPage() {
                 </h2>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {freePanels.map((fp) => {
+                {freePanels.map((fp, idx) => {
                   const publicUrl = supabase.storage
                     .from('panel-photos')
                     .getPublicUrl(fp.photo_path).data.publicUrl
                   return (
-                    <div key={fp.id} className="group relative overflow-hidden rounded-lg border border-border">
+                    <button
+                      key={fp.id}
+                      type="button"
+                      onClick={() => setViewerIndex(idx)}
+                      className="group relative overflow-hidden rounded-lg border border-border text-left transition-transform hover:scale-[1.02]"
+                    >
                       <img
                         src={publicUrl}
                         alt={`Panneau libre ${fp.campaign?.name ?? ''}`}
@@ -466,7 +472,7 @@ export function LocationDetailPage() {
                           {fp.operator?.full_name && ` · ${fp.operator.full_name}`}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
               </div>
@@ -614,6 +620,57 @@ export function LocationDetailPage() {
               </div>
             </div>
             <iframe src={contractPdfUrl} className="h-[calc(100%-3.5rem)] w-full rounded-b-lg" />
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen photo viewer — panneaux libres */}
+      {viewerIndex !== null && freePanels && freePanels[viewerIndex] && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          onClick={() => setViewerIndex(null)}
+        >
+          <button
+            onClick={() => setViewerIndex(null)}
+            className="absolute right-4 top-4 z-10 flex size-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+            aria-label="Fermer"
+          >
+            <X className="size-6" />
+          </button>
+
+          {viewerIndex > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setViewerIndex(viewerIndex - 1) }}
+              className="absolute left-4 top-1/2 z-10 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+              aria-label="Précédente"
+            >
+              <ChevronLeft className="size-6" />
+            </button>
+          )}
+
+          {viewerIndex < freePanels.length - 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setViewerIndex(viewerIndex + 1) }}
+              className="absolute right-4 top-1/2 z-10 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+              aria-label="Suivante"
+            >
+              <ChevronRight className="size-6" />
+            </button>
+          )}
+
+          <img
+            src={supabase.storage.from('panel-photos').getPublicUrl(freePanels[viewerIndex].photo_path).data.publicUrl}
+            alt={`Panneau libre ${freePanels[viewerIndex].campaign?.name ?? ''}`}
+            className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-sm text-white">
+            {freePanels[viewerIndex].campaign?.name ?? 'Campagne inconnue'}
+            {' — '}
+            {new Date(freePanels[viewerIndex].created_at).toLocaleDateString('fr-FR')}
+            {freePanels[viewerIndex].operator?.full_name && ` · ${freePanels[viewerIndex].operator.full_name}`}
+            <span className="ml-2 text-white/50">{viewerIndex + 1}/{freePanels.length}</span>
           </div>
         </div>
       )}

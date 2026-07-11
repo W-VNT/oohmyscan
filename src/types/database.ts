@@ -178,6 +178,7 @@ export interface Database {
           phone: string | null
           avatar_url: string | null
           is_active: boolean
+          status: 'invited' | 'active'
           created_at: string
         }
         Insert: {
@@ -187,6 +188,7 @@ export interface Database {
           phone?: string | null
           avatar_url?: string | null
           is_active?: boolean
+          status?: 'invited' | 'active'
           created_at?: string
         }
         Update: {
@@ -196,6 +198,7 @@ export interface Database {
           phone?: string | null
           avatar_url?: string | null
           is_active?: boolean
+          status?: 'invited' | 'active'
           created_at?: string
         }
         Relationships: []

@@ -55,6 +55,19 @@ export function LoginPage() {
       }
     })
 
+    // Fallback : si l'user arrive avec une session existante et status='invited'
+    // (cas typique : il a clique le lien d'invitation, ferme l'onglet SANS
+    // set password, et re-visite plus tard OU re-clique le lien maintenant
+    // consomme). On force set_password mode — sinon il verrait le formulaire
+    // de login classique et ne pourrait rien faire (pas de password).
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
+      const { data: profile } = await supabase
+        .from('profiles').select('status').eq('id', session.user.id).maybeSingle()
+      if (profile?.status === 'invited') setMode('set_password')
+    })()
+
     return () => subscription.unsubscribe()
   }, [])
 
