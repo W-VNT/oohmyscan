@@ -52,40 +52,58 @@ export function useOperatorStats() {
   return useQuery({
     queryKey: ['operator-stats'],
     queryFn: async (): Promise<OperatorStats[]> => {
-      const { data: assignments, error: aErr } = await supabase
-        .from('panel_campaigns')
-        .select('assigned_by, assigned_at')
-        .not('assigned_by', 'is', null)
-      if (aErr) throw aErr
-
-      const { data: photos, error: pErr } = await supabase
-        .from('panel_photos')
-        .select('taken_by, taken_at')
-        .not('taken_by', 'is', null)
-      if (pErr) throw pErr
+      // panel_count englobe les 3 sources d'assignation :
+      //  - panel_campaigns.assigned_by (QR)
+      //  - campaign_deposits.operator_id (sous-bock)
+      //  - campaign_free_panels.operator_id (panneau libre)
+      // photo_count = uniquement panel_photos (photos "install" et "campagne"
+      // sur les panneaux QR). Les photos de deposits/free_panels sont deja
+      // comptees dans panel_count donc pas double-comptage.
+      const [assignRes, photosRes, depositsRes, freePanelsRes] = await Promise.all([
+        supabase.from('panel_campaigns').select('assigned_by, assigned_at').not('assigned_by', 'is', null),
+        supabase.from('panel_photos').select('taken_by, taken_at').not('taken_by', 'is', null),
+        supabase.from('campaign_deposits').select('operator_id, created_at'),
+        supabase.from('campaign_free_panels').select('operator_id, created_at'),
+      ])
+      if (assignRes.error) throw assignRes.error
+      if (photosRes.error) throw photosRes.error
+      if (depositsRes.error) throw depositsRes.error
+      if (freePanelsRes.error) throw freePanelsRes.error
 
       const statsMap: Record<string, OperatorStats> = {}
-
-      for (const a of assignments ?? []) {
-        if (!a.assigned_by) continue
-        if (!statsMap[a.assigned_by]) {
-          statsMap[a.assigned_by] = { user_id: a.assigned_by, panel_count: 0, photo_count: 0, last_activity: null }
-        }
-        statsMap[a.assigned_by].panel_count++
-        if (!statsMap[a.assigned_by].last_activity || a.assigned_at > statsMap[a.assigned_by].last_activity!) {
-          statsMap[a.assigned_by].last_activity = a.assigned_at
-        }
+      const ensure = (uid: string) => {
+        if (!statsMap[uid]) statsMap[uid] = { user_id: uid, panel_count: 0, photo_count: 0, last_activity: null }
+        return statsMap[uid]
+      }
+      const bumpActivity = (uid: string, when: string | null) => {
+        if (!when) return
+        const s = statsMap[uid]
+        if (!s.last_activity || when > s.last_activity) s.last_activity = when
       }
 
-      for (const p of photos ?? []) {
+      for (const a of assignRes.data ?? []) {
+        if (!a.assigned_by) continue
+        const s = ensure(a.assigned_by)
+        s.panel_count++
+        bumpActivity(a.assigned_by, a.assigned_at)
+      }
+      for (const d of depositsRes.data ?? []) {
+        if (!d.operator_id) continue
+        const s = ensure(d.operator_id)
+        s.panel_count++
+        bumpActivity(d.operator_id, d.created_at)
+      }
+      for (const f of freePanelsRes.data ?? []) {
+        if (!f.operator_id) continue
+        const s = ensure(f.operator_id)
+        s.panel_count++
+        bumpActivity(f.operator_id, f.created_at)
+      }
+      for (const p of photosRes.data ?? []) {
         if (!p.taken_by) continue
-        if (!statsMap[p.taken_by]) {
-          statsMap[p.taken_by] = { user_id: p.taken_by, panel_count: 0, photo_count: 0, last_activity: null }
-        }
-        statsMap[p.taken_by].photo_count++
-        if (!statsMap[p.taken_by].last_activity || p.taken_at > statsMap[p.taken_by].last_activity!) {
-          statsMap[p.taken_by].last_activity = p.taken_at
-        }
+        const s = ensure(p.taken_by)
+        s.photo_count++
+        bumpActivity(p.taken_by, p.taken_at)
       }
 
       return Object.values(statsMap)

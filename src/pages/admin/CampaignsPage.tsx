@@ -37,18 +37,23 @@ export function CampaignsPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   useListPageHotkeys('/admin/campaigns/new')
 
-  // Panel counts per campaign
+  // Panel counts par campagne — englobe les 3 sources :
+  //  - panel_campaigns (QR)
+  //  - campaign_deposits (sous-bock, set de table)
+  //  - campaign_free_panels (panneau libre sans QR)
+  // Coherent avec CampaignDetailPage.assignedCount et OperatorDashboard.
   const { data: panelCounts = new Map<string, number>() } = useQuery({
     queryKey: ['campaign-panel-counts'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('panel_campaigns')
-        .select('campaign_id')
-        .is('unassigned_at', null)
+      const [qrRes, depRes, freeRes] = await Promise.all([
+        supabase.from('panel_campaigns').select('campaign_id').is('unassigned_at', null),
+        supabase.from('campaign_deposits').select('campaign_id'),
+        supabase.from('campaign_free_panels').select('campaign_id'),
+      ])
       const counts = new Map<string, number>()
-      for (const row of data ?? []) {
-        counts.set(row.campaign_id, (counts.get(row.campaign_id) ?? 0) + 1)
-      }
+      for (const row of qrRes.data ?? []) counts.set(row.campaign_id, (counts.get(row.campaign_id) ?? 0) + 1)
+      for (const row of depRes.data ?? []) counts.set(row.campaign_id, (counts.get(row.campaign_id) ?? 0) + 1)
+      for (const row of freeRes.data ?? []) counts.set(row.campaign_id, (counts.get(row.campaign_id) ?? 0) + 1)
       return counts
     },
     staleTime: 5 * 60 * 1000,
