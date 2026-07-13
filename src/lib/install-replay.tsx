@@ -384,11 +384,23 @@ export async function performInstallSave(
 }
 
 /**
- * Détecte si une erreur ressemble à un souci réseau (offline, DNS, timeout).
- * Utilisé côté wizard pour décider si on queue ou si on remonte l'erreur.
+ * Détecte si une erreur ressemble à un souci réseau (offline, DNS, timeout,
+ * upload storage interrompu). Utilisé côté wizard pour décider si on queue
+ * la mutation en offline ou si on remonte l'erreur brute.
+ *
+ * Cas couverts :
+ *   - navigator.onLine = false (offline explicite)
+ *   - err.message contient network|fetch|failed|typeerror|timeout
+ *   - err.name est une des classes d'erreur reseau connues de supabase-js
+ *     (StorageUnknownError, StorageApiError, AuthRetryableFetchError)
+ *   - err.name est TypeError (fetch echoue en TypeError sur Safari iOS)
  */
 export function isNetworkError(err: unknown): boolean {
   if (!navigator.onLine) return true
+  const name = err instanceof Error ? err.name : ''
+  if (/^(TypeError|StorageUnknownError|StorageApiError|AuthRetryableFetchError|NetworkError)$/i.test(name)) {
+    return true
+  }
   const msg = err instanceof Error ? err.message : String(err)
-  return /network|fetch|failed|typeerror|timeout/i.test(msg)
+  return /network|fetch|failed|typeerror|timeout|load failed/i.test(msg)
 }
