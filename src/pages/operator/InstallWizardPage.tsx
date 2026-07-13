@@ -821,6 +821,14 @@ export function InstallWizardPage() {
                   navigate('/app/scan?install_session=1')
                 }
               } catch (e) {
+                // Reseau instable en terrain (Safari iOS renvoie "Load failed") :
+                // message plus explicite + on ne log pas comme error car c'est
+                // pas un bug de l'app. Le form garde ses donnees, l'operateur
+                // peut retenter des que la connexion revient.
+                if (isNetworkError(e)) {
+                  toast('Réseau perdu — retente dans un moment', 'error')
+                  return
+                }
                 toast(e instanceof Error ? e.message : 'Erreur création', 'error')
                 void logError('install', 'insert_location', e, {
                   name: newLocationData.name,
