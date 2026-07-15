@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
 import { supabase } from '@/lib/supabase'
 import { logError } from '@/lib/error-logger'
+import { isNetworkError } from '@/lib/install-replay'
 import type { Location } from '@/types'
 
 type Step = 'location' | 'create_location' | 'photo' | 'done'
@@ -111,6 +112,13 @@ export function FreePanelWizardPage() {
       setLocation(created as Location)
       setStep('photo')
     } catch (e) {
+      // Reseau instable en terrain : message clair + pas de logError (evite
+      // les faux positifs dans /admin/logs pour un souci connectivite).
+      // Le form garde ses donnees, l'operateur re-tape "Continuer" au retour.
+      if (isNetworkError(e)) {
+        setError('Réseau perdu — retente dans un moment')
+        return
+      }
       setError(e instanceof Error ? e.message : 'Erreur création lieu')
       void logError('other', 'free_panel_create_location', e, {
         campaign_id: campaignId, place_name: data.name,
@@ -135,6 +143,13 @@ export function FreePanelWizardPage() {
       setStep('done')
       toast('Panneau libre enregistré', 'success')
     } catch (e) {
+      // Reseau instable : message clair + pas de logError. Le state photo
+      // est conserve (l'upload s'est peut-etre fait mais l'INSERT DB a foire),
+      // l'operateur peut retenter des que la connexion revient.
+      if (isNetworkError(e)) {
+        setError('Réseau perdu — retente dans un moment')
+        return
+      }
       setError(e instanceof Error ? e.message : "Erreur lors de l'enregistrement")
       void logError('other', 'free_panel_insert', e, {
         campaign_id: campaignId, location_id: location.id,
