@@ -32,6 +32,32 @@ import { Kbd } from '@/components/shared/KeyboardShortcuts'
 
 type EditableLine = Omit<InvoiceLine, 'id' | 'invoice_id'> & { _key: string }
 
+/**
+ * Recupere un numero de facture via la RPC atomique.
+ *
+ * Ancien code : fallback local qui calculait `${prefix}-${yy}${mm}-${nextNum}`
+ * depuis settings.next_invoice_number sans reserver le compteur en DB.
+ * Consequence terrain : reseau instable -> RPC fail -> fallback -> INSERT avec
+ * un numero que la sequence RPC a peut-etre deja donne (409 duplicate) ou
+ * qui sera donne au prochain appel legitime (collision differee).
+ *
+ * Nouveau code : retry la RPC (elle est SECURITY DEFINER + LOCK cote DB,
+ * donc ne collide jamais). 3 tentatives avec delai croissant. Si toutes
+ * echouent, on throw une erreur claire — l'admin retente quand le reseau
+ * est stable, aucun numero fantome n'est cree.
+ */
+async function fetchNextInvoiceNumber(): Promise<string> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase.rpc('get_next_invoice_number')
+    if (!error && data) return data as string
+    lastErr = error
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
+  }
+  const msg = lastErr instanceof Error ? lastErr.message : String(lastErr)
+  throw new Error(`Impossible de générer le numéro de facture (réseau instable ?) : ${msg}`)
+}
+
 function newLine(sortOrder: number, lineType: 'item' | 'section' = 'item'): EditableLine {
   return {
     _key: crypto.randomUUID(),
@@ -375,18 +401,7 @@ export function InvoiceDetailPage() {
     if (!invoice || !settings) return
     setSaving(true)
     try {
-      const { data: num, error: rpcError } = await supabase.rpc('get_next_invoice_number')
-      let finalNumber: string
-      if (rpcError || !num) {
-        const prefix = settings.invoice_prefix ?? 'F'
-        const nextNum = settings.next_invoice_number ?? 1
-        const now = new Date()
-        const yy = String(now.getFullYear() % 100).padStart(2, '0')
-        const mm = String(now.getMonth() + 1).padStart(2, '0')
-        finalNumber = `${prefix}-${yy}${mm}-${String(nextNum).padStart(4, '0')}`
-      } else {
-        finalNumber = num
-      }
+      const finalNumber = await fetchNextInvoiceNumber()
 
       const result = await createInvoice.mutateAsync({
         invoice_number: finalNumber,
@@ -457,18 +472,7 @@ export function InvoiceDetailPage() {
       let invoiceId = id!
 
       if (isNew) {
-        const { data: invoiceNumber, error: rpcError } = await supabase.rpc('get_next_invoice_number')
-        let finalNumber: string
-        if (rpcError || !invoiceNumber) {
-          const prefix = settings?.invoice_prefix ?? 'F'
-          const nextNum = settings?.next_invoice_number ?? 1
-          const now = new Date()
-          const yy = String(now.getFullYear() % 100).padStart(2, '0')
-          const mm = String(now.getMonth() + 1).padStart(2, '0')
-          finalNumber = `${prefix}-${yy}${mm}-${String(nextNum).padStart(4, '0')}`
-        } else {
-          finalNumber = invoiceNumber
-        }
+        const finalNumber = await fetchNextInvoiceNumber()
 
         const result = await createInvoice.mutateAsync({
           invoice_number: finalNumber,
@@ -652,18 +656,7 @@ toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'err
     if (!invoice || !settings) return
     setSaving(true)
     try {
-      const { data: num, error: rpcError } = await supabase.rpc('get_next_invoice_number')
-      let finalNumber: string
-      if (rpcError || !num) {
-        const prefix = settings.invoice_prefix ?? 'F'
-        const nextNum = settings.next_invoice_number ?? 1
-        const now = new Date()
-        const yy = String(now.getFullYear() % 100).padStart(2, '0')
-        const mm = String(now.getMonth() + 1).padStart(2, '0')
-        finalNumber = `${prefix}-${yy}${mm}-${String(nextNum).padStart(4, '0')}`
-      } else {
-        finalNumber = num
-      }
+      const finalNumber = await fetchNextInvoiceNumber()
 
       const result = await createInvoice.mutateAsync({
         invoice_number: finalNumber,

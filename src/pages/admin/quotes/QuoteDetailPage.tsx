@@ -32,6 +32,25 @@ import { useDetailPageHotkeys } from '@/hooks/usePageHotkeys'
 
 type EditableLine = Omit<QuoteLine, 'id' | 'quote_id'> & { _key: string }
 
+/**
+ * Retry la RPC atomique de numerotation devis. Pas de fallback client :
+ * si toutes les tentatives echouent, on throw pour que l'admin retente
+ * quand le reseau est stable. Cela evite les collisions de numero
+ * (fallback qui donnait le meme numero que la RPC allait donner).
+ * Voir InvoiceDetailPage.fetchNextInvoiceNumber (meme motif).
+ */
+async function fetchNextQuoteNumber(): Promise<string> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase.rpc('get_next_quote_number')
+    if (!error && data) return data as string
+    lastErr = error
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
+  }
+  const msg = lastErr instanceof Error ? lastErr.message : String(lastErr)
+  throw new Error(`Impossible de générer le numéro de devis (réseau instable ?) : ${msg}`)
+}
+
 function newLine(sortOrder: number, lineType: 'item' | 'section' = 'item'): EditableLine {
   return {
     _key: crypto.randomUUID(),
@@ -253,20 +272,7 @@ export function QuoteDetailPage() {
       let quoteId = id!
 
       if (isNew) {
-        // Atomic numbering via SQL function
-        const { data: quoteNumber, error: rpcError } = await supabase.rpc('get_next_quote_number')
-        let finalNumber: string
-        if (rpcError || !quoteNumber) {
-          // Fallback to client-side numbering
-          const prefix = settings?.quote_prefix ?? 'D'
-          const nextNum = settings?.next_quote_number ?? 1
-          const now = new Date()
-          const yy = String(now.getFullYear() % 100).padStart(2, '0')
-          const mm = String(now.getMonth() + 1).padStart(2, '0')
-          finalNumber = `${prefix}-${yy}${mm}-${String(nextNum).padStart(4, '0')}`
-        } else {
-          finalNumber = quoteNumber
-        }
+        const finalNumber = await fetchNextQuoteNumber()
 
         const result = await createQuote.mutateAsync({
           quote_number: finalNumber,
@@ -436,18 +442,7 @@ export function QuoteDetailPage() {
     if (!quote || !settings) return
     setSaving(true)
     try {
-      const { data: num, error: rpcError } = await supabase.rpc('get_next_quote_number')
-      let finalNumber: string
-      if (rpcError || !num) {
-        const prefix = settings.quote_prefix ?? 'D'
-        const nextNum = settings.next_quote_number ?? 1
-        const now = new Date()
-        const yy = String(now.getFullYear() % 100).padStart(2, '0')
-        const mm = String(now.getMonth() + 1).padStart(2, '0')
-        finalNumber = `${prefix}-${yy}${mm}-${String(nextNum).padStart(4, '0')}`
-      } else {
-        finalNumber = num
-      }
+      const finalNumber = await fetchNextQuoteNumber()
 
       const result = await createQuote.mutateAsync({
         quote_number: finalNumber,
