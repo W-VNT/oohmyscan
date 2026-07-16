@@ -1,14 +1,15 @@
 -- ============================================================================
--- Fix bug modulo sur TEXT dans get_next_quote_number / get_next_invoice_number
+-- Fix bugs get_next_quote_number / get_next_invoice_number
 --
--- Bug introduit dans 20260317_numbering_format.sql puis reproduit dans
--- 20260707_security_hardening_v3.sql :
---
+-- Bug 1 : modulo sur TEXT (introduit 20260317, reproduit 20260707_v3) :
 --   LPAD(EXTRACT(YEAR FROM NOW())::TEXT % 100 || '', 2, '0')
 --                            ^^^^^^^^^^^^ modulo sur TEXT -> erreur
 --                            "operator does not exist: text % integer"
+--   Fix : caster en INTEGER AVANT le modulo, puis en TEXT ensuite.
 --
--- Fix : caster en INTEGER AVANT le modulo, puis en TEXT ensuite.
+-- Bug 2 : UPDATE company_settings sans WHERE -> Supabase safe-update mode
+--   rejette avec "UPDATE requires a WHERE clause".
+--   Fix : WHERE id = settings.id (singleton, on connait deja son id).
 --
 -- Format conserve : PREFIX-YYMM-NNNN (ex: D-2607-0001, F-2607-0001).
 -- Preserve : SECURITY DEFINER, is_admin() check, search_path fige.
@@ -28,7 +29,8 @@ BEGIN
          LPAD((EXTRACT(YEAR FROM NOW())::INTEGER % 100)::TEXT, 2, '0') ||
          LPAD(EXTRACT(MONTH FROM NOW())::TEXT, 2, '0') || '-' ||
          LPAD(settings.next_quote_number::TEXT, 4, '0');
-  UPDATE company_settings SET next_quote_number = next_quote_number + 1;
+  UPDATE company_settings SET next_quote_number = next_quote_number + 1
+  WHERE id = settings.id;
   RETURN num;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
@@ -47,7 +49,8 @@ BEGIN
          LPAD((EXTRACT(YEAR FROM NOW())::INTEGER % 100)::TEXT, 2, '0') ||
          LPAD(EXTRACT(MONTH FROM NOW())::TEXT, 2, '0') || '-' ||
          LPAD(settings.next_invoice_number::TEXT, 4, '0');
-  UPDATE company_settings SET next_invoice_number = next_invoice_number + 1;
+  UPDATE company_settings SET next_invoice_number = next_invoice_number + 1
+  WHERE id = settings.id;
   RETURN num;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
