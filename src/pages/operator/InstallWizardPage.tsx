@@ -668,12 +668,6 @@ export function InstallWizardPage() {
       // Fallback : si l'erreur ressemble a un souci reseau (perte cours de route),
       // on queue la mutation pour replay au retour. Sinon on remonte l'erreur.
       console.error('[install] handleFinalSave error:', e)
-      void logError('install', 'handle_final_save', e, {
-        location_id: location?.id,
-        location_name: location?.name,
-        installed_count: installed.length,
-        is_amendment: isAmendment,
-      })
       if (isNetworkError(e)) {
         try {
           await enqueueInstall(savePayload)
@@ -687,6 +681,13 @@ export function InstallWizardPage() {
           console.error('[install] enqueue fallback failed:', queueErr)
           void logError('install', 'enqueue_fallback', queueErr, { location_id: location?.id })
         }
+      } else {
+        void logError('install', 'handle_final_save', e, {
+          location_id: location?.id,
+          location_name: location?.name,
+          installed_count: installed.length,
+          is_amendment: isAmendment,
+        })
       }
       // Extraction de message enrichi : les erreurs Supabase (PostgrestError)
       // ne sont pas des Error instances mais des objets { message, code, ... }
