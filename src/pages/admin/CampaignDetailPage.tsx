@@ -32,6 +32,8 @@ import {
   Package,
   MapPin,
   User as UserIcon,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { GenerateReportModal } from '@/components/admin/reports/GenerateReportModal'
 import {
@@ -108,6 +110,9 @@ export function CampaignDetailPage() {
   const [panelsExpanded, setPanelsExpanded] = useState(false)
   const [panelSearch, setPanelSearch] = useState('')
   const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [exportingCsv, setExportingCsv] = useState(false)
+  const [exportingZip, setExportingZip] = useState(false)
+  const [zipProgress, setZipProgress] = useState<{ current: number; total: number } | null>(null)
 
   // Campaign deposits (sous-bocks, sets de table)
   const { data: deposits } = useCampaignDeposits(id)
@@ -295,6 +300,228 @@ export function CampaignDetailPage() {
       toast('Erreur lors de la duplication', 'error')
     } finally {
       setCloning(false)
+    }
+  }
+
+  /**
+   * Export toutes les adresses touchees par la campagne en CSV (Excel-compatible).
+   * Aggrege les 3 sources : panneaux QR (via panels->locations), depots
+   * (Google Places snapshot), panneaux libres (via locations DB). Chaque ligne
+   * indique le type de pose pour que l'admin puisse filtrer par type ensuite.
+   */
+  async function handleExportAddresses() {
+    if (!id || !campaign) return
+    setExportingCsv(true)
+    try {
+      const [qrRes, depRes, freeRes] = await Promise.all([
+        supabase
+          .from('panel_campaigns')
+          .select('assigned_at, panels(reference, name, address, city, lat, lng, locations(name, address, postal_code, city))')
+          .eq('campaign_id', id)
+          .is('unassigned_at', null),
+        supabase
+          .from('campaign_deposits')
+          .select('created_at, place_name, place_address, lat, lng, quantity')
+          .eq('campaign_id', id),
+        supabase
+          .from('campaign_free_panels')
+          .select('created_at, lat, lng, locations(name, address, postal_code, city)')
+          .eq('campaign_id', id),
+      ])
+
+      type QrRow = {
+        assigned_at: string
+        panels: {
+          reference: string; name: string | null; address: string | null; city: string | null;
+          lat: number | null; lng: number | null;
+          locations: { name: string | null; address: string | null; postal_code: string | null; city: string | null } | null
+        } | null
+      }
+      type DepRow = { created_at: string; place_name: string; place_address: string | null; lat: number | null; lng: number | null; quantity: number }
+      type FreeRow = { created_at: string; lat: number | null; lng: number | null; locations: { name: string | null; address: string | null; postal_code: string | null; city: string | null } | null }
+
+      const rows: string[][] = [
+        ['Type', 'Réference / Nom', 'Adresse', 'Code postal', 'Ville', 'Latitude', 'Longitude', 'Quantité', 'Date de pose'],
+      ]
+
+      for (const r of (qrRes.data ?? []) as unknown as QrRow[]) {
+        const p = r.panels
+        const loc = p?.locations
+        rows.push([
+          'Panneau QR',
+          loc?.name || p?.name || p?.reference || '',
+          loc?.address || p?.address || '',
+          loc?.postal_code || '',
+          loc?.city || p?.city || '',
+          p?.lat != null ? String(p.lat) : '',
+          p?.lng != null ? String(p.lng) : '',
+          '1',
+          r.assigned_at?.split('T')[0] || '',
+        ])
+      }
+      for (const d of (depRes.data ?? []) as unknown as DepRow[]) {
+        rows.push([
+          'Dépôt',
+          d.place_name || '',
+          d.place_address || '',
+          '', // pas de CP dans campaign_deposits
+          '',
+          d.lat != null ? String(d.lat) : '',
+          d.lng != null ? String(d.lng) : '',
+          String(d.quantity ?? 1),
+          d.created_at?.split('T')[0] || '',
+        ])
+      }
+      for (const f of (freeRes.data ?? []) as unknown as FreeRow[]) {
+        const loc = f.locations
+        rows.push([
+          'Panneau libre',
+          loc?.name || '',
+          loc?.address || '',
+          loc?.postal_code || '',
+          loc?.city || '',
+          f.lat != null ? String(f.lat) : '',
+          f.lng != null ? String(f.lng) : '',
+          '1',
+          f.created_at?.split('T')[0] || '',
+        ])
+      }
+
+      if (rows.length === 1) {
+        toast('Aucune adresse à exporter', 'error')
+        return
+      }
+
+      const csv = rows
+        .map((r) => r.map((c) => `"${(c ?? '').toString().replace(/"/g, '""')}"`).join(','))
+        .join('\n')
+      // BOM UTF-8 pour Excel qui gere sinon mal les accents
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `campagne-${campaign.name.replace(/[^a-z0-9-_]/gi, '_')}-adresses.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast(`${rows.length - 1} adresse${rows.length > 2 ? 's' : ''} exportée${rows.length > 2 ? 's' : ''}`, 'success')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur lors de l\'export', 'error')
+    } finally {
+      setExportingCsv(false)
+    }
+  }
+
+  /**
+   * Telecharge toutes les photos de la campagne dans un ZIP structure par type :
+   *   qr/<reference>/<photo_type>-<date>.<ext>
+   *   depots/<place>-<date>.<ext>
+   *   panneaux-libres/<lieu>-<date>.<ext>
+   * Import dynamique de jszip pour ne pas alourdir le bundle admin general.
+   */
+  async function handleDownloadPhotos() {
+    if (!id || !campaign) return
+    setExportingZip(true)
+    setZipProgress({ current: 0, total: 0 })
+    try {
+      const JSZip = (await import('jszip')).default
+      const zip = new JSZip()
+
+      // 1. Collecte tous les paths photos + leur destination dans le ZIP
+      const [qrPhotosRes, depRes, freeRes] = await Promise.all([
+        // Photos panel_photos pour les panneaux QR de la campagne
+        supabase
+          .from('panel_photos')
+          .select('storage_path, photo_type, taken_at, panels!inner(reference, panel_campaigns!inner(campaign_id))')
+          .eq('panels.panel_campaigns.campaign_id', id),
+        supabase
+          .from('campaign_deposits')
+          .select('photo_path, created_at, place_name')
+          .eq('campaign_id', id),
+        supabase
+          .from('campaign_free_panels')
+          .select('photo_path, created_at, locations(name)')
+          .eq('campaign_id', id),
+      ])
+
+      type PhotoDest = { path: string; folder: string; filename: string }
+      const dests: PhotoDest[] = []
+      const sanitize = (s: string) => s.replace(/[^a-z0-9-_]/gi, '_').slice(0, 40)
+
+      for (const ph of (qrPhotosRes.data ?? []) as unknown as Array<{
+        storage_path: string; photo_type: string; taken_at: string;
+        panels: { reference: string } | null
+      }>) {
+        const ref = ph.panels?.reference || 'panneau'
+        const ext = ph.storage_path.split('.').pop() || 'jpg'
+        dests.push({
+          path: ph.storage_path,
+          folder: `qr/${sanitize(ref)}`,
+          filename: `${ph.photo_type}-${ph.taken_at.split('T')[0]}.${ext}`,
+        })
+      }
+      for (const d of (depRes.data ?? []) as unknown as Array<{ photo_path: string; created_at: string; place_name: string }>) {
+        const ext = d.photo_path.split('.').pop() || 'jpg'
+        dests.push({
+          path: d.photo_path,
+          folder: 'depots',
+          filename: `${sanitize(d.place_name)}-${d.created_at.split('T')[0]}.${ext}`,
+        })
+      }
+      for (const f of (freeRes.data ?? []) as unknown as Array<{ photo_path: string; created_at: string; locations: { name: string } | null }>) {
+        const ext = f.photo_path.split('.').pop() || 'jpg'
+        const locName = f.locations?.name ?? 'lieu'
+        dests.push({
+          path: f.photo_path,
+          folder: 'panneaux-libres',
+          filename: `${sanitize(locName)}-${f.created_at.split('T')[0]}.${ext}`,
+        })
+      }
+
+      if (dests.length === 0) {
+        toast('Aucune photo à télécharger', 'error')
+        return
+      }
+
+      setZipProgress({ current: 0, total: dests.length })
+
+      // 2. Telecharge les photos (une par une pour eviter d'exploser la bande
+      //    passante mobile de l'admin sur reseau moyen)
+      let count = 0
+      // Deduplique les filename par folder (si 2 photos meme lieu meme date)
+      const seenInFolder = new Map<string, number>()
+      for (const d of dests) {
+        try {
+          const { data: blob, error } = await supabase.storage.from('panel-photos').download(d.path)
+          if (error || !blob) {
+            console.warn('[export] photo download failed:', d.path, error)
+            continue
+          }
+          const key = `${d.folder}/${d.filename}`
+          const seen = seenInFolder.get(key) ?? 0
+          const finalName = seen === 0 ? d.filename : d.filename.replace(/(\.[^.]+)$/, `-${seen + 1}$1`)
+          seenInFolder.set(key, seen + 1)
+          zip.file(`${d.folder}/${finalName}`, blob)
+        } catch (e) {
+          console.warn('[export] photo download threw:', d.path, e)
+        }
+        count++
+        setZipProgress({ current: count, total: dests.length })
+      }
+
+      // 3. Genere + telecharge le ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(zipBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `campagne-${campaign.name.replace(/[^a-z0-9-_]/gi, '_')}-photos.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast(`${dests.length} photo${dests.length > 1 ? 's' : ''} téléchargée${dests.length > 1 ? 's' : ''}`, 'success')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur lors du téléchargement', 'error')
+    } finally {
+      setExportingZip(false)
+      setZipProgress(null)
     }
   }
 
@@ -1089,6 +1316,28 @@ export function CampaignDetailPage() {
                   Generer rapport campagne
                 </button>
               )}
+
+              {/* Exports campagne */}
+              <div className="border-t border-border pt-2 space-y-2">
+                <button
+                  onClick={handleExportAddresses}
+                  disabled={exportingCsv}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+                >
+                  {exportingCsv ? <Loader2 className="size-4 animate-spin" /> : <FileSpreadsheet className="size-4" />}
+                  Exporter les adresses (CSV)
+                </button>
+                <button
+                  onClick={handleDownloadPhotos}
+                  disabled={exportingZip}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+                >
+                  {exportingZip ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                  {exportingZip && zipProgress && zipProgress.total > 0
+                    ? `Téléchargement… ${zipProgress.current}/${zipProgress.total}`
+                    : 'Télécharger les photos (ZIP)'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
