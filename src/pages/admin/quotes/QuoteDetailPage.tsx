@@ -39,16 +39,17 @@ type EditableLine = Omit<QuoteLine, 'id' | 'quote_id'> & { _key: string }
  * (fallback qui donnait le meme numero que la RPC allait donner).
  * Voir InvoiceDetailPage.fetchNextInvoiceNumber (meme motif).
  */
+type RpcErrorLike = { message?: string; code?: string; hint?: string; details?: string } | null
 async function fetchNextQuoteNumber(): Promise<string> {
-  let lastErr: unknown
+  let lastErr: RpcErrorLike = null
   for (let attempt = 0; attempt < 3; attempt++) {
     const { data, error } = await supabase.rpc('get_next_quote_number')
     if (!error && data) return data as string
-    lastErr = error
+    lastErr = (error as RpcErrorLike) ?? null
     if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
   }
-  const msg = lastErr instanceof Error ? lastErr.message : String(lastErr)
-  throw new Error(`Impossible de générer le numéro de devis (réseau instable ?) : ${msg}`)
+  const msg = lastErr?.message || lastErr?.hint || lastErr?.details || 'erreur inconnue'
+  throw new Error(`Impossible de générer le numéro de devis : ${msg}`)
 }
 
 function newLine(sortOrder: number, lineType: 'item' | 'section' = 'item'): EditableLine {

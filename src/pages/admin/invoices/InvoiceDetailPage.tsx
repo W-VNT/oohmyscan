@@ -46,16 +46,18 @@ type EditableLine = Omit<InvoiceLine, 'id' | 'invoice_id'> & { _key: string }
  * echouent, on throw une erreur claire — l'admin retente quand le reseau
  * est stable, aucun numero fantome n'est cree.
  */
+type RpcErrorLike = { message?: string; code?: string; hint?: string; details?: string } | null
 async function fetchNextInvoiceNumber(): Promise<string> {
-  let lastErr: unknown
+  let lastErr: RpcErrorLike = null
   for (let attempt = 0; attempt < 3; attempt++) {
     const { data, error } = await supabase.rpc('get_next_invoice_number')
     if (!error && data) return data as string
-    lastErr = error
+    lastErr = (error as RpcErrorLike) ?? null
     if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
   }
-  const msg = lastErr instanceof Error ? lastErr.message : String(lastErr)
-  throw new Error(`Impossible de générer le numéro de facture (réseau instable ?) : ${msg}`)
+  // PostgrestError expose message/code/hint/details, pas une propriete toString().
+  const msg = lastErr?.message || lastErr?.hint || lastErr?.details || 'erreur inconnue'
+  throw new Error(`Impossible de générer le numéro de facture : ${msg}`)
 }
 
 function newLine(sortOrder: number, lineType: 'item' | 'section' = 'item'): EditableLine {
