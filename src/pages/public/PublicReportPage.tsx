@@ -1,7 +1,15 @@
 import { useParams } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { usePublicCampaignReport } from '@/hooks/admin/useCampaignReport'
 import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, FileText, Download, ExternalLink } from 'lucide-react'
+
+/**
+ * Bloque toute indexation par les crawlers : les URLs contiennent un token
+ * de partage secret, un rapport indexe fuiterait donnees client (nom
+ * campagne, photos terrain, adresses) sur Google.
+ */
+const REPORT_ROBOTS = 'noindex, nofollow, noarchive, nosnippet'
 
 export function PublicReportPage() {
   const { token } = useParams<{ token: string }>()
@@ -9,30 +17,48 @@ export function PublicReportPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
+      <>
+        <Helmet>
+          <title>Chargement… — OOH MY AD !</title>
+          <meta name="robots" content={REPORT_ROBOTS} />
+        </Helmet>
+        <div className="flex min-h-screen items-center justify-center bg-muted/30">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      </>
     )
   }
 
   if (isError || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-        <Card className="max-w-sm">
-          <CardContent className="text-center">
-            <FileText className="mx-auto size-12 text-muted-foreground" />
-            <h1 className="mt-4 text-lg font-semibold">Rapport introuvable</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Ce lien n'est pas valide, le rapport a été dépublié ou supprimé.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <Helmet>
+          <title>Rapport introuvable — OOH MY AD !</title>
+          <meta name="robots" content={REPORT_ROBOTS} />
+        </Helmet>
+        <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+          <Card className="max-w-sm">
+            <CardContent className="text-center">
+              <FileText className="mx-auto size-12 text-muted-foreground" />
+              <h1 className="mt-4 text-lg font-semibold">Rapport introuvable</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Ce lien n'est pas valide, le rapport a été dépublié ou supprimé.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </>
     )
   }
 
+  const campaignName = data.campaign?.name ?? 'Campagne'
+
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
+      <Helmet>
+        <title>{`Rapport ${campaignName} — OOH MY AD !`}</title>
+        <meta name="robots" content={REPORT_ROBOTS} />
+      </Helmet>
       {/* Top bar */}
       <header className="border-b border-border bg-background px-4 py-3">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">

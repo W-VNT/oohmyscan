@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
@@ -161,6 +162,10 @@ export function LoginPage() {
 
   return (
     <main className="flex min-h-screen bg-background">
+      <Helmet>
+        <title>Connexion — OOH MY AD !</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       {/* Left panel — branding (desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-between bg-foreground p-12 text-background">
         <div>
