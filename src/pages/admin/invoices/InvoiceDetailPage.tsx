@@ -47,6 +47,23 @@ type EditableLine = Omit<InvoiceLine, 'id' | 'invoice_id'> & { _key: string }
  * est stable, aucun numero fantome n'est cree.
  */
 type RpcErrorLike = { message?: string; code?: string; hint?: string; details?: string } | null
+
+/**
+ * Extrait un message lisible depuis n'importe quel type d'erreur.
+ * Necessaire car PostgrestError (Supabase) n'est PAS une instance de Error :
+ * c'est un objet { message, code, hint, details } sans toString() propre.
+ * Sans ce helper, `err instanceof Error ? err.message : 'Erreur inconnue'`
+ * tombe dans le fallback pour toutes les erreurs Supabase.
+ */
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object') {
+    const e = err as RpcErrorLike
+    return e?.message || e?.hint || e?.details || 'Erreur inconnue'
+  }
+  return String(err) || 'Erreur inconnue'
+}
+
 async function fetchNextInvoiceNumber(): Promise<string> {
   let lastErr: RpcErrorLike = null
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -55,7 +72,6 @@ async function fetchNextInvoiceNumber(): Promise<string> {
     lastErr = (error as RpcErrorLike) ?? null
     if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
   }
-  // PostgrestError expose message/code/hint/details, pas une propriete toString().
   const msg = lastErr?.message || lastErr?.hint || lastErr?.details || 'erreur inconnue'
   throw new Error(`Impossible de générer le numéro de facture : ${msg}`)
 }
@@ -541,7 +557,7 @@ export function InvoiceDetailPage() {
       await queryClient.invalidateQueries({ queryKey: ['invoices'] })
       navigate('/admin/invoices')
     } catch (err) {
-toast(`Erreur : ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'error')
+      toast(`Erreur : ${extractErrorMessage(err)}`, 'error')
     } finally {
       setSaving(false)
     }

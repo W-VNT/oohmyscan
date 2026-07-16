@@ -40,6 +40,18 @@ type EditableLine = Omit<QuoteLine, 'id' | 'quote_id'> & { _key: string }
  * Voir InvoiceDetailPage.fetchNextInvoiceNumber (meme motif).
  */
 type RpcErrorLike = { message?: string; code?: string; hint?: string; details?: string } | null
+
+/** PostgrestError n'est pas instance Error. Ce helper extrait un message
+ * lisible depuis Error, PostgrestError ou n'importe quel unknown. */
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object') {
+    const e = err as RpcErrorLike
+    return e?.message || e?.hint || e?.details || 'Erreur inconnue'
+  }
+  return String(err) || 'Erreur inconnue'
+}
+
 async function fetchNextQuoteNumber(): Promise<string> {
   let lastErr: RpcErrorLike = null
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -325,8 +337,8 @@ export function QuoteDetailPage() {
       toast(isNew ? 'Devis créé' : 'Devis mis à jour')
       await queryClient.invalidateQueries({ queryKey: ['quotes'] })
       navigate('/admin/quotes')
-    } catch {
-      toast('Erreur lors de la sauvegarde', 'error')
+    } catch (err) {
+      toast(`Erreur : ${extractErrorMessage(err)}`, 'error')
     } finally {
       setSaving(false)
     }
