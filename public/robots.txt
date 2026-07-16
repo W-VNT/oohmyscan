@@ -1,7 +1,5 @@
 User-agent: *
 Allow: /
-Allow: /mentions-legales
-Allow: /confidentialite
 
 # Zones authentifiées — pas d'intérêt SEO
 Disallow: /login
@@ -10,5 +8,13 @@ Disallow: /admin/*
 Disallow: /app
 Disallow: /app/*
 Disallow: /landing
+Disallow: /scan
+
+# Pages légales : accessibles au crawl mais noindex côté HTML
+# (voir Helmet dans MentionsLegalesPage.tsx / ConfidentialitePage.tsx)
+
+# Rapports de campagne publics : URL avec token secret,
+# defense en profondeur pour eviter toute indexation accidentelle
+Disallow: /view/rapport/*
 
 Sitemap: https://oohmyad.fr/sitemap.xml
