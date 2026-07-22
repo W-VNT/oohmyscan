@@ -52,6 +52,35 @@ export function OperatorDashboardPage() {
     enabled: !!session,
   })
 
+  // Stats "ma journee" + cumul : campings (locations) et panneaux poses.
+  // Utile pour l'operateur qui veut verifier sa journee sans passer par
+  // le manager (question recurrente : "combien j'ai fait aujourd'hui ?").
+  const { data: myStats } = useQuery({
+    queryKey: ['my-stats', session?.user.id],
+    queryFn: async () => {
+      const uid = session!.user.id
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      const todayIso = todayStart.toISOString()
+
+      const [locToday, locTotal, panToday, panTotal] = await Promise.all([
+        supabase.from('locations').select('*', { count: 'exact', head: true }).eq('created_by', uid).gte('created_at', todayIso),
+        supabase.from('locations').select('*', { count: 'exact', head: true }).eq('created_by', uid),
+        supabase.from('panels').select('*', { count: 'exact', head: true }).eq('installed_by', uid).gte('installed_at', todayIso),
+        supabase.from('panels').select('*', { count: 'exact', head: true }).eq('installed_by', uid),
+      ])
+
+      return {
+        todayLocations: locToday.count ?? 0,
+        totalLocations: locTotal.count ?? 0,
+        todayPanels: panToday.count ?? 0,
+        totalPanels: panTotal.count ?? 0,
+      }
+    },
+    enabled: !!session,
+    staleTime: 60_000,
+  })
+
   const { data: recentAssignments, isLoading: assignLoading } = useQuery({
     queryKey: ['my-assignments'],
     queryFn: async () => {
@@ -243,6 +272,45 @@ export function OperatorDashboardPage() {
           <span className="text-[13px] font-medium">Diffuser</span>
         </Link>
       </div>
+
+      {/* 2.5 — Ma journee + cumul */}
+      {myStats && (
+        <Card>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                Ma journée
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-2xl font-bold leading-none">{myStats.todayLocations}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  camping{myStats.todayLocations > 1 ? 's' : ''}
+                </p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold leading-none">{myStats.todayPanels}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  panneau{myStats.todayPanels > 1 ? 'x' : ''}
+                </p>
+              </div>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between text-[12px]">
+              <span className="text-muted-foreground">Cumul</span>
+              <span className="font-medium">
+                {myStats.totalLocations} camping{myStats.totalLocations > 1 ? 's' : ''}
+                <span className="text-muted-foreground"> · </span>
+                {myStats.totalPanels} panneau{myStats.totalPanels > 1 ? 'x' : ''}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 3 — Active campaign (mission du jour) */}
       {activeCampaigns && activeCampaigns.length > 0 && (
