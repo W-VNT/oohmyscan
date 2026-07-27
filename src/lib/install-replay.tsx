@@ -394,6 +394,9 @@ export async function performInstallSave(
  *   - err.name est une des classes d'erreur reseau connues de supabase-js
  *     (StorageUnknownError, StorageApiError, AuthRetryableFetchError)
  *   - err.name est TypeError (fetch echoue en TypeError sur Safari iOS)
+ *   - PostgrestError (objet plat avec .details = "TypeError: Failed to fetch")
+ *     pour les erreurs remontees par .from(...).insert() sur reseau instable.
+ *     Regarde .message ET .details ET .hint (les 3 champs texte du PostgrestError).
  */
 export function isNetworkError(err: unknown): boolean {
   if (!navigator.onLine) return true
@@ -401,6 +404,18 @@ export function isNetworkError(err: unknown): boolean {
   if (/^(TypeError|StorageUnknownError|StorageApiError|AuthRetryableFetchError|NetworkError)$/i.test(name)) {
     return true
   }
-  const msg = err instanceof Error ? err.message : String(err)
-  return /network|fetch|failed|typeerror|timeout|load failed/i.test(msg)
+  // Concat tous les champs texte disponibles : Error.message, ou pour un
+  // PostgrestError (objet plat) : message + details + hint. Sans ca, un
+  // Supabase-error avec details="TypeError: Failed to fetch" passait au
+  // travers du regex (String(err) sur objet donne "[object Object]").
+  let text = ''
+  if (err instanceof Error) {
+    text = err.message
+  } else if (err && typeof err === 'object') {
+    const e = err as { message?: string; details?: string; hint?: string }
+    text = [e.message, e.details, e.hint].filter(Boolean).join(' ')
+  } else {
+    text = String(err)
+  }
+  return /network|fetch|failed|typeerror|timeout|load failed/i.test(text)
 }
