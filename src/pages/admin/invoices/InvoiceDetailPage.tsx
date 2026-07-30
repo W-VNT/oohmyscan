@@ -425,7 +425,11 @@ export function InvoiceDetailPage() {
         invoice_number: finalNumber,
         client_id: clientId,
         campaign_id: campaignId || null,
-        quote_id: invoice.quote_id || null,
+        // Ne PAS heriter du quote_id : contrainte UNIQUE partielle
+        // (invoices_quote_id_unique WHERE quote_id IS NOT NULL) interdit
+        // 2 factures pour un meme devis. Le lien "source" de l'avoir est
+        // credit_note_for_id, pas quote_id.
+        quote_id: null,
         status: 'draft',
         invoice_type: 'avoir',
         deposit_percentage: null,
