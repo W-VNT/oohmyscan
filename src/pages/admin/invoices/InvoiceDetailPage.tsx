@@ -462,8 +462,8 @@ export function InvoiceDetailPage() {
 
       toast('Avoir créé')
       navigate(`/admin/invoices/${result.id}`)
-    } catch {
-      toast('Erreur lors de la création de l\'avoir', 'error')
+    } catch (err) {
+      toast(`Erreur avoir : ${extractErrorMessage(err)}`, 'error')
     } finally {
       setSaving(false)
     }
