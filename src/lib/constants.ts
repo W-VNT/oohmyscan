@@ -127,9 +127,23 @@ export const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
   '60_days_eom': 'Paiement à 60 jours fin de mois',
 }
 
+/** Deplace d au dernier jour de son mois courant. On fait setDate(1) avant
+ *  setMonth pour eviter les overflow (ex: 31/03 → setMonth(+1) sauterait
+ *  avril et donnerait 31/05 → setDate(0) = 30/04 au lieu du 31/03 attendu). */
+function endOfMonth(d: Date): void {
+  d.setDate(1)
+  d.setMonth(d.getMonth() + 1)
+  d.setDate(0)
+}
+
 /** Compute due date from issue date and payment terms.
  *  Pour cash_on_order / deposit_*, la date de l'échéance globale reste celle
- *  du solde (30j ou 30j fin de mois) — l'acompte se règle à la commande. */
+ *  du solde (30j ou 30j fin de mois) — l'acompte se règle à la commande.
+ *
+ *  Interpretation "N jours fin de mois" = date facture + N jours calendaires
+ *  PUIS dernier jour du mois qui contient cette date (LME art. L441-10,
+ *  interpretation Cour de cassation). Exemple : 28/07 + 30 jours fin de mois
+ *  = 27/08 → dernier jour d'aout = 31/08. */
 export function computeDueDate(issuedAt: string, terms: PaymentTerms): string {
   const d = new Date(issuedAt)
   switch (terms) {
@@ -142,20 +156,19 @@ export function computeDueDate(issuedAt: string, terms: PaymentTerms): string {
       break
     case 'deposit_50_30_days_eom':
     case '30_days_eom':
-      d.setMonth(d.getMonth() + 1)
-      d.setDate(0) // last day of that month
+      d.setDate(d.getDate() + 30)
+      endOfMonth(d)
       break
     case '45_days_eom':
-      d.setMonth(d.getMonth() + 1)
-      d.setDate(0)
-      d.setDate(d.getDate() + 15)
+      d.setDate(d.getDate() + 45)
+      endOfMonth(d)
       break
     case '60_days':
       d.setDate(d.getDate() + 60)
       break
     case '60_days_eom':
-      d.setMonth(d.getMonth() + 2)
-      d.setDate(0)
+      d.setDate(d.getDate() + 60)
+      endOfMonth(d)
       break
   }
   return d.toISOString().split('T')[0]
