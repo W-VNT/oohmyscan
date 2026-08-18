@@ -13,7 +13,15 @@ interface MiniRichEditorProps {
 }
 
 export function MiniRichEditor({ value, onChange, disabled, placeholder, className }: MiniRichEditorProps) {
-  const isInternalChange = useRef(false)
+  // On tracke la derniere HTML EMISE par l'editeur. Si le parent re-render
+  // avec la meme valeur, on ne touche PAS au contenu Tiptap (sinon on
+  // ecrase la saisie en cours et on perd des caracteres — notamment les
+  // espaces quand plusieurs re-renders s'enchainent avec l'autocomplete
+  // catalogue). Le pattern isInternalChange boolean etait fragile : dans
+  // certaines sequences de setState, le flag se retrouvait a false alors
+  // que la value venait bien de nous, ce qui declenchait un setContent
+  // parasite qui repositionnait le curseur au mauvais endroit.
+  const lastEmittedRef = useRef<string>(value)
 
   const editor = useEditor({
     extensions: [
@@ -23,8 +31,9 @@ export function MiniRichEditor({ value, onChange, disabled, placeholder, classNa
     content: value,
     editable: !disabled,
     onUpdate: ({ editor: e }) => {
-      isInternalChange.current = true
-      onChange(e.getHTML())
+      const html = e.getHTML()
+      lastEmittedRef.current = html
+      onChange(html)
     },
     editorProps: {
       attributes: {
@@ -36,11 +45,13 @@ export function MiniRichEditor({ value, onChange, disabled, placeholder, classNa
 
   useEffect(() => {
     if (!editor) return
-    if (isInternalChange.current) {
-      isInternalChange.current = false
-      return
-    }
-    editor.commands.setContent(value || '')
+    // Si le parent nous renvoie exactement ce qu'on vient d'emettre : no-op.
+    if (value === lastEmittedRef.current) return
+    // Sinon, la valeur a change de l'exterieur (reset, catalogue, undo
+    // externe...) : on synchronise le contenu. emitUpdate:false pour
+    // eviter un onUpdate re-entrant qui ferait boucler onChange.
+    lastEmittedRef.current = value
+    editor.commands.setContent(value || '', { emitUpdate: false })
   }, [value, editor])
 
   if (!editor) return null
