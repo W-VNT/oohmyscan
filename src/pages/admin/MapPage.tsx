@@ -5,10 +5,11 @@ import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox'
 import type { GeoJSONSource } from 'mapbox-gl'
 import { useQuery } from '@tanstack/react-query'
 import { usePanels } from '@/hooks/usePanels'
+import { useDiffusionPoints, DIFFUSION_POINT_COLORS, type DiffusionPoint } from '@/hooks/useDiffusionPoints'
 import { supabase } from '@/lib/supabase'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Filter, Loader2, Locate, MapPinOff, Search, X, List, ChevronRight, SlidersHorizontal } from 'lucide-react'
+import { Filter, Loader2, Locate, MapPinOff, Search, X, List, ChevronRight, SlidersHorizontal, PackageOpen, PanelTop } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import type { Panel, PanelWithLocation } from '@/types'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -36,6 +37,7 @@ function estimateZoom(panels: Panel[]): number {
 
 export function MapPage() {
   const { data: panels, isLoading } = usePanels()
+  const { data: diffusionPoints } = useDiffusionPoints()
   const mapRef = useRef<MapRef>(null)
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
 
@@ -50,6 +52,7 @@ export function MapPage() {
 
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedPanel, setSelectedPanel] = useState<PanelWithLocation | null>(null)
+  const [selectedDiffusion, setSelectedDiffusion] = useState<DiffusionPoint | null>(null)
   const [viewState, setViewState] = useState(DEFAULT_VIEW)
   const initialCenteredRef = useRef(false)
 
@@ -121,6 +124,30 @@ export function MapPage() {
     })
   }, [panels, statusFilter, cityFilter, campaignFilter, panelCampaigns, debouncedSearch])
 
+  // Points de diffusion filtres. Ces points ne concernent que le fait de
+  // "diffuser une campagne" -> les filtres panneaux (status, city) ne
+  // s'appliquent pas. Seuls le filtre campagne et la recherche texte comptent.
+  //   - campaignFilter=without : cache tous les points de diffusion (ils
+  //     sont TOUS lies a une campagne par definition)
+  //   - statusFilter set : cache les points de diffusion (ils n'ont pas
+  //     de status au sens panneau)
+  const filteredDiffusionPoints = useMemo(() => {
+    if (!diffusionPoints) return []
+    if (statusFilter) return []
+    if (campaignFilter === 'without') return []
+    return diffusionPoints.filter((d) => {
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.trim().toLowerCase()
+        const haystack = [d.name, d.address, d.campaignName]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      return true
+    })
+  }, [diffusionPoints, statusFilter, campaignFilter, debouncedSearch])
+
   const cities = useMemo(() => {
     if (!panels) return []
     const set = new Set(panels.map((p) => p.city).filter(Boolean) as string[])
@@ -169,28 +196,34 @@ export function MapPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, filteredPanels])
 
-  // GeoJSON for clustering
+  // GeoJSON for clustering — panneaux QR + points de diffusion
   const geojson = useMemo(() => {
-    if (!filteredPanels.length) return null
-    return {
-      type: 'FeatureCollection' as const,
-      features: filteredPanels.map((p) => ({
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
-        properties: {
-          id: p.id,
-          color: getPanelColor(p, panelCampaigns),
-        },
-      })),
+    const features: GeoJSON.Feature<GeoJSON.Point, { id: string; color: string }>[] = []
+    for (const p of filteredPanels) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: { id: p.id, color: getPanelColor(p, panelCampaigns) },
+      })
     }
-  }, [filteredPanels, panelCampaigns])
+    for (const d of filteredDiffusionPoints) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [d.lng, d.lat] },
+        properties: { id: d.id, color: DIFFUSION_POINT_COLORS[d.type] },
+      })
+    }
+    if (!features.length) return null
+    return { type: 'FeatureCollection' as const, features }
+  }, [filteredPanels, panelCampaigns, filteredDiffusionPoints])
 
-  // Lookup panel by id
-  const panelMap = useMemo(() => {
-    const map = new globalThis.Map<string, PanelWithLocation>()
-    for (const p of panels ?? []) map.set(p.id, p)
+  // Lookup point by id (panels + diffusion)
+  const pointMap = useMemo(() => {
+    const map = new globalThis.Map<string, { kind: 'panel'; data: PanelWithLocation } | { kind: 'diffusion'; data: DiffusionPoint }>()
+    for (const p of panels ?? []) map.set(p.id, { kind: 'panel', data: p })
+    for (const d of diffusionPoints ?? []) map.set(d.id, { kind: 'diffusion', data: d })
     return map
-  }, [panels])
+  }, [panels, diffusionPoints])
 
   // Handle map click
   const handleMapClick = useCallback(
@@ -198,6 +231,7 @@ export function MapPage() {
       const features = e.features
       if (!features?.length) {
         setSelectedPanel(null)
+        setSelectedDiffusion(null)
         return
       }
 
@@ -218,14 +252,19 @@ export function MapPage() {
         return
       }
 
-      const panelId = feature.properties?.id as string
-      const panel = panelMap.get(panelId)
-      if (panel) {
-        setViewState((v) => ({ ...v, latitude: panel.lat, longitude: panel.lng }))
-        setSelectedPanel(panel)
+      const pointId = feature.properties?.id as string
+      const point = pointMap.get(pointId)
+      if (!point) return
+      setViewState((v) => ({ ...v, latitude: point.data.lat, longitude: point.data.lng }))
+      if (point.kind === 'panel') {
+        setSelectedPanel(point.data)
+        setSelectedDiffusion(null)
+      } else {
+        setSelectedDiffusion(point.data)
+        setSelectedPanel(null)
       }
     },
-    [panelMap],
+    [pointMap],
   )
 
   const handleCenterOnPanels = useCallback(() => {
@@ -541,6 +580,57 @@ export function MapPage() {
                 </div>
               </Popup>
             )}
+
+            {/* Popup point de diffusion (panneau libre ou depot) */}
+            {selectedDiffusion && (
+              <Popup
+                longitude={selectedDiffusion.lng}
+                latitude={selectedDiffusion.lat}
+                anchor="bottom"
+                onClose={() => setSelectedDiffusion(null)}
+                closeButton={false}
+                closeOnClick={false}
+                offset={12}
+                className="ooh-popup"
+              >
+                <div className="min-w-[220px] space-y-2.5 p-3">
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[14px] font-semibold">{selectedDiffusion.name}</p>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{
+                          backgroundColor: `${DIFFUSION_POINT_COLORS[selectedDiffusion.type]}26`,
+                          color: DIFFUSION_POINT_COLORS[selectedDiffusion.type],
+                        }}
+                      >
+                        {selectedDiffusion.type === 'deposit' ? 'Dépôt' : 'Panneau libre'}
+                      </span>
+                    </div>
+                    {selectedDiffusion.address && (
+                      <p className="mt-0.5 text-[12px] text-muted-foreground">{selectedDiffusion.address}</p>
+                    )}
+                    {selectedDiffusion.campaignName && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Campagne : {selectedDiffusion.campaignName}
+                      </p>
+                    )}
+                    {selectedDiffusion.type === 'deposit' && selectedDiffusion.quantity != null && (
+                      <p className="mt-0.5 text-[11px] font-medium">
+                        Quantité déposée : {selectedDiffusion.quantity}
+                      </p>
+                    )}
+                  </div>
+                  <Link
+                    to={`/admin/campaigns/${selectedDiffusion.campaignId}`}
+                    className="flex items-center justify-center gap-1.5 rounded-md bg-foreground py-2 text-[12px] font-medium text-background transition-colors hover:bg-foreground/90"
+                  >
+                    Voir la campagne
+                    <ChevronRight className="size-3.5" />
+                  </Link>
+                </div>
+              </Popup>
+            )}
           </Map>
 
           {/* Legend */}
@@ -561,6 +651,14 @@ export function MapPage() {
               <div className="flex items-center gap-2">
                 <span className="inline-block size-2.5 rounded-full bg-[#ef4444]" />
                 <span>Campagne active</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <PanelTop className="size-3" style={{ color: DIFFUSION_POINT_COLORS.free_panel }} />
+                <span>Panneau libre</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <PackageOpen className="size-3" style={{ color: DIFFUSION_POINT_COLORS.deposit }} />
+                <span>Dépôt</span>
               </div>
             </div>
           </div>

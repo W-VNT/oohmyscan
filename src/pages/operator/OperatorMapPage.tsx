@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { usePanels } from '@/hooks/usePanels'
+import { useDiffusionPoints, DIFFUSION_POINT_COLORS, type DiffusionPoint } from '@/hooks/useDiffusionPoints'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { PullToRefresh } from '@/components/shared/PullToRefresh'
-import { Loader2, LocateFixed, Navigation, Eye, Search, X, MapPinOff, CircleCheck, Megaphone, AlertTriangle } from 'lucide-react'
+import { Loader2, LocateFixed, Navigation, Eye, Search, X, MapPinOff, CircleCheck, Megaphone, AlertTriangle, PackageOpen, PanelTop } from 'lucide-react'
 import type { PanelWithLocation } from '@/types'
 import Map, { Marker, Popup, Source, Layer } from 'react-map-gl/mapbox'
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox'
@@ -48,6 +49,7 @@ function getPanelColor(panel: PanelWithLocation, campaignIds: Set<string>): stri
 export function OperatorMapPage() {
   const queryClient = useQueryClient()
   const { data: panels, isLoading } = usePanels()
+  const { data: diffusionPoints } = useDiffusionPoints()
   const mapRef = useRef<MapRef>(null)
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
 
@@ -60,6 +62,7 @@ export function OperatorMapPage() {
     return () => observer.disconnect()
   }, [])
   const [selectedPanel, setSelectedPanel] = useState<PanelWithLocation | null>(null)
+  const [selectedDiffusion, setSelectedDiffusion] = useState<DiffusionPoint | null>(null)
   const [viewState, setViewState] = useState({
     longitude: 2.3522,
     latitude: 48.8566,
@@ -106,28 +109,36 @@ export function OperatorMapPage() {
     flyToUser()
   }, [flyToUser])
 
-  // Build GeoJSON for clustering
+  // Build GeoJSON for clustering — panneaux QR + points de diffusion
+  // (panneaux libres + depots) tous fondus dans une seule source pour
+  // beneficier du meme clustering et voir la vraie densite terrain.
   const geojson = useMemo(() => {
-    if (!panels?.length) return null
-    return {
-      type: 'FeatureCollection' as const,
-      features: panels.map((p) => ({
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
-        properties: {
-          id: p.id,
-          color: getPanelColor(p, panelCampaigns),
-        },
-      })),
+    const features: GeoJSON.Feature<GeoJSON.Point, { id: string; color: string }>[] = []
+    for (const p of panels ?? []) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: { id: p.id, color: getPanelColor(p, panelCampaigns) },
+      })
     }
-  }, [panels, panelCampaigns])
+    for (const d of diffusionPoints ?? []) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [d.lng, d.lat] },
+        properties: { id: d.id, color: DIFFUSION_POINT_COLORS[d.type] },
+      })
+    }
+    if (!features.length) return null
+    return { type: 'FeatureCollection' as const, features }
+  }, [panels, panelCampaigns, diffusionPoints])
 
-  // Lookup panel by id for click events
-  const panelMap = useMemo(() => {
-    const map = new globalThis.Map<string, PanelWithLocation>()
-    for (const p of panels ?? []) map.set(p.id, p)
+  // Lookup point by id for click events (panels + diffusion mixtes)
+  const pointMap = useMemo(() => {
+    const map = new globalThis.Map<string, { kind: 'panel'; data: PanelWithLocation } | { kind: 'diffusion'; data: DiffusionPoint }>()
+    for (const p of panels ?? []) map.set(p.id, { kind: 'panel', data: p })
+    for (const d of diffusionPoints ?? []) map.set(d.id, { kind: 'diffusion', data: d })
     return map
-  }, [panels])
+  }, [panels, diffusionPoints])
 
   // Handle map click on interactive layers (clusters + points)
   const handleMapClick = useCallback(
@@ -135,6 +146,7 @@ export function OperatorMapPage() {
       const features = e.features
       if (!features?.length) {
         setSelectedPanel(null)
+        setSelectedDiffusion(null)
         return
       }
 
@@ -157,15 +169,20 @@ export function OperatorMapPage() {
         return
       }
 
-      // Individual point → center map + show popup
-      const panelId = feature.properties?.id as string
-      const panel = panelMap.get(panelId)
-      if (panel) {
-        setViewState((v) => ({ ...v, latitude: panel.lat, longitude: panel.lng }))
-        setSelectedPanel(panel)
+      // Individual point → center map + show popup selon le type
+      const pointId = feature.properties?.id as string
+      const point = pointMap.get(pointId)
+      if (!point) return
+      setViewState((v) => ({ ...v, latitude: point.data.lat, longitude: point.data.lng }))
+      if (point.kind === 'panel') {
+        setSelectedPanel(point.data)
+        setSelectedDiffusion(null)
+      } else {
+        setSelectedDiffusion(point.data)
+        setSelectedPanel(null)
       }
     },
-    [panelMap],
+    [pointMap],
   )
 
   // Search results
@@ -195,6 +212,12 @@ export function OperatorMapPage() {
     if (!selectedPanel || !userPos) return null
     return getDistance(userPos.lat, userPos.lng, selectedPanel.lat, selectedPanel.lng)
   }, [selectedPanel, userPos])
+
+  // Distance to selected diffusion point
+  const distanceToDiffusion = useMemo(() => {
+    if (!selectedDiffusion || !userPos) return null
+    return getDistance(userPos.lat, userPos.lng, selectedDiffusion.lat, selectedDiffusion.lng)
+  }, [selectedDiffusion, userPos])
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -359,6 +382,65 @@ export function OperatorMapPage() {
             </div>
           </Popup>
         )}
+
+        {/* Popup diffusion (panneau libre ou depot) */}
+        {selectedDiffusion && (
+          <Popup
+            longitude={selectedDiffusion.lng}
+            latitude={selectedDiffusion.lat}
+            anchor="bottom"
+            onClose={() => setSelectedDiffusion(null)}
+            closeButton={false}
+            closeOnClick={false}
+            offset={12}
+            className="ooh-popup"
+          >
+            <div className="min-w-[200px] space-y-2.5 p-3">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[14px] font-semibold">{selectedDiffusion.name}</p>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    style={{
+                      backgroundColor: `${DIFFUSION_POINT_COLORS[selectedDiffusion.type]}26`,
+                      color: DIFFUSION_POINT_COLORS[selectedDiffusion.type],
+                    }}
+                  >
+                    {selectedDiffusion.type === 'deposit' ? 'Dépôt' : 'Panneau libre'}
+                  </span>
+                </div>
+                {selectedDiffusion.address && (
+                  <p className="mt-0.5 text-[12px] text-muted-foreground">{selectedDiffusion.address}</p>
+                )}
+                {selectedDiffusion.campaignName && (
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Campagne : {selectedDiffusion.campaignName}
+                  </p>
+                )}
+                {selectedDiffusion.type === 'deposit' && selectedDiffusion.quantity != null && (
+                  <p className="mt-0.5 text-[11px] font-medium">
+                    Quantité déposée : {selectedDiffusion.quantity}
+                  </p>
+                )}
+                {distanceToDiffusion !== null && (
+                  <p className="mt-0.5 text-[11px] font-semibold text-blue-400">
+                    à {formatDistance(distanceToDiffusion)}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => openDirections(selectedDiffusion.lat, selectedDiffusion.lng)}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md bg-foreground py-2.5 text-[12px] font-medium text-background transition-colors hover:bg-foreground/90"
+                >
+                  <Navigation className="size-3" />
+                  Itinéraire
+                </button>
+              </div>
+            </div>
+          </Popup>
+        )}
       </Map>
 
       {/* Floating search bar */}
@@ -429,7 +511,7 @@ export function OperatorMapPage() {
       )}
 
       {/* Legend + recenter — fixed above bottom nav */}
-      <div className="fixed left-3 z-10 flex gap-3 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 0.75rem)' }}>
+      <div className="fixed left-3 z-10 flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur max-w-[calc(100%-1.5rem)]" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 0.75rem)' }}>
         <div className="flex items-center gap-1">
           <CircleCheck className="size-3 text-green-500" />
           <span className="text-[11px]">Libre</span>
@@ -441,6 +523,14 @@ export function OperatorMapPage() {
         <div className="flex items-center gap-1">
           <AlertTriangle className="size-3 text-orange-500" />
           <span className="text-[11px]">Problème</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <PanelTop className="size-3" style={{ color: DIFFUSION_POINT_COLORS.free_panel }} />
+          <span className="text-[11px]">Libre (sans QR)</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <PackageOpen className="size-3" style={{ color: DIFFUSION_POINT_COLORS.deposit }} />
+          <span className="text-[11px]">Dépôt</span>
         </div>
       </div>
 
