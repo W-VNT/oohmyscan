@@ -167,25 +167,23 @@ export function MapPage() {
   // Auto-center on panels at first load
   useEffect(() => {
     if (initialCenteredRef.current) return
-    // Auto-center sur TOUS les points (QR + diffusion) pour ne pas
-    // afficher un zoom Mediterranee alors que 500 points sont en Bretagne.
+    // Auto-center sur TOUS les points (QR + diffusion) via fitBounds :
+    // Mapbox calcule le bon zoom + centre pour que TOUS les points entrent
+    // avec une marge. Bien plus fiable qu'un center+zoom manuel qui peut
+    // couper les points aux extremes (ex : Bretagne + Corse simultanement).
     const allLats: number[] = []
     const allLngs: number[] = []
     for (const p of filteredPanels) { allLats.push(p.lat); allLngs.push(p.lng) }
     for (const d of filteredDiffusionPoints) { allLats.push(d.lat); allLngs.push(d.lng) }
-    if (allLats.length === 0) return
+    if (allLats.length === 0 || !mapRef.current) return
     initialCenteredRef.current = true
-    // Bounding box + spread pour estimer un zoom cohérent
-    const spread = Math.max(
-      Math.max(...allLats) - Math.min(...allLats),
-      Math.max(...allLngs) - Math.min(...allLngs),
+    mapRef.current.fitBounds(
+      [
+        [Math.min(...allLngs), Math.min(...allLats)],
+        [Math.max(...allLngs), Math.max(...allLats)],
+      ],
+      { padding: 60, maxZoom: 14, duration: 0 },
     )
-    const zoom = spread < 0.01 ? 15 : spread < 0.1 ? 12 : spread < 1 ? 9 : spread < 5 ? 7 : 5
-    setViewState({
-      latitude: (Math.min(...allLats) + Math.max(...allLats)) / 2,
-      longitude: (Math.min(...allLngs) + Math.max(...allLngs)) / 2,
-      zoom,
-    })
   }, [filteredPanels, filteredDiffusionPoints])
 
   // Fly to search results when debounced search changes
@@ -279,22 +277,20 @@ export function MapPage() {
   )
 
   const handleCenterOnPanels = useCallback(() => {
-    // Recentre sur QR + diffusion (meme logique que l'auto-center initial)
+    // Recentre sur QR + diffusion via fitBounds (meme logique que le
+    // auto-center initial). Animation douce pour l'action manuelle.
     const allLats: number[] = []
     const allLngs: number[] = []
     for (const p of filteredPanels) { allLats.push(p.lat); allLngs.push(p.lng) }
     for (const d of filteredDiffusionPoints) { allLats.push(d.lat); allLngs.push(d.lng) }
-    if (allLats.length === 0) return
-    const spread = Math.max(
-      Math.max(...allLats) - Math.min(...allLats),
-      Math.max(...allLngs) - Math.min(...allLngs),
+    if (allLats.length === 0 || !mapRef.current) return
+    mapRef.current.fitBounds(
+      [
+        [Math.min(...allLngs), Math.min(...allLats)],
+        [Math.max(...allLngs), Math.max(...allLats)],
+      ],
+      { padding: 60, maxZoom: 14, duration: 600 },
     )
-    const zoom = spread < 0.01 ? 15 : spread < 0.1 ? 12 : spread < 1 ? 9 : spread < 5 ? 7 : 5
-    setViewState({
-      latitude: (Math.min(...allLats) + Math.max(...allLats)) / 2,
-      longitude: (Math.min(...allLngs) + Math.max(...allLngs)) / 2,
-      zoom,
-    })
   }, [filteredPanels, filteredDiffusionPoints])
 
   function setFilter(key: string, value: string | null) {
