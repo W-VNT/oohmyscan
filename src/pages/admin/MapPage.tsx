@@ -309,7 +309,15 @@ export function MapPage() {
             <span className="sm:hidden">· </span>
             {filteredPanels.length}
             {hasActiveFilters && ` / ${panels?.length ?? 0}`}
-            <span className="hidden sm:inline"> panneau{filteredPanels.length !== 1 ? 'x' : ''}</span>
+            <span className="hidden sm:inline"> panneau{filteredPanels.length !== 1 ? 'x' : ''} QR</span>
+            {filteredDiffusionPoints.length > 0 && (
+              <>
+                <span> · </span>
+                <span>{filteredDiffusionPoints.length}</span>
+                <span className="hidden sm:inline"> point{filteredDiffusionPoints.length !== 1 ? 's' : ''} de diffusion</span>
+                <span className="sm:hidden"> diffusion</span>
+              </>
+            )}
           </span>
         </div>
         <Link
