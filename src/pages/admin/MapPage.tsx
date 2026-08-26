@@ -166,16 +166,27 @@ export function MapPage() {
 
   // Auto-center on panels at first load
   useEffect(() => {
-    if (initialCenteredRef.current || !filteredPanels.length) return
+    if (initialCenteredRef.current) return
+    // Auto-center sur TOUS les points (QR + diffusion) pour ne pas
+    // afficher un zoom Mediterranee alors que 500 points sont en Bretagne.
+    const allLats: number[] = []
+    const allLngs: number[] = []
+    for (const p of filteredPanels) { allLats.push(p.lat); allLngs.push(p.lng) }
+    for (const d of filteredDiffusionPoints) { allLats.push(d.lat); allLngs.push(d.lng) }
+    if (allLats.length === 0) return
     initialCenteredRef.current = true
-    const lats = filteredPanels.map((p) => p.lat)
-    const lngs = filteredPanels.map((p) => p.lng)
+    // Bounding box + spread pour estimer un zoom cohérent
+    const spread = Math.max(
+      Math.max(...allLats) - Math.min(...allLats),
+      Math.max(...allLngs) - Math.min(...allLngs),
+    )
+    const zoom = spread < 0.01 ? 15 : spread < 0.1 ? 12 : spread < 1 ? 9 : spread < 5 ? 7 : 5
     setViewState({
-      latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
-      longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-      zoom: estimateZoom(filteredPanels),
+      latitude: (Math.min(...allLats) + Math.max(...allLats)) / 2,
+      longitude: (Math.min(...allLngs) + Math.max(...allLngs)) / 2,
+      zoom,
     })
-  }, [filteredPanels])
+  }, [filteredPanels, filteredDiffusionPoints])
 
   // Fly to search results when debounced search changes
   useEffect(() => {
@@ -268,15 +279,23 @@ export function MapPage() {
   )
 
   const handleCenterOnPanels = useCallback(() => {
-    if (!filteredPanels.length) return
-    const lats = filteredPanels.map((p) => p.lat)
-    const lngs = filteredPanels.map((p) => p.lng)
+    // Recentre sur QR + diffusion (meme logique que l'auto-center initial)
+    const allLats: number[] = []
+    const allLngs: number[] = []
+    for (const p of filteredPanels) { allLats.push(p.lat); allLngs.push(p.lng) }
+    for (const d of filteredDiffusionPoints) { allLats.push(d.lat); allLngs.push(d.lng) }
+    if (allLats.length === 0) return
+    const spread = Math.max(
+      Math.max(...allLats) - Math.min(...allLats),
+      Math.max(...allLngs) - Math.min(...allLngs),
+    )
+    const zoom = spread < 0.01 ? 15 : spread < 0.1 ? 12 : spread < 1 ? 9 : spread < 5 ? 7 : 5
     setViewState({
-      latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
-      longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-      zoom: estimateZoom(filteredPanels),
+      latitude: (Math.min(...allLats) + Math.max(...allLats)) / 2,
+      longitude: (Math.min(...allLngs) + Math.max(...allLngs)) / 2,
+      zoom,
     })
-  }, [filteredPanels])
+  }, [filteredPanels, filteredDiffusionPoints])
 
   function setFilter(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams)
