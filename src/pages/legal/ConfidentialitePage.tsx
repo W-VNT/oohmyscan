@@ -24,10 +24,10 @@ export function ConfidentialitePage() {
             Pour toute question relative à la protection de vos données, vous pouvez nous
             contacter à l'adresse{' '}
             <a
-              href="mailto:devis@oohmyad.com"
+              href="mailto:devis@oohmyad.fr"
               className="underline decoration-[#F5C400]/60 underline-offset-4 hover:text-[#F5C400]"
             >
-              devis@oohmyad.com
+              devis@oohmyad.fr
             </a>
             .
           </p>
@@ -123,10 +123,10 @@ export function ConfidentialitePage() {
           <p>
             Pour exercer ces droits, écrivez-nous à{' '}
             <a
-              href="mailto:devis@oohmyad.com"
+              href="mailto:devis@oohmyad.fr"
               className="underline decoration-[#F5C400]/60 underline-offset-4 hover:text-[#F5C400]"
             >
-              devis@oohmyad.com
+              devis@oohmyad.fr
             </a>{' '}
             en précisant votre demande. Une réponse vous sera apportée dans un délai maximum
             d'un mois.

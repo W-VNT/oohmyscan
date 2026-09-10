@@ -46,7 +46,7 @@ const ORGANIZATION = {
   image: `${SITE_URL}/og-image.jpg`,
   description:
     'Media de proximite captif pour marques et agences : 5 familles de supports outdoor + digital, deployes partout en France. Brief gratuit, devis 24h.',
-  email: 'devis@oohmyad.com',
+  email: 'devis@oohmyad.fr',
   vatID: 'FR33851670968',
   taxID: '851670968',
   iso6523Code: '0002:851670968',
@@ -56,7 +56,7 @@ const ORGANIZATION = {
   contactPoint: {
     '@type': 'ContactPoint',
     contactType: 'sales',
-    email: 'devis@oohmyad.com',
+    email: 'devis@oohmyad.fr',
     availableLanguage: ['French'],
     areaServed: 'FR',
   },
@@ -69,7 +69,7 @@ const LOCAL_BUSINESS = {
   url: SITE_URL,
   logo: `${SITE_URL}/images/logo-oohmyad-black.svg`,
   image: `${SITE_URL}/og-image.jpg`,
-  email: 'devis@oohmyad.com',
+  email: 'devis@oohmyad.fr',
   priceRange: '€€',
   address: ADDRESS,
   areaServed: AREA_FRANCE,

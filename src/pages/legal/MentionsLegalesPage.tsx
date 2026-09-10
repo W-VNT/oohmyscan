@@ -34,10 +34,10 @@ export function MentionsLegalesPage() {
                 label: 'Contact',
                 value: (
                   <a
-                    href="mailto:devis@oohmyad.com"
+                    href="mailto:devis@oohmyad.fr"
                     className="underline decoration-[#F5C400]/60 underline-offset-4 hover:text-[#F5C400]"
                   >
-                    devis@oohmyad.com
+                    devis@oohmyad.fr
                   </a>
                 ),
               },

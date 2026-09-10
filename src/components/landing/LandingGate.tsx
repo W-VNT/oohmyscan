@@ -97,10 +97,10 @@ export function LandingGate({ children }: { children: React.ReactNode }) {
           <p className="mt-10 text-center text-[11px] text-[#9CA3AF]">
             Vous représentez une marque ?{' '}
             <a
-              href="mailto:devis@oohmyad.com"
+              href="mailto:devis@oohmyad.fr"
               className="underline decoration-[#9CA3AF]/40 underline-offset-2 transition-colors hover:text-[#111111]"
             >
-              devis@oohmyad.com
+              devis@oohmyad.fr
             </a>
           </p>
         </div>
