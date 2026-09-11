@@ -537,6 +537,7 @@ export function InvoiceDetailPage() {
           payment_terms: paymentTerms,
           notes: notes || null,
           client_reference: clientReference || null,
+          issued_at: issuedAt || undefined,
           due_at: dueAt || undefined,
           commercial_id: commercialId || null,
         })

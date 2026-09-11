@@ -311,6 +311,7 @@ export function QuoteDetailPage() {
           campaign_id: campaignId || null,
           notes: notes || null,
           client_reference: clientReference || null,
+          issued_at: issuedAt || undefined,
           valid_until: validUntil || undefined,
           payment_terms: paymentTerms,
           commercial_id: commercialId || null,
