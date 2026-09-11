@@ -181,7 +181,7 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, contactPhone, cl
   // Dossier / origin line
   const dossierParts: string[] = []
   if (invoice.client_reference) dossierParts.push(`Dossier ${invoice.client_reference}`)
-  if (quoteNumber) dossierParts.push(`Origine: Devis ${quoteNumber} du ${formatDateFR(invoice.issued_at)}`)
+  if (quoteNumber) dossierParts.push(`Origine: Devis ${quoteNumber}`)
   if (invoiceType === 'solde' && invoice.deposit_invoice_number) {
     dossierParts.push(`Réf. acompte: ${invoice.deposit_invoice_number}`)
   }
