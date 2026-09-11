@@ -148,7 +148,9 @@ export function QuoteDetailPage() {
   const isCancelled = !isNew && !!quote && (quote.status === 'cancelled' || quote.status === 'converted')
   const isStructureLocked = !isNew && !!quote && quote.status !== 'draft'
 
-  // Init form from existing quote
+  // Init form from existing quote — dependance sur quote.id UNIQUEMENT :
+  // meme raison que InvoiceDetailPage (refetch TanStack ecrasait les
+  // champs en cours d'edition, notamment la date d'emission).
   useEffect(() => {
     if (quote) {
       setClientId(quote.client_id)
@@ -160,7 +162,8 @@ export function QuoteDetailPage() {
       setValidUntil(quote.valid_until?.split('T')[0] ?? '')
       setPaymentTerms((quote.payment_terms as PaymentTerms) ?? '30_days')
     }
-  }, [quote])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote?.id])
 
   // Default commercial from client when creating new quote or when client changes
   useEffect(() => {

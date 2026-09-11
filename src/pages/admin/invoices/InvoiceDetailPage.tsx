@@ -168,7 +168,11 @@ export function InvoiceDetailPage() {
   const isCancelled = !isNew && !!invoice && invoice.status === 'cancelled'
   const isStructureLocked = !isNew && !!invoice && invoice.status !== 'draft'
 
-  // Init from existing invoice
+  // Init from existing invoice — dependance sur invoice.id UNIQUEMENT :
+  // sinon le useEffect refire a chaque refetch TanStack (window focus,
+  // cache invalidation apres save d'une ligne) et ecrase les champs
+  // que l'user est en train de modifier (typique : la date d'emission
+  // qui revient a la valeur DB apres avoir selectionne aujourd'hui).
   useEffect(() => {
     if (invoice) {
       setClientId(invoice.client_id)
@@ -184,7 +188,8 @@ export function InvoiceDetailPage() {
       setPaymentTerms((invoice.payment_terms as PaymentTerms) ?? '30_days')
       setCommercialId(invoice.commercial_id ?? '')
     }
-  }, [invoice])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoice?.id])
 
   // Default commercial from client when creating new invoice
   useEffect(() => {
