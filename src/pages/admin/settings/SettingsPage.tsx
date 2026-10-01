@@ -5,6 +5,7 @@ import { usePanelTypes, useCreatePanelType, useDeletePanelType, useUpdatePanelTy
 import { useServiceCatalog, useCreateServiceItem, useUpdateServiceItem, useDeleteServiceItem } from '@/hooks/admin/useServiceCatalog'
 import { sanitizeHtml } from '@/lib/sanitize'
 import { supabase } from '@/lib/supabase'
+import { validateUpload, IMAGE_MIMES } from '@/lib/upload-validation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -154,18 +155,15 @@ export function SettingsPage() {
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
-    if (!ALLOWED_MIMES.includes(file.type)) {
-      toast('Format non supporté. Utilisez JPG, PNG, WebP ou SVG.', 'error')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast('Fichier trop volumineux (max 5 Mo)', 'error')
+    // Pas de SVG : il peut embarquer du script et le PDF ne l'affiche pas
+    const check = validateUpload(file, IMAGE_MIMES, 5)
+    if (!check.ok) {
+      toast(`${check.error} Utilisez JPG, PNG ou WebP.`, 'error')
       return
     }
     setUploadingLogo(true)
     try {
-      const path = `logo-${crypto.randomUUID()}.${file.name.split('.').pop() || 'png'}`
+      const path = `logo-${crypto.randomUUID()}.${check.ext}`
       const { error: uploadError } = await supabase.storage
         .from('company-assets')
         .upload(path, file, { contentType: file.type, upsert: true })
@@ -315,7 +313,7 @@ export function SettingsPage() {
                     {uploadingLogo ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : <Upload className="mr-2 size-3.5" />}
                     {settings?.logo_path ? 'Changer le logo' : 'Uploader un logo'}
                   </Button>
-                  <input id="logo-input" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                  <input id="logo-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleLogoUpload} className="hidden" />
                 </div>
               </div>
 

@@ -7,6 +7,7 @@ import { useUsers } from '@/hooks/admin/useUsers'
 import { useAuth } from '@/hooks/useAuth'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { validateUpload, IMAGE_MIMES } from '@/lib/upload-validation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -156,8 +157,9 @@ export function CampaignNewPage() {
       if (stagedVisuals.length > 0) {
         for (let i = 0; i < stagedVisuals.length; i++) {
           const visual = stagedVisuals[i]
-          const ext = visual.file.name.split('.').pop()
-          const path = `${campaign.id}/${crypto.randomUUID()}.${ext}`
+          const check = validateUpload(visual.file, IMAGE_MIMES, 20)
+          if (!check.ok) throw new Error(check.error)
+          const path = `${campaign.id}/${crypto.randomUUID()}.${check.ext}`
 
           const { error: uploadError } = await supabase.storage
             .from('campaign-visuals')

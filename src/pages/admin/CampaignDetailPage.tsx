@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
+import { validateUpload, IMAGE_MIMES } from '@/lib/upload-validation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -528,10 +529,15 @@ export function CampaignDetailPage() {
   async function handleUploadVisual(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !id) return
+    const check = validateUpload(file, IMAGE_MIMES, 20)
+    if (!check.ok) {
+      toast(check.error, 'error')
+      e.target.value = ''
+      return
+    }
     setUploading(true)
     try {
-      const ext = file.name.split('.').pop()
-      const path = `${id}/${crypto.randomUUID()}.${ext}`
+      const path = `${id}/${crypto.randomUUID()}.${check.ext}`
       const { error: uploadError } = await supabase.storage
         .from('campaign-visuals')
         .upload(path, file)

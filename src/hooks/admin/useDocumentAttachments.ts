@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { validateUpload, ATTACHMENT_MIMES } from '@/lib/upload-validation'
 
 export interface DocumentAttachment {
   id: string
@@ -42,9 +43,10 @@ export function useUploadAttachment() {
       documentId: string
       file: File
     }) => {
-      // Upload to storage
-      const ext = file.name.split('.').pop() || 'bin'
-      const path = `${documentType}/${documentId}/${crypto.randomUUID()}.${ext}`
+      // Upload to storage (type et extension controles, cf upload-validation)
+      const check = validateUpload(file, ATTACHMENT_MIMES, 20)
+      if (!check.ok) throw new Error(check.error)
+      const path = `${documentType}/${documentId}/${crypto.randomUUID()}.${check.ext}`
 
       const { error: uploadError } = await supabase.storage
         .from('document-attachments')
