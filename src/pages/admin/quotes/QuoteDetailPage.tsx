@@ -799,7 +799,7 @@ export function QuoteDetailPage() {
             {existingAcomptes.length > 0 && (
               <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-xs text-orange-700 dark:text-orange-400">
                 ⚠ {existingAcomptes.length} acompte{existingAcomptes.length > 1 ? 's' : ''} déjà créé{existingAcomptes.length > 1 ? 's' : ''} sur ce devis (
-                {existingAcomptes.map((inv) => inv.invoice_number).join(', ')}).
+                {existingAcomptes.map((inv) => inv.invoice_number ?? 'brouillon').join(', ')}).
               </div>
             )}
 

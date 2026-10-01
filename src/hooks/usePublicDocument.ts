@@ -15,7 +15,7 @@ interface PublicQuote {
 
 interface PublicInvoice {
   id: string
-  invoice_number: string
+  invoice_number: string | null
   issued_at: string
   due_at: string
   status: string

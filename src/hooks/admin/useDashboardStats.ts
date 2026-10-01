@@ -273,7 +273,7 @@ export function useQuoteConversionRate() {
 
 interface RecentInvoice {
   id: string
-  invoice_number: string
+  invoice_number: string | null
   status: string
   total_ttc: number
   client_name: string

@@ -540,7 +540,7 @@ export function DashboardPage() {
                         className="flex items-center justify-between py-2 transition-colors hover:bg-muted/50"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-[12px] font-medium">{inv.invoice_number}</p>
+                          <p className="truncate text-[12px] font-medium">{inv.invoice_number ?? 'Brouillon'}</p>
                           <p className="truncate text-xs text-muted-foreground">{inv.client_name}</p>
                         </div>
                         <div className="shrink-0 text-right">

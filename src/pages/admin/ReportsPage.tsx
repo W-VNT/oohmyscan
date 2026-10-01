@@ -145,7 +145,7 @@ export function ReportsPage() {
     const start = new Date(startDate); const end = new Date(endDate + 'T23:59:59')
     const periodInvoices = invoices.filter((i) => { const d = new Date(i.issued_at); return d >= start && d <= end })
     const headers = ['invoice_number', 'client', 'status', 'issued_at', 'due_at', 'total_ht', 'total_tva', 'total_ttc']
-    const rows = periodInvoices.map((inv) => [inv.invoice_number, inv.clients?.company_name ?? '', inv.status, inv.issued_at, inv.due_at, String(inv.total_ht), String(inv.total_tva), String(inv.total_ttc)])
+    const rows = periodInvoices.map((inv) => [inv.invoice_number ?? 'Brouillon', inv.clients?.company_name ?? '', inv.status, inv.issued_at, inv.due_at, String(inv.total_ht), String(inv.total_tva), String(inv.total_ttc)])
     const csv = [headers.join(','), ...rows.map((r) => r.map((v) => `"${v}"`).join(','))].join('\n')
     saveAs(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `factures-${startDate}-${endDate}.csv`)
   }
@@ -160,8 +160,9 @@ export function ReportsPage() {
 
   function handleExportFEC() {
     if (!invoices || !settings) return
-    const fecInvoices = invoices.map((inv) => ({
-      invoice_number: inv.invoice_number, issued_at: inv.issued_at, paid_at: inv.paid_at, status: inv.status,
+    // Les brouillons ne sont pas des ecritures comptables (et n'ont pas de numero)
+    const fecInvoices = invoices.filter((inv) => inv.status !== 'draft' && inv.invoice_number).map((inv) => ({
+      invoice_number: inv.invoice_number as string, issued_at: inv.issued_at, paid_at: inv.paid_at, status: inv.status,
       total_ht: inv.total_ht, total_tva: inv.total_ttc - inv.total_ht, total_ttc: inv.total_ttc,
       client_name: inv.clients?.company_name ?? 'Inconnu',
       invoice_type: (inv as Record<string, unknown>).invoice_type as string ?? 'standard',

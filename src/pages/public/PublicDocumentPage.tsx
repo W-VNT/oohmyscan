@@ -107,7 +107,7 @@ export function PublicDocumentPage() {
               <Receipt className="size-5 text-primary" />
               <div>
                 <h1 className="text-lg font-semibold">
-                  {INVOICE_TYPE_LABELS[inv.invoice_type as InvoiceType] ?? 'Facture'} {inv.invoice_number}
+                  {INVOICE_TYPE_LABELS[inv.invoice_type as InvoiceType] ?? 'Facture'} {inv.invoice_number ?? '(brouillon)'}
                 </h1>
               </div>
             </div>

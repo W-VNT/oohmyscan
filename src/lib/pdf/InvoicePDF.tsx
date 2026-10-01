@@ -109,11 +109,17 @@ const s = StyleSheet.create({
   footerBg: { backgroundColor: c.accent, paddingVertical: 8, paddingHorizontal: 12 },
   footerText: { fontSize: 6.5, color: c.white, textAlign: 'center', lineHeight: 1.6 },
   pageNumber: { fontSize: 7, color: c.white, textAlign: 'right', marginTop: 2 },
+  draftWatermark: {
+    position: 'absolute', top: 330, left: 0, right: 0,
+    textAlign: 'center', fontSize: 90, color: '#DC2626', opacity: 0.12,
+    fontFamily: 'Helvetica-Bold', transform: 'rotate(-35deg)',
+  },
 })
 
 export interface InvoicePDFProps {
   invoice: {
-    invoice_number: string
+    /** null = brouillon pas encore emis */
+    invoice_number: string | null
     issued_at: string
     due_at: string
     paid_at: string | null
@@ -195,6 +201,7 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, contactPhone, cl
   return (
     <Document>
       <Page size="A4" style={s.page}>
+        {!invoice.invoice_number && <Text fixed style={s.draftWatermark}>BROUILLON</Text>}
         {/* === HEADER: Logo left + Doc info right === */}
         <View style={s.headerRow}>
           <View style={s.logoBlock}>
@@ -204,7 +211,9 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, contactPhone, cl
           </View>
           <View style={s.docBlock}>
             <Text style={s.docTitle}>{docLabel}</Text>
-            <Text style={s.docNumber}>{invoice.invoice_number}</Text>
+            <Text style={invoice.invoice_number ? s.docNumber : [s.docNumber, { color: '#DC2626' }]}>
+              {invoice.invoice_number ?? 'BROUILLON'}
+            </Text>
             <Text style={s.docDate}>{formatDateFR(invoice.issued_at)}</Text>
           </View>
         </View>
@@ -405,6 +414,7 @@ export function InvoicePDF({ invoice, quoteNumber, contactName, contactPhone, cl
       {/* CGV Page */}
       {termsHtml && (
         <Page size="A4" style={s.page}>
+        {!invoice.invoice_number && <Text fixed style={s.draftWatermark}>BROUILLON</Text>}
           <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 12, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 }}>
               {company.company_name ?? 'OOHMYAD'}

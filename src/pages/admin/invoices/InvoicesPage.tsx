@@ -112,7 +112,7 @@ export function InvoicesPage() {
     if (!filtered.length) return
     const headers = ['Numéro', 'Type', 'Client', 'Date', 'Échéance', 'Statut', 'Total HT', 'Total TTC']
     const rows = filtered.map((inv) => [
-      inv.invoice_number,
+      inv.invoice_number ?? 'Brouillon',
       INVOICE_TYPE_LABELS[(inv.invoice_type as InvoiceType) ?? 'standard'] ?? 'Facture',
       inv.clients?.company_name ?? '',
       new Date(inv.issued_at).toLocaleDateString('fr-FR'),
@@ -318,7 +318,7 @@ export function InvoicesPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
-                    <span className="truncate font-medium">{inv.invoice_number}</span>
+                    <span className="truncate font-medium">{inv.invoice_number ?? <span className="italic text-muted-foreground">Brouillon</span>}</span>
                     {inv.invoice_type && inv.invoice_type !== 'standard' && (
                       <span className="shrink-0 text-[10px] text-muted-foreground">
                         {INVOICE_TYPE_LABELS[inv.invoice_type as InvoiceType]}
@@ -382,7 +382,7 @@ export function InvoicesPage() {
                         className="cursor-pointer transition-colors hover:bg-muted/50"
                       >
                         <td className="px-4 py-3 font-medium">
-                          {inv.invoice_number}
+                          {inv.invoice_number ?? <span className="italic text-muted-foreground">Brouillon</span>}
                           {inv.invoice_type && inv.invoice_type !== 'standard' && (
                             <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
                               {INVOICE_TYPE_LABELS[inv.invoice_type as InvoiceType]}

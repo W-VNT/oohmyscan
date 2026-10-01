@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useInvoice, useInvoiceLines, useCreateInvoice, useUpdateInvoice, useSaveInvoiceLines, useCampaignDepositInvoices, type InvoiceLine } from '@/hooks/admin/useInvoices'
+import { useInvoice, useInvoiceLines, useCreateInvoice, useUpdateInvoice, useDeleteInvoice, useSaveInvoiceLines, useCampaignDepositInvoices, type InvoiceLine } from '@/hooks/admin/useInvoices'
 import { useInvoicePayments, useCreatePayment, useDeletePayment, PAYMENT_METHOD_LABELS, type Payment } from '@/hooks/admin/usePayments'
 import { useQuote, useQuoteLines, useUpdateQuote } from '@/hooks/admin/useQuotes'
 import { useClients, useClient } from '@/hooks/admin/useClients'
@@ -64,18 +64,6 @@ function extractErrorMessage(err: unknown): string {
   return String(err) || 'Erreur inconnue'
 }
 
-async function fetchNextInvoiceNumber(): Promise<string> {
-  let lastErr: RpcErrorLike = null
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const { data, error } = await supabase.rpc('get_next_invoice_number')
-    if (!error && data) return data as string
-    lastErr = (error as RpcErrorLike) ?? null
-    if (attempt < 2) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
-  }
-  const msg = lastErr?.message || lastErr?.hint || lastErr?.details || 'erreur inconnue'
-  throw new Error(`Impossible de générer le numéro de facture : ${msg}`)
-}
-
 function newLine(sortOrder: number, lineType: 'item' | 'section' = 'item'): EditableLine {
   return {
     _key: crypto.randomUUID(),
@@ -119,6 +107,7 @@ export function InvoiceDetailPage() {
   const { data: settings } = useCompanySettings()
 
   const createInvoice = useCreateInvoice()
+  const deleteInvoice = useDeleteInvoice()
   const updateInvoice = useUpdateInvoice()
   const updateQuote = useUpdateQuote()
   const saveLines = useSaveInvoiceLines()
@@ -424,10 +413,9 @@ export function InvoiceDetailPage() {
     if (!invoice || !settings) return
     setSaving(true)
     try {
-      const finalNumber = await fetchNextInvoiceNumber()
-
+      // Brouillon d'avoir : le numero est attribue a l'emission
       const result = await createInvoice.mutateAsync({
-        invoice_number: finalNumber,
+        invoice_number: null,
         client_id: clientId,
         campaign_id: campaignId || null,
         // Ne PAS heriter du quote_id : contrainte UNIQUE partielle
@@ -484,92 +472,154 @@ export function InvoiceDetailPage() {
 
   const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({})
 
-  async function handleSave() {
-    if (isCancelled) return
+  /** Enregistre le formulaire (creation ou mise a jour + lignes). Renvoie
+   *  l'id de la facture, ou null si la validation echoue. Lance en cas
+   *  d'erreur. Les brouillons n'ont pas de numero (attribue a l'emission). */
+  async function persistInvoice(): Promise<string | null> {
     const errors: Record<string, boolean> = {}
     if (!clientId) errors.clientId = true
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors)
       toast('Veuillez remplir les champs obligatoires', 'error')
-      return
+      return null
     }
     setValidationErrors({})
+    let invoiceId = id!
+
+    if (isNew) {
+      const result = await createInvoice.mutateAsync({
+        invoice_number: null,
+        client_id: clientId,
+        campaign_id: campaignId || null,
+        quote_id: quoteId || null,
+        status: 'draft',
+        invoice_type: invoiceType,
+        deposit_percentage: invoiceType === 'acompte' ? depositPercentage : null,
+        deposit_invoice_id: invoiceType === 'solde' && depositInvoiceId ? depositInvoiceId : null,
+        credit_note_for_id: null,
+        payment_terms: paymentTerms,
+        issued_at: issuedAt || new Date().toISOString().split('T')[0],
+        due_at: dueAt || computeDueDate(issuedAt, paymentTerms),
+        paid_at: null,
+        notes: notes || null,
+        client_reference: clientReference || null,
+        created_by: profile?.id ?? null,
+        commercial_id: commercialId || null,
+      })
+      invoiceId = result.id
+
+      // Auto-convert source quote status to 'converted'
+      if (quoteId) {
+        await updateQuote.mutateAsync({ id: quoteId, status: 'converted' })
+      }
+    } else {
+      await updateInvoice.mutateAsync({
+        id: invoiceId,
+        client_id: clientId,
+        campaign_id: campaignId || null,
+        invoice_type: invoiceType,
+        deposit_percentage: invoiceType === 'acompte' ? depositPercentage : null,
+        deposit_invoice_id: invoiceType === 'solde' && depositInvoiceId ? depositInvoiceId : null,
+        payment_terms: paymentTerms,
+        notes: notes || null,
+        client_reference: clientReference || null,
+        issued_at: issuedAt || undefined,
+        due_at: dueAt || undefined,
+        commercial_id: commercialId || null,
+      })
+    }
+
+    await saveLines.mutateAsync({
+      invoiceId,
+      lines: lines
+        .filter((l) => l.description.trim())
+        .map((l, i) => ({
+          invoice_id: invoiceId,
+          service_catalog_id: l.service_catalog_id ?? null,
+          description: l.description,
+          quantity: l.quantity,
+          unit: l.unit,
+          unit_price: l.unit_price,
+          tva_rate: l.tva_rate,
+          total_ht: l.total_ht,
+          discount_type: l.discount_type ?? null,
+          discount_value: l.discount_value ?? 0,
+          line_type: l.line_type ?? 'item',
+          sort_order: i,
+        })),
+    })
+
+    return invoiceId
+  }
+
+  async function handleSave() {
+    if (isCancelled) return
     setSaving(true)
     try {
-      let invoiceId = id!
-
-      if (isNew) {
-        const finalNumber = await fetchNextInvoiceNumber()
-
-        const result = await createInvoice.mutateAsync({
-          invoice_number: finalNumber,
-          client_id: clientId,
-          campaign_id: campaignId || null,
-          quote_id: quoteId || null,
-          status: 'draft',
-          invoice_type: invoiceType,
-          deposit_percentage: invoiceType === 'acompte' ? depositPercentage : null,
-          deposit_invoice_id: invoiceType === 'solde' && depositInvoiceId ? depositInvoiceId : null,
-          credit_note_for_id: null,
-          payment_terms: paymentTerms,
-          issued_at: issuedAt || new Date().toISOString().split('T')[0],
-          due_at: dueAt || computeDueDate(issuedAt, paymentTerms),
-          paid_at: null,
-          notes: notes || null,
-          client_reference: clientReference || null,
-          created_by: profile?.id ?? null,
-          commercial_id: commercialId || null,
-        })
-        invoiceId = result.id
-
-        // Auto-convert source quote status to 'converted'
-        if (quoteId) {
-          await updateQuote.mutateAsync({ id: quoteId, status: 'converted' })
-        }
-      } else {
-        await updateInvoice.mutateAsync({
-          id: invoiceId,
-          client_id: clientId,
-          campaign_id: campaignId || null,
-          invoice_type: invoiceType,
-          deposit_percentage: invoiceType === 'acompte' ? depositPercentage : null,
-          deposit_invoice_id: invoiceType === 'solde' && depositInvoiceId ? depositInvoiceId : null,
-          payment_terms: paymentTerms,
-          notes: notes || null,
-          client_reference: clientReference || null,
-          issued_at: issuedAt || undefined,
-          due_at: dueAt || undefined,
-          commercial_id: commercialId || null,
-        })
-      }
-
-      await saveLines.mutateAsync({
-        invoiceId,
-        lines: lines
-          .filter((l) => l.description.trim())
-          .map((l, i) => ({
-            invoice_id: invoiceId,
-            service_catalog_id: l.service_catalog_id ?? null,
-            description: l.description,
-            quantity: l.quantity,
-            unit: l.unit,
-            unit_price: l.unit_price,
-            tva_rate: l.tva_rate,
-            total_ht: l.total_ht,
-            discount_type: l.discount_type ?? null,
-            discount_value: l.discount_value ?? 0,
-            line_type: l.line_type ?? 'item',
-            sort_order: i,
-          })),
-      })
-
-      toast(isNew ? 'Facture créée' : 'Facture mise à jour')
+      const invoiceId = await persistInvoice()
+      if (!invoiceId) return
+      toast(isNew ? 'Brouillon de facture créé' : 'Facture mise à jour')
       await queryClient.invalidateQueries({ queryKey: ['invoices'] })
       navigate('/admin/invoices')
     } catch (err) {
       toast(`Erreur : ${extractErrorMessage(err)}`, 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  /** Emission : enregistre les dernieres modifs puis attribue numero + date
+   *  du jour + echeance, en une transaction cote base (emit_invoice). */
+  async function handleEmit() {
+    if (!invoice || invoice.status !== 'draft') return
+    const today = new Date().toISOString().split('T')[0]
+    const ok = await confirm({
+      title: 'Émettre la facture ?',
+      description: `Elle recevra le prochain numéro de facture et sera datée d'aujourd'hui (${new Date().toLocaleDateString('fr-FR')}). Elle ne pourra plus être modifiée structurellement (sauf descriptions et notes).`,
+      confirmLabel: 'Émettre la facture',
+    })
+    if (!ok) return
+    setSaving(true)
+    try {
+      const invoiceId = await persistInvoice()
+      if (!invoiceId) return
+      const dueDate = computeDueDate(today, paymentTerms)
+      const { data: number, error } = await supabase.rpc('emit_invoice', {
+        p_invoice_id: invoiceId,
+        p_issued_at: today,
+        p_due_at: dueDate,
+      })
+      if (error) throw error
+      setIssuedAt(today)
+      setDueAt(dueDate)
+      toast(`Facture émise : ${number}`)
+      await queryClient.invalidateQueries({ queryKey: ['invoices'] })
+    } catch (err) {
+      toast(`Erreur : ${extractErrorMessage(err)}`, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDeleteDraft() {
+    if (!invoice || invoice.status !== 'draft') return
+    const ok = await confirm({
+      title: 'Supprimer ce brouillon ?',
+      description: "Le brouillon et ses lignes sont supprimés définitivement. Aucun numéro de facture n'est perdu.",
+      confirmLabel: 'Supprimer le brouillon',
+      variant: 'destructive',
+    })
+    if (!ok) return
+    try {
+      await deleteInvoice.mutateAsync(invoice.id)
+      // Le devis d'origine redevient facturable
+      if (invoice.quote_id && invoice.invoice_type === 'standard') {
+        await updateQuote.mutateAsync({ id: invoice.quote_id, status: 'accepted' })
+      }
+      toast('Brouillon supprimé')
+      navigate('/admin/invoices')
+    } catch (err) {
+      toast(`Erreur : ${extractErrorMessage(err)}`, 'error')
     }
   }
 
@@ -651,23 +701,12 @@ export function InvoiceDetailPage() {
 
   async function handleDownloadPDF() {
     const blob = await generatePdfBlob()
-    if (blob && invoice) saveAs(blob, `${invoice.invoice_number}.pdf`)
+    if (blob && invoice) saveAs(blob, `${invoice.invoice_number ?? 'facture-brouillon'}.pdf`)
   }
 
   async function handlePreviewPDF() {
     const blob = await generatePdfBlob()
     if (blob) setPreviewUrl(URL.createObjectURL(blob))
-  }
-
-  async function handleMarkAsSent() {
-    if (!invoice) return
-    const ok = await confirm({
-      title: `Marquer la facture ${invoice.invoice_number} comme envoyée ?`,
-      description: 'La facture ne pourra plus être modifiée structurellement (sauf descriptions et notes).',
-      confirmLabel: 'Marquer envoyée',
-    })
-    if (!ok) return
-    await handleStatusChange('sent')
   }
 
   function handleMailto() {
@@ -684,10 +723,8 @@ export function InvoiceDetailPage() {
     if (!invoice || !settings) return
     setSaving(true)
     try {
-      const finalNumber = await fetchNextInvoiceNumber()
-
       const result = await createInvoice.mutateAsync({
-        invoice_number: finalNumber,
+        invoice_number: null,
         client_id: clientId,
         campaign_id: campaignId || null,
         quote_id: null,
@@ -733,7 +770,7 @@ export function InvoiceDetailPage() {
     }
   }
 
-  useDetailPageHotkeys({ onSend: handleMarkAsSent, onDuplicate: handleDuplicate, onPreviewPdf: handlePreviewPDF })
+  useDetailPageHotkeys({ onSend: handleEmit, onDuplicate: handleDuplicate, onPreviewPdf: handlePreviewPDF })
 
   if (!isNew && (invoiceLoading || linesLoading)) {
     return (
@@ -756,7 +793,7 @@ export function InvoiceDetailPage() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-lg font-semibold sm:text-xl">
-              {isNew ? 'Nouvelle facture' : invoice?.invoice_number ?? ''}
+              {isNew ? 'Nouvelle facture' : invoice?.invoice_number ?? 'Brouillon de facture'}
             </h1>
             {!isNew && invoice?.invoice_type && invoice.invoice_type !== 'standard' && (
               <span className="shrink-0 text-xs text-muted-foreground">
@@ -780,8 +817,8 @@ export function InvoiceDetailPage() {
         {!isNew && invoice && (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             {invoice.status === 'draft' && (
-              <Button size="sm" onClick={handleMarkAsSent} className="flex-1 sm:flex-none">
-                <Send className="mr-1.5 size-3.5" /> Marquer envoyée <Kbd>E</Kbd>
+              <Button size="sm" onClick={handleEmit} disabled={saving} className="flex-1 sm:flex-none">
+                <Send className="mr-1.5 size-3.5" /> Émettre la facture <Kbd>E</Kbd>
               </Button>
             )}
             {(invoice.status === 'sent' || invoice.status === 'overdue') && (
@@ -818,12 +855,12 @@ export function InvoiceDetailPage() {
                     )}
                     {invoice.status === 'overdue' && (
                       <button onClick={() => { handleStatusChange('sent' as InvoiceStatus); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
-                        <Send className="size-3.5" /> Repasser en envoyée
+                        <Send className="size-3.5" /> Repasser en émise
                       </button>
                     )}
                     {invoice.status === 'draft' && (
-                      <button onClick={() => { handleStatusChange('cancelled'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
-                        <Ban className="size-3.5" /> Annuler la facture
+                      <button onClick={() => { setShowActionsMenu(false); handleDeleteDraft() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
+                        <Trash2 className="size-3.5" /> Supprimer le brouillon
                       </button>
                     )}
                     {(invoice.status === 'sent' || invoice.status === 'overdue') && (
@@ -849,7 +886,7 @@ export function InvoiceDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null) }}>
           <div className="relative h-[90vh] w-[90vw] max-w-4xl rounded-lg bg-background shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b px-4 py-3">
-              <p className="text-sm font-medium">Aperçu — {invoice?.invoice_number}</p>
+              <p className="text-sm font-medium">Aperçu — {invoice?.invoice_number ?? 'brouillon'}</p>
               <Button size="sm" variant="ghost" onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null) }}>
                 <X className="size-4" />
               </Button>
@@ -991,7 +1028,7 @@ export function InvoiceDetailPage() {
                   <div className="space-y-1">
                     {depositInvoices.map((d) => (
                       <div key={d.id} className="flex items-center justify-between rounded bg-background px-3 py-1.5 text-sm">
-                        <span>{d.invoice_number}</span>
+                        <span>{d.invoice_number ?? 'Brouillon'}</span>
                         <span className="text-xs text-muted-foreground">
                           {d.deposit_percentage}% — {formatCurrency(d.total_ttc)} TTC
                         </span>

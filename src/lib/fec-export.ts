@@ -71,7 +71,7 @@ export function generateFEC(
 
   // Sort invoices by date
   const sorted = [...invoices]
-    .filter((inv) => inv.status !== 'cancelled' && inv.issued_at >= startDate && inv.issued_at <= endDate)
+    .filter((inv) => inv.status !== 'cancelled' && inv.status !== 'draft' && inv.issued_at >= startDate && inv.issued_at <= endDate)
     .sort((a, b) => a.issued_at.localeCompare(b.issued_at))
 
   for (const inv of sorted) {

@@ -161,6 +161,20 @@ export function useUpdateInvoice() {
 
 /** Fetch deposit (acompte) invoices for a given campaign — used to compute balance for solde invoices */
 /** Toutes les factures liées à un devis (acomptes + solde + standard). */
+/** Supprime une facture (reserve aux brouillons : ils n'ont pas de numero). */
+export function useDeleteInvoice() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('invoices').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+    },
+  })
+}
+
 export function useQuoteInvoices(quoteId: string | undefined) {
   return useQuery({
     queryKey: ['quote-invoices', quoteId],

@@ -77,7 +77,7 @@ export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, {
   className?: string
 }> = {
   draft: { label: 'Brouillon', variant: 'outline', className: 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
-  sent: { label: 'Envoyée', variant: 'default', className: 'bg-blue-600 text-white' },
+  sent: { label: 'Émise', variant: 'default', className: 'bg-blue-600 text-white' },
   paid: { label: 'Payée', variant: 'default', className: 'bg-green-600 text-white' },
   overdue: { label: 'En retard', variant: 'destructive' },
   cancelled: { label: 'Annulée', variant: 'outline' },

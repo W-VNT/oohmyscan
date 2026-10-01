@@ -598,7 +598,7 @@ export function ClientDetailPage() {
                     className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
                   >
                     <div>
-                      <p className="text-sm font-medium">{inv.invoice_number}</p>
+                      <p className="text-sm font-medium">{inv.invoice_number ?? 'Brouillon'}</p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(inv.issued_at).toLocaleDateString('fr-FR')}
                         {inv.status === 'overdue' && (

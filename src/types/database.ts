@@ -884,7 +884,7 @@ export interface Database {
       invoices: {
         Row: {
           id: string
-          invoice_number: string
+          invoice_number: string | null
           quote_id: string | null
           client_id: string
           campaign_id: string | null
@@ -914,7 +914,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          invoice_number: string
+          invoice_number?: string | null
           quote_id?: string | null
           client_id: string
           campaign_id?: string | null
@@ -943,7 +943,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          invoice_number?: string
+          invoice_number?: string | null
           quote_id?: string | null
           client_id?: string
           campaign_id?: string | null
@@ -1530,6 +1530,10 @@ export interface Database {
       get_public_document: {
         Args: { p_token: string }
         Returns: unknown
+      }
+      emit_invoice: {
+        Args: { p_invoice_id: string; p_issued_at: string; p_due_at: string }
+        Returns: string
       }
       get_public_report: {
         Args: { p_token: string }
