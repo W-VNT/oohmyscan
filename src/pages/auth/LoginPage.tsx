@@ -108,6 +108,14 @@ export function LoginPage() {
 
     const { error } = await signIn(email, password)
 
+    // Compte desactive par un admin : banni dans Supabase Auth
+    const authErr = error as { code?: string; message?: string } | null
+    if (authErr && (authErr.code === 'user_banned' || /banned/i.test(authErr.message ?? ''))) {
+      setError('Ce compte a été désactivé. Contacte un administrateur.')
+      setLoading(false)
+      return
+    }
+
     if (error) {
       failedAttempts.current += 1
       if (failedAttempts.current >= MAX_ATTEMPTS) {
