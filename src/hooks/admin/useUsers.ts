@@ -150,6 +150,27 @@ export function useUpdateUser() {
   })
 }
 
+/**
+ * Active / desactive un compte via l'edge function manage-user : met a jour
+ * profiles.is_active ET bannit (ou debannit) le compte dans Auth, pour qu'un
+ * compte desactive ne puisse plus se reconnecter ni renouveler sa session.
+ */
+export function useSetUserActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ userId, active }: { userId: string; active: boolean }) => {
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: { action: 'set_active', userId, active },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+}
+
 export function useInviteUser() {
   const queryClient = useQueryClient()
   return useMutation({

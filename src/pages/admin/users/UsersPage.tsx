@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { useUsers, useUpdateUser, useOperatorStats, useInviteUser, type Profile } from '@/hooks/admin/useUsers'
+import { useUsers, useUpdateUser, useOperatorStats, useInviteUser, useSetUserActive, type Profile } from '@/hooks/admin/useUsers'
 import { useAppStore } from '@/store/app.store'
 import type { UserRole } from '@/lib/constants'
 import { supabase } from '@/lib/supabase'
@@ -40,6 +40,7 @@ export function UsersPage() {
   const { data: users, isLoading } = useUsers()
   const { data: stats } = useOperatorStats()
   const updateUser = useUpdateUser()
+  const setUserActive = useSetUserActive()
   const inviteUser = useInviteUser()
   const currentUserId = useAppStore((s) => s.profile?.id)
   const confirm = useConfirm()
@@ -149,19 +150,26 @@ export function UsersPage() {
     }
   }
 
+  async function setActive(user: Profile, active: boolean) {
+    try {
+      await setUserActive.mutateAsync({ userId: user.id, active })
+      toast(active ? 'Utilisateur réactivé' : 'Utilisateur désactivé')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erreur', 'error')
+    }
+  }
+
   function handleToggleActive(user: Profile) {
     if (user.is_active) {
       setConfirmDeactivate(user.id)
     } else {
-      updateUser.mutate({ id: user.id, is_active: true })
-      toast('Utilisateur réactivé')
+      void setActive(user, true)
     }
   }
 
   function confirmToggle(user: Profile) {
-    updateUser.mutate({ id: user.id, is_active: false })
     setConfirmDeactivate(null)
-    toast('Utilisateur désactivé')
+    void setActive(user, false)
   }
 
   async function handleResetPassword(userId: string) {

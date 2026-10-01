@@ -60,11 +60,11 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile } = await supabaseAdmin
       .from("profiles")
-      .select("role")
+      .select("role, is_active")
       .eq("id", caller.id)
       .single();
 
-    if (callerProfile?.role !== "admin") {
+    if (callerProfile?.role !== "admin" || callerProfile?.is_active === false) {
       return new Response(
         JSON.stringify({ error: "Accès réservé aux administrateurs" }),
         {
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { action, userId } = await req.json();
+    const { action, userId, active } = await req.json();
 
     if (!userId || !action) {
       return new Response(
@@ -86,10 +86,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Prevent self-deletion
-    if (action === "delete" && userId === caller.id) {
+    // Pas d'action sur son propre compte (suppression / desactivation)
+    if ((action === "delete" || action === "set_active") && userId === caller.id) {
       return new Response(
-        JSON.stringify({ error: "Vous ne pouvez pas supprimer votre propre compte" }),
+        JSON.stringify({ error: "Action impossible sur votre propre compte" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -154,6 +154,36 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "set_active") {
+      // Desactivation = profil inactif (la RLS coupe l'acces aux donnees
+      // immediatement) + compte banni dans Auth (plus de connexion ni de
+      // renouvellement de session). Reactivation = l'inverse.
+      if (typeof active !== "boolean") {
+        return new Response(JSON.stringify({ error: "active (boolean) requis" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        ban_duration: active ? "none" : "876000h",
+      });
+      if (banErr) throw banErr;
+
+      const { error: profileErr } = await supabaseAdmin
+        .from("profiles")
+        .update({ is_active: active })
+        .eq("id", userId);
+      if (profileErr) throw profileErr;
+
+      return new Response(
+        JSON.stringify({ success: true, message: active ? "Utilisateur réactivé" : "Utilisateur désactivé" }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     if (action === "delete") {
       // Delete profile first
       await supabaseAdmin.from("profiles").delete().eq("id", userId);
@@ -173,7 +203,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Action non reconnue (get_email, reset_password, delete)" }),
+      JSON.stringify({ error: "Action non reconnue (get_email, reset_password, set_active, delete)" }),
       {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
