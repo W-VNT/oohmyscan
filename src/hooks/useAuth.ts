@@ -46,6 +46,11 @@ export function useAuth() {
 
       if (error) {
         setProfile(null)
+      } else if (data && data.is_active === false) {
+        // Compte desactive par un admin : on coupe la session (la RLS
+        // refuse deja les acces cote base)
+        setProfile(null)
+        await supabase.auth.signOut()
       } else {
         setProfile(data)
       }

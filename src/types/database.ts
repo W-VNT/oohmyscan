@@ -1531,6 +1531,14 @@ export interface Database {
         Args: { p_token: string }
         Returns: unknown
       }
+      get_public_report: {
+        Args: { p_token: string }
+        Returns: unknown
+      }
+      activate_my_profile: {
+        Args: Record<string, never>
+        Returns: undefined
+      }
       get_company_document_settings: {
         Args: Record<string, never>
         Returns: {

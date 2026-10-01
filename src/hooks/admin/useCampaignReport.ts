@@ -228,13 +228,10 @@ export function usePublicCampaignReport(token: string | undefined) {
   return useQuery({
     queryKey: ['public-report', token],
     queryFn: async () => {
-      if (!token) return null
-      const { data, error } = await supabase
-        .from('campaign_reports')
-        .select('id, public_token, published_pdf_path, published_at, campaigns(name, start_date, end_date, clients(company_name))')
-        .eq('public_token', token)
-        .not('published_pdf_path', 'is', null)
-        .maybeSingle()
+      if (!token || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) return null
+      // RPC SECURITY DEFINER : la table campaign_reports n'est plus lisible
+      // en anonyme (elle permettait de lister tous les rapports publies).
+      const { data, error } = await supabase.rpc('get_public_report', { p_token: token })
       if (error) throw error
       if (!data) return null
 
@@ -245,7 +242,7 @@ export function usePublicCampaignReport(token: string | undefined) {
       return {
         pdfUrl: pub.publicUrl,
         publishedAt: (data as unknown as { published_at: string }).published_at,
-        campaign: (data as unknown as { campaigns: { name: string; start_date: string; end_date: string | null; clients: { company_name: string } | null } | null }).campaigns,
+        campaign: (data as unknown as { campaign: { name: string; start_date: string; end_date: string | null; clients: { company_name: string } | null } | null }).campaign,
       }
     },
     enabled: !!token,

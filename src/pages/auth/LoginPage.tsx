@@ -120,9 +120,16 @@ export function LoginPage() {
     } else {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
-        // Update profile status to active on first login
-        await supabase.from('profiles').update({ is_active: true, status: 'active' }).eq('id', session.user.id)
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
+        // Premiere connexion : invited -> active (RPC, l'utilisateur ne peut
+        // plus modifier lui-meme son statut ni is_active)
+        await supabase.rpc('activate_my_profile')
+        const { data: profile } = await supabase.from('profiles').select('role, is_active').eq('id', session.user.id).single()
+        if (profile?.is_active === false) {
+          await supabase.auth.signOut()
+          setError('Ce compte a été désactivé. Contacte un administrateur.')
+          setLoading(false)
+          return
+        }
         navigate(homeForRole(profile?.role))
       } else {
         navigate('/app/dashboard')
@@ -157,7 +164,7 @@ export function LoginPage() {
     // Mark profile as active + redirige vers la home selon le role
     const { data: { session } } = await supabase.auth.getSession()
     if (session?.user) {
-      await supabase.from('profiles').update({ is_active: true }).eq('id', session.user.id)
+      await supabase.rpc('activate_my_profile')
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
       navigate(homeForRole(profile?.role))
     } else {
