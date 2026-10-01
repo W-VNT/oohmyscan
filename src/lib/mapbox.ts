@@ -142,3 +142,25 @@ export async function searchPlaces(
     }
   })
 }
+
+/**
+ * Geocode une adresse texte (France) -> coordonnees du meilleur resultat,
+ * ou null si rien de pertinent n'est trouve.
+ */
+export async function geocodeAddress(query: string): Promise<{ lat: number; lng: number } | null> {
+  if (!MAPBOX_TOKEN || !query.trim()) return null
+  const url = new URL(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query.trim())}.json`,
+  )
+  url.searchParams.set('country', 'fr')
+  url.searchParams.set('language', 'fr')
+  url.searchParams.set('limit', '1')
+  url.searchParams.set('access_token', MAPBOX_TOKEN)
+
+  const res = await fetch(url.toString())
+  if (!res.ok) return null
+  const data = await res.json()
+  const center = data.features?.[0]?.center as [number, number] | undefined
+  if (!center) return null
+  return { lng: center[0], lat: center[1] }
+}

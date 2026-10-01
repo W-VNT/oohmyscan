@@ -3,13 +3,16 @@ import { Link, useSearchParams } from 'react-router-dom'
 import Map, { Popup, NavigationControl, Source, Layer } from 'react-map-gl/mapbox'
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox'
 import type { GeoJSONSource } from 'mapbox-gl'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from '@/components/shared/Toast'
+import { useConfirm } from '@/components/shared/ConfirmDialog'
+import { geocodeMissingFreePanels, type GeocodeProgress } from '@/lib/geocode-free-panels'
 import { usePanels } from '@/hooks/usePanels'
 import { useDiffusionPoints, DIFFUSION_POINT_COLORS, type DiffusionPoint } from '@/hooks/useDiffusionPoints'
 import { supabase } from '@/lib/supabase'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Filter, Loader2, Locate, MapPinOff, Search, X, List, ChevronRight, SlidersHorizontal, PackageOpen, PanelTop } from 'lucide-react'
+import { Filter, Loader2, Locate, MapPinOff, Search, X, List, ChevronRight, SlidersHorizontal, PackageOpen, PanelTop, MapPinned } from 'lucide-react'
 import { PANEL_STATUSES, PANEL_STATUS_CONFIG, type PanelStatus } from '@/lib/constants'
 import type { Panel, PanelWithLocation } from '@/types'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -38,6 +41,49 @@ function estimateZoom(panels: Panel[]): number {
 export function MapPage() {
   const { data: panels, isLoading } = usePanels()
   const { data: diffusionPoints } = useDiffusionPoints()
+  const queryClient = useQueryClient()
+  const confirm = useConfirm()
+
+  // Poses libres faites sans GPS : absentes de la carte tant qu'elles n'ont
+  // pas de coordonnees. Rattrapage depuis l'adresse du lieu.
+  const { data: missingCoordsCount = 0 } = useQuery({
+    queryKey: ['free-panels-missing-coords'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('campaign_free_panels')
+        .select('id', { count: 'exact', head: true })
+        .or('lat.is.null,lng.is.null')
+      if (error) throw error
+      return count ?? 0
+    },
+  })
+  const [geocoding, setGeocoding] = useState<GeocodeProgress | null>(null)
+
+  async function handleGeocode() {
+    const ok = await confirm({
+      title: `Géolocaliser ${missingCoordsCount} pose${missingCoordsCount > 1 ? 's' : ''} sans GPS ?`,
+      description:
+        "Leur position sera calculée à partir de l'adresse du lieu (une recherche par lieu). La position est approximative : celle de l'adresse, pas celle exacte du panneau.",
+      confirmLabel: 'Géolocaliser',
+    })
+    if (!ok) return
+    setGeocoding({ done: 0, total: 0 })
+    try {
+      const res = await geocodeMissingFreePanels(setGeocoding)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['diffusion-points'] }),
+        queryClient.invalidateQueries({ queryKey: ['free-panels-missing-coords'] }),
+      ])
+      toast(
+        `${res.panelsUpdated} pose${res.panelsUpdated > 1 ? 's' : ''} géolocalisée${res.panelsUpdated > 1 ? 's' : ''} (${res.located}/${res.locations} lieux)` +
+          (res.notFound.length ? ` — introuvables : ${res.notFound.slice(0, 5).join(', ')}${res.notFound.length > 5 ? '…' : ''}` : ''),
+      )
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erreur de géolocalisation', 'error')
+    } finally {
+      setGeocoding(null)
+    }
+  }
   const mapRef = useRef<MapRef>(null)
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
 
@@ -335,6 +381,20 @@ export function MapPage() {
             )}
           </span>
         </div>
+        <div className="flex gap-2">
+        {(missingCoordsCount > 0 || geocoding) && (
+          <button
+            onClick={handleGeocode}
+            disabled={!!geocoding}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-sm transition-colors hover:bg-muted disabled:opacity-60"
+            title="Positionner sur la carte les poses faites sans GPS, depuis l'adresse du lieu"
+          >
+            {geocoding ? <Loader2 className="size-4 animate-spin" /> : <MapPinned className="size-4" />}
+            {geocoding
+              ? `Géolocalisation… ${geocoding.done}/${geocoding.total}`
+              : <><span className="hidden sm:inline">Géolocaliser </span>{missingCoordsCount} sans GPS</>}
+          </button>
+        )}
         <Link
           to="/admin/panels"
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-input bg-background px-3 text-sm transition-colors hover:bg-muted"
@@ -343,6 +403,7 @@ export function MapPage() {
           <span className="hidden sm:inline">Voir en liste</span>
           <span className="sm:hidden">Liste</span>
         </Link>
+        </div>
       </div>
 
       {/* Filters — compact sur mobile : Search + Status + Recentrer en 1-2 rangs.
