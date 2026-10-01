@@ -87,7 +87,7 @@ export function SettingsPage() {
     const keys: (keyof CompanySettings)[] = [
       'company_name', 'address', 'city', 'postal_code', 'siret', 'tva_number',
       'email', 'phone', 'iban', 'bic', 'quote_prefix', 'invoice_prefix', 'legal_mentions', 'late_penalty_text', 'terms_and_conditions',
-      'resend_api_key', 'email_from', 'email_from_name', 'email_quote_subject', 'email_quote_body', 'email_invoice_subject', 'email_invoice_body', 'email_contract_subject', 'email_contract_body',
+      'email_from', 'email_from_name', 'email_quote_subject', 'email_quote_body', 'email_invoice_subject', 'email_invoice_body', 'email_contract_subject', 'email_contract_body',
     ]
     return keys.some((k) => (form[k] ?? '') !== (settings[k] ?? ''))
   }, [form, settings])
@@ -133,7 +133,6 @@ export function SettingsPage() {
         legal_mentions: form.legal_mentions,
         late_penalty_text: form.late_penalty_text,
         terms_and_conditions: form.terms_and_conditions,
-        resend_api_key: form.resend_api_key,
         email_from: form.email_from,
         email_from_name: form.email_from_name,
         email_quote_subject: form.email_quote_subject,
@@ -640,20 +639,11 @@ export function SettingsPage() {
                 <p className="text-sm font-semibold">Configuration Resend</p>
               </div>
               <p className="text-xs text-muted-foreground">
-                Clé API Resend pour l'envoi des devis et factures par email.
-                Obtenez votre clé sur <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="underline">resend.com</a>.
+                La clé API Resend est stockée dans les secrets Supabase (<code>RESEND_API_KEY</code>),
+                elle n'est plus enregistrée en base ni visible ici. Pour la changer :{' '}
+                <code>supabase secrets set RESEND_API_KEY=...</code>
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium">Clé API Resend</label>
-                  <Input
-                    type="password"
-                    value={form.resend_api_key ?? ''}
-                    onChange={(e) => setForm((f) => ({ ...f, resend_api_key: e.target.value }))}
-                    placeholder="re_xxxxxxxxxxxxx"
-                    className="text-sm"
-                  />
-                </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium">Email d'envoi (from)</label>
                   <Input
