@@ -174,7 +174,7 @@ export interface Database {
         Row: {
           id: string
           full_name: string
-          role: 'admin' | 'operator'
+          role: 'admin' | 'operator' | 'commercial'
           phone: string | null
           avatar_url: string | null
           is_active: boolean
@@ -184,7 +184,7 @@ export interface Database {
         Insert: {
           id: string
           full_name: string
-          role: 'admin' | 'operator'
+          role: 'admin' | 'operator' | 'commercial'
           phone?: string | null
           avatar_url?: string | null
           is_active?: boolean
@@ -194,7 +194,7 @@ export interface Database {
         Update: {
           id?: string
           full_name?: string
-          role?: 'admin' | 'operator'
+          role?: 'admin' | 'operator' | 'commercial'
           phone?: string | null
           avatar_url?: string | null
           is_active?: boolean
@@ -1527,6 +1527,10 @@ export interface Database {
       }
     }
     Functions: {
+      get_public_document: {
+        Args: { p_token: string }
+        Returns: unknown
+      }
       get_company_public: {
         Args: Record<string, never>
         Returns: {

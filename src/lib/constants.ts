@@ -8,7 +8,7 @@ export type PanelStatus = (typeof PANEL_STATUSES)[number]
 export const CAMPAIGN_STATUSES = ['draft', 'active', 'completed', 'cancelled'] as const
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number]
 
-export const USER_ROLES = ['admin', 'operator'] as const
+export const USER_ROLES = ['admin', 'operator', 'commercial'] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
 export const PHOTO_TYPES = ['installation', 'check', 'campaign', 'damage'] as const
