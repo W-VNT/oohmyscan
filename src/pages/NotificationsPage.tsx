@@ -1,5 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Bell, CheckCheck, AlertTriangle, Megaphone, FileCheck, Loader2 } from 'lucide-react'
+import { ArrowLeft, Bell, CheckCheck, AlertTriangle, Megaphone, FileCheck, Loader2, Receipt } from 'lucide-react'
 import {
   useNotifications,
   useMarkNotificationRead,
@@ -25,6 +25,8 @@ function iconForType(type: string) {
       return Megaphone
     case 'contract_signed':
       return FileCheck
+    case 'quote_accepted':
+      return Receipt
     default:
       return Bell
   }

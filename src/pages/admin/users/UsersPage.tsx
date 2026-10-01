@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useUsers, useUpdateUser, useOperatorStats, useInviteUser, type Profile } from '@/hooks/admin/useUsers'
 import { useAppStore } from '@/store/app.store'
+import type { UserRole } from '@/lib/constants'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -17,7 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown, SlidersHorizontal, Pencil, Mail, Send } from 'lucide-react'
 
-type RoleFilter = 'all' | 'admin' | 'operator'
+type RoleFilter = 'all' | UserRole
 type StatusFilter = 'all' | 'active' | 'inactive'
 type SortOption = 'name' | 'role' | 'activity' | 'panels' | 'newest'
 
@@ -54,14 +55,14 @@ export function UsersPage() {
 
   // Inline edit
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ full_name: '', role: 'operator' as 'admin' | 'operator', phone: '' })
+  const [editForm, setEditForm] = useState({ full_name: '', role: 'operator' as UserRole, phone: '' })
   const [saving, setSaving] = useState(false)
 
   // Invite form (inline at top)
   const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
-  const [inviteRole, setInviteRole] = useState<'admin' | 'operator'>('operator')
+  const [inviteRole, setInviteRole] = useState<UserRole>('operator')
   const [inviting, setInviting] = useState(false)
 
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null)
@@ -80,10 +81,11 @@ export function UsersPage() {
   }
 
   const roleCounts = useMemo(() => {
-    if (!users) return { admin: 0, operator: 0, active: 0, inactive: 0 }
+    if (!users) return { admin: 0, operator: 0, commercial: 0, active: 0, inactive: 0 }
     return {
       admin: users.filter((u) => u.role === 'admin').length,
       operator: users.filter((u) => u.role === 'operator').length,
+      commercial: users.filter((u) => u.role === 'commercial').length,
       active: users.filter((u) => u.is_active).length,
       inactive: users.filter((u) => !u.is_active).length,
     }
@@ -294,8 +296,9 @@ export function UsersPage() {
               </div>
               <div>
                 <label className="mb-2 block text-sm font-medium">Rôle</label>
-                <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as 'admin' | 'operator')} className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm">
+                <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as UserRole)} className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm">
                   <option value="operator">Opérateur</option>
+                  <option value="commercial">Commercial (devis uniquement)</option>
                   <option value="admin">Administrateur</option>
                 </select>
               </div>
@@ -333,6 +336,7 @@ export function UsersPage() {
               <option value="all">Tous rôles ({users?.length ?? 0})</option>
               <option value="admin">Admins ({roleCounts.admin})</option>
               <option value="operator">Opérateurs ({roleCounts.operator})</option>
+              <option value="commercial">Commerciaux ({roleCounts.commercial})</option>
             </select>
           </div>
           <div className="relative hidden sm:flex">
@@ -449,11 +453,12 @@ export function UsersPage() {
                       <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Rôle</label>
                       <select
                         value={editForm.role}
-                        onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as 'admin' | 'operator' }))}
+                        onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as UserRole }))}
                         disabled={user.id === currentUserId}
                         className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm disabled:opacity-50"
                       >
                         <option value="operator">Opérateur</option>
+                        <option value="commercial">Commercial</option>
                         <option value="admin">Admin</option>
                       </select>
                     </div>
@@ -495,7 +500,7 @@ export function UsersPage() {
                         )}
                       </div>
                       <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="shrink-0">
-                        {user.role === 'admin' ? 'Admin' : 'Opérateur'}
+                        {user.role === 'admin' ? 'Admin' : user.role === 'commercial' ? 'Commercial' : 'Opérateur'}
                       </Badge>
                     </div>
                     <p className="truncate text-xs text-muted-foreground">{user.phone || '—'}</p>
@@ -612,8 +617,9 @@ export function UsersPage() {
                           <Input value={editForm.full_name} onChange={(e) => setEditForm((f) => ({ ...f, full_name: e.target.value }))} className="h-8 text-sm" autoFocus onKeyDown={(e) => e.key === 'Enter' && saveEdit(user.id)} />
                         </td>
                         <td className="px-4 py-2">
-                          <select value={editForm.role} onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as 'admin' | 'operator' }))} disabled={user.id === currentUserId} className="flex h-8 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50">
+                          <select value={editForm.role} onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as UserRole }))} disabled={user.id === currentUserId} className="flex h-8 rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50">
                             <option value="operator">Opérateur</option>
+                            <option value="commercial">Commercial</option>
                             <option value="admin">Admin</option>
                           </select>
                         </td>
@@ -647,7 +653,7 @@ export function UsersPage() {
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-1.5">
                           <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                            {user.role === 'admin' ? 'Admin' : 'Opérateur'}
+                            {user.role === 'admin' ? 'Admin' : user.role === 'commercial' ? 'Commercial' : 'Opérateur'}
                           </Badge>
                           {user.status === 'invited' && (
                             <Badge variant="outline" className="border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
@@ -761,9 +767,11 @@ function UserActionsMenu({
         <DropdownMenuItem onClick={() => onResetPassword(user.id)}>
           <KeyRound className="size-3.5" /> Réinitialiser le mot de passe
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onChangeRole(user)}>
-          <Shield className="size-3.5" /> Passer en {oppositeRoleLabel}
-        </DropdownMenuItem>
+        {user.role !== 'commercial' && (
+          <DropdownMenuItem onClick={() => onChangeRole(user)}>
+            <Shield className="size-3.5" /> Passer en {oppositeRoleLabel}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useClient, useUpdateClient } from '@/hooks/admin/useClients'
-import { useAdmins } from '@/hooks/admin/useUsers'
+import { useSalesPeople } from '@/hooks/admin/useUsers'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useQuotes } from '@/hooks/admin/useQuotes'
 import { useInvoices } from '@/hooks/admin/useInvoices'
@@ -44,7 +44,7 @@ export function ClientDetailPage() {
   const navigate = useNavigate()
   const { data: client, isLoading } = useClient(id)
   const updateClient = useUpdateClient()
-  const { data: admins } = useAdmins()
+  const { data: admins } = useSalesPeople()
   const { data: allCampaigns } = useCampaigns()
   const { data: allQuotes } = useQuotes()
   const { data: allInvoices } = useInvoices()

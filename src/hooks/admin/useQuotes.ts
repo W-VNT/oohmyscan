@@ -28,19 +28,22 @@ export function usePaginatedQuotes(
   archiveMode: 'active' | 'archived' | 'all',
   clientId: string,
   campaignId: string,
+  commercialId: string = 'all',
 ) {
   return useQuery({
-    queryKey: ['quotes', 'paginated', page, search, status, sort, archiveMode, clientId, campaignId],
+    queryKey: ['quotes', 'paginated', page, search, status, sort, archiveMode, clientId, campaignId, commercialId],
     queryFn: async () => {
       let query = supabase
         .from('quotes')
-        .select('*, clients!quotes_client_id_fkey(company_name), campaigns!quotes_campaign_id_fkey(name)', { count: 'exact' })
+        .select('*, clients!quotes_client_id_fkey(company_name), campaigns!quotes_campaign_id_fkey(name), commercial:profiles!quotes_commercial_id_fkey(full_name)', { count: 'exact' })
 
       if (archiveMode === 'active') query = query.eq('is_archived', false)
       else if (archiveMode === 'archived') query = query.eq('is_archived', true)
       if (status && status !== 'all') query = query.eq('status', status as 'draft')
       if (clientId && clientId !== 'all') query = query.eq('client_id', clientId)
       if (campaignId && campaignId !== 'all') query = query.eq('campaign_id', campaignId)
+      if (commercialId === 'none') query = query.is('commercial_id', null)
+      else if (commercialId && commercialId !== 'all') query = query.eq('commercial_id', commercialId)
       if (search.trim()) {
         const escaped = search.trim().replace(/[%_\\]/g, (c) => `\\${c}`).replace(/[,()]/g, '')
         const q = `%${escaped}%`

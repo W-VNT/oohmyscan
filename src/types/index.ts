@@ -37,6 +37,8 @@ export type PanelWithLocation = Panel & {
 export type QuoteWithClient = Quote & {
   clients: { company_name: string } | null
   campaigns: { name: string } | null
+  /** Present seulement sur la liste paginee (jointure profiles) */
+  commercial?: { full_name: string } | null
 }
 
 /** Invoice row with the joined `clients(company_name)` relation */

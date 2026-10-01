@@ -5,7 +5,7 @@ import { useInvoice, useInvoiceLines, useCreateInvoice, useUpdateInvoice, useSav
 import { useInvoicePayments, useCreatePayment, useDeletePayment, PAYMENT_METHOD_LABELS, type Payment } from '@/hooks/admin/usePayments'
 import { useQuote, useQuoteLines, useUpdateQuote } from '@/hooks/admin/useQuotes'
 import { useClients, useClient } from '@/hooks/admin/useClients'
-import { useAdmins } from '@/hooks/admin/useUsers'
+import { useSalesPeople } from '@/hooks/admin/useUsers'
 import { useClientCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
@@ -114,7 +114,7 @@ export function InvoiceDetailPage() {
   const { data: sourceQuote } = useQuote(fromQuoteId ?? invoice?.quote_id ?? undefined)
   const { data: sourceQuoteLines } = useQuoteLines(fromQuoteId ?? undefined)
   const { data: clients } = useClients()
-  const { data: admins } = useAdmins()
+  const { data: admins } = useSalesPeople()
   const { data: services } = useServiceCatalog()
   const { data: settings } = useCompanySettings()
 

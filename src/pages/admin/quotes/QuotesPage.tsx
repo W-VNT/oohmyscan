@@ -6,12 +6,13 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive, ArrowRight, ChevronLeft, ChevronRight, X, Building2, Megaphone, SlidersHorizontal } from 'lucide-react'
+import { FileText, Plus, Search, Loader2, Filter, ArrowUpDown, AlertTriangle, Download, Archive, ArrowRight, ChevronLeft, ChevronRight, X, Building2, Megaphone, SlidersHorizontal, Users } from 'lucide-react'
 import { QUOTE_STATUSES, QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/constants'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 import { useClients } from '@/hooks/admin/useClients'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useBasePath } from '@/hooks/useBasePath'
+import { useSalesPeople } from '@/hooks/admin/useUsers'
 
 type SortOption = 'newest' | 'oldest' | 'amount_desc' | 'amount_asc' | 'number'
 
@@ -37,12 +38,14 @@ export function QuotesPage() {
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'all'>('all')
   const [clientFilter, setClientFilter] = useState<string>('all')
   const [campaignFilter, setCampaignFilter] = useState<string>('all')
+  const [commercialFilter, setCommercialFilter] = useState<string>('all')
   const [sort, setSort] = useState<SortOption>('newest')
   const [archiveMode, setArchiveMode] = useState<'active' | 'archived' | 'all'>('active')
   const { data: clientsList } = useClients()
   const base = useBasePath()
   const isCommercial = base === '/commercial'
   const { data: campaignsList } = useCampaigns()
+  const { data: salesPeople } = useSalesPeople()
   const { data: paginatedData, isLoading } = usePaginatedQuotes(
     page,
     debouncedSearch,
@@ -51,6 +54,7 @@ export function QuotesPage() {
     archiveMode,
     clientFilter,
     campaignFilter,
+    commercialFilter,
   )
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   useListPageHotkeys(`${base}/quotes/new`)
@@ -81,13 +85,14 @@ export function QuotesPage() {
   const totalPages = Math.ceil(total / 25)
 
   // Reset page when filters change
-  useEffect(() => { setPage(0) }, [debouncedSearch, statusFilter, sort, archiveMode, clientFilter, campaignFilter])
+  useEffect(() => { setPage(0) }, [debouncedSearch, statusFilter, sort, archiveMode, clientFilter, campaignFilter, commercialFilter])
 
   const hasActiveFilters =
     !!debouncedSearch.trim() ||
     statusFilter !== 'all' ||
     clientFilter !== 'all' ||
     campaignFilter !== 'all' ||
+    commercialFilter !== 'all' ||
     archiveMode !== 'active'
 
   function resetFilters() {
@@ -96,6 +101,7 @@ export function QuotesPage() {
     setStatusFilter('all')
     setClientFilter('all')
     setCampaignFilter('all')
+    setCommercialFilter('all')
     setArchiveMode('active')
   }
 
@@ -213,6 +219,23 @@ export function QuotesPage() {
               <option value="all">Toutes campagnes</option>
               {campaignsList?.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          )}
+          {!isCommercial && (
+          <div className="relative hidden sm:flex">
+            <Users className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <select
+              value={commercialFilter}
+              onChange={(e) => setCommercialFilter(e.target.value)}
+              className="flex h-9 appearance-none rounded-lg border border-input bg-background pl-10 pr-8 py-2 text-sm"
+              aria-label="Filtrer par commercial"
+            >
+              <option value="all">Tous commerciaux</option>
+              <option value="none">Sans commercial</option>
+              {salesPeople?.map((p) => (
+                <option key={p.id} value={p.id}>{p.full_name}</option>
               ))}
             </select>
           </div>
@@ -377,6 +400,7 @@ export function QuotesPage() {
                 <tr className="border-b border-border bg-muted/50 text-left">
                   <th className="px-4 py-3 font-medium">Numéro</th>
                   <th className="px-4 py-3 font-medium">Client</th>
+                  {!isCommercial && <th className="hidden px-4 py-3 font-medium lg:table-cell">Commercial</th>}
                   {!isCommercial && <th className="hidden px-4 py-3 font-medium md:table-cell">Campagne</th>}
                   <th className="hidden px-4 py-3 font-medium md:table-cell">Date</th>
                   <th className="hidden px-4 py-3 font-medium lg:table-cell">Validité</th>
@@ -387,7 +411,7 @@ export function QuotesPage() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <EmptyState
                         icon={FileText}
                         title={hasActiveFilters ? 'Aucun devis trouvé' : 'Aucun devis pour le moment'}
@@ -408,6 +432,11 @@ export function QuotesPage() {
                         <td className="px-4 py-3 text-muted-foreground">
                           {quote.clients?.company_name ?? '—'}
                         </td>
+                        {!isCommercial && (
+                        <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                          {quote.commercial?.full_name ?? '—'}
+                        </td>
+                        )}
                         {!isCommercial && (
                         <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                           {quote.campaigns?.name ?? '—'}

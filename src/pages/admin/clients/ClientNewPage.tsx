@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useCreateClient, type Client } from '@/hooks/admin/useClients'
-import { useAdmins } from '@/hooks/admin/useUsers'
+import { useSalesPeople } from '@/hooks/admin/useUsers'
 import { useUpdateLead } from '@/hooks/admin/useLeads'
 import { useBasePath } from '@/hooks/useBasePath'
 import { Card, CardContent } from '@/components/ui/card'
@@ -34,7 +34,7 @@ export function ClientNewPage() {
   const location = useLocation()
   const createClient = useCreateClient()
   const updateLead = useUpdateLead()
-  const { data: admins } = useAdmins()
+  const { data: admins } = useSalesPeople()
   const base = useBasePath()
   const isCommercial = base === '/commercial'
 

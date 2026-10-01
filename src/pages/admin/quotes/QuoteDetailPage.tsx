@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useQuote, useQuoteLines, useCreateQuote, useUpdateQuote, useSaveQuoteLines, useDeleteQuote, type QuoteLine } from '@/hooks/admin/useQuotes'
 import { useQuoteInvoices } from '@/hooks/admin/useInvoices'
 import { useClients, useClient } from '@/hooks/admin/useClients'
-import { useAdmins } from '@/hooks/admin/useUsers'
+import { useSalesPeople } from '@/hooks/admin/useUsers'
 import { useClientCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useQuoteTemplates, useCreateQuoteTemplate, type TemplateLine } from '@/hooks/admin/useQuoteTemplates'
@@ -102,7 +102,7 @@ export function QuoteDetailPage() {
   const { data: quote, isLoading: quoteLoading } = useQuote(isNew ? undefined : id)
   const { data: existingLines, isLoading: linesLoading } = useQuoteLines(isNew ? undefined : id)
   const { data: clients } = useClients()
-  const { data: admins } = useAdmins()
+  const { data: admins } = useSalesPeople()
   const { data: services } = useServiceCatalog()
   const profileRole = useAppStore((s) => s.profile?.role)
   const isCommercial = profileRole === 'commercial'

@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { UserRole } from '@/lib/constants'
 
 export interface Profile {
   id: string
   full_name: string
-  role: 'admin' | 'operator'
+  role: UserRole
   phone: string | null
   avatar_url: string | null
   status: 'invited' | 'active'
@@ -33,14 +34,15 @@ export function useUsers() {
   })
 }
 
-export function useAdmins() {
+/** Personnes pouvant porter un client / devis / facture : admins + commerciaux. */
+export function useSalesPeople() {
   return useQuery({
-    queryKey: ['users', 'admins'],
+    queryKey: ['users', 'sales-people'],
     queryFn: async (): Promise<Profile[]> => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('role', 'admin')
+        .in('role', ['admin', 'commercial'])
         .order('full_name')
       if (error) throw error
       return data as Profile[]
@@ -151,7 +153,7 @@ export function useUpdateUser() {
 export function useInviteUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ email, role, full_name }: { email: string; role: 'admin' | 'operator'; full_name: string }) => {
+    mutationFn: async ({ email, role, full_name }: { email: string; role: UserRole; full_name: string }) => {
       const { data, error } = await supabase.functions.invoke('invite-user', {
         body: { email, full_name, role },
       })

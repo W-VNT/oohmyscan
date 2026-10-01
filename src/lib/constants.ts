@@ -11,6 +11,12 @@ export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number]
 export const USER_ROLES = ['admin', 'operator', 'commercial'] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  admin: 'Administrateur',
+  operator: 'Opérateur',
+  commercial: 'Commercial',
+}
+
 export const PHOTO_TYPES = ['installation', 'check', 'campaign', 'damage'] as const
 export type PhotoType = (typeof PHOTO_TYPES)[number]
 
