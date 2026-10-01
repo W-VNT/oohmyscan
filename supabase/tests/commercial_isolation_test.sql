@@ -10,10 +10,13 @@
 -- ============================================================================
 BEGIN;
 
-CREATE TEMP TABLE _cloison (
+-- Table de resultats : table normale (pas TEMP, invisible apres SET ROLE),
+-- creee dans la transaction et donc supprimee par le ROLLBACK final.
+CREATE TABLE public._cloison_test (
   ordre INT, verification TEXT, attendu TEXT, obtenu TEXT, ok BOOLEAN
 );
-GRANT ALL ON _cloison TO authenticated, anon;
+ALTER TABLE public._cloison_test DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON public._cloison_test TO authenticated, anon;
 
 -- Identifiants de reference (lus en tant qu'admin DB avant de changer de role)
 SELECT set_config('test.commercial',
@@ -54,7 +57,7 @@ DECLARE
   j JSONB;
   res TEXT;
 BEGIN
-  INSERT INTO _cloison VALUES (0, 'Session simulee = commercial', 'is_commercial() = true',
+  INSERT INTO public._cloison_test VALUES (0, 'Session simulee = commercial', 'is_commercial() = true',
     public.is_commercial()::text, public.is_commercial());
 
   -- ---------------------------------------------------------------- Lectures interdites
@@ -68,55 +71,55 @@ BEGIN
   ] LOOP
     BEGIN
       EXECUTE format('SELECT count(*) FROM public.%I', t) INTO n;
-      INSERT INTO _cloison VALUES (10, 'Lecture ' || t, '0', n::text, n = 0);
+      INSERT INTO public._cloison_test VALUES (10, 'Lecture ' || t, '0', n::text, n = 0);
     EXCEPTION
       WHEN undefined_table THEN NULL;
       WHEN insufficient_privilege THEN
-        INSERT INTO _cloison VALUES (10, 'Lecture ' || t, '0', 'refuse (droits)', true);
+        INSERT INTO public._cloison_test VALUES (10, 'Lecture ' || t, '0', 'refuse (droits)', true);
     END;
   END LOOP;
 
   -- ---------------------------------------------------------------- Lectures limitees a son perimetre
   SELECT count(*) INTO n FROM clients WHERE commercial_id IS DISTINCT FROM me;
-  INSERT INTO _cloison VALUES (20, 'Clients d''un autre visibles', '0', n::text, n = 0);
+  INSERT INTO public._cloison_test VALUES (20, 'Clients d''un autre visibles', '0', n::text, n = 0);
 
   SELECT count(*) INTO n FROM quotes WHERE commercial_id IS DISTINCT FROM me;
-  INSERT INTO _cloison VALUES (20, 'Devis d''un autre visibles', '0', n::text, n = 0);
+  INSERT INTO public._cloison_test VALUES (20, 'Devis d''un autre visibles', '0', n::text, n = 0);
 
   SELECT count(*) INTO n FROM quote_lines ql
   WHERE NOT EXISTS (SELECT 1 FROM quotes q WHERE q.id = ql.quote_id AND q.commercial_id = me);
-  INSERT INTO _cloison VALUES (20, 'Lignes de devis d''un autre visibles', '0', n::text, n = 0);
+  INSERT INTO public._cloison_test VALUES (20, 'Lignes de devis d''un autre visibles', '0', n::text, n = 0);
 
   SELECT count(*) INTO n FROM profiles WHERE id <> me;
-  INSERT INTO _cloison VALUES (20, 'Profils des autres utilisateurs visibles', '0', n::text, n = 0);
+  INSERT INTO public._cloison_test VALUES (20, 'Profils des autres utilisateurs visibles', '0', n::text, n = 0);
 
   BEGIN
     SELECT count(*) INTO n FROM notifications WHERE user_id <> me;
-    INSERT INTO _cloison VALUES (20, 'Notifications des autres visibles', '0', n::text, n = 0);
+    INSERT INTO public._cloison_test VALUES (20, 'Notifications des autres visibles', '0', n::text, n = 0);
   EXCEPTION WHEN undefined_table THEN NULL;
   END;
 
   BEGIN
     SELECT count(*) INTO n FROM push_subscriptions WHERE user_id <> me;
-    INSERT INTO _cloison VALUES (20, 'Abonnements push des autres visibles', '0', n::text, n = 0);
+    INSERT INTO public._cloison_test VALUES (20, 'Abonnements push des autres visibles', '0', n::text, n = 0);
   EXCEPTION WHEN undefined_table OR undefined_column THEN NULL;
   END;
 
   SELECT count(*) INTO n FROM storage.objects
   WHERE bucket_id NOT IN ('avatars', 'company-assets', 'company-pdfs');
-  INSERT INTO _cloison VALUES (20, 'Fichiers hors buckets autorises visibles', '0', n::text, n = 0);
+  INSERT INTO public._cloison_test VALUES (20, 'Fichiers hors buckets autorises visibles', '0', n::text, n = 0);
 
   -- ---------------------------------------------------------------- Lectures autorisees (info)
   SELECT count(*) INTO n FROM service_catalog;
-  INSERT INTO _cloison VALUES (30, 'Lecture catalogue prestations (autorise)', 'lisible', n::text || ' lignes', true);
+  INSERT INTO public._cloison_test VALUES (30, 'Lecture catalogue prestations (autorise)', 'lisible', n::text || ' lignes', true);
 
   BEGIN
     SELECT to_jsonb(d) INTO j FROM public.get_company_document_settings() d;
-    INSERT INTO _cloison VALUES (30, 'Infos societe pour PDF (autorise, sans cles API)',
+    INSERT INTO public._cloison_test VALUES (30, 'Infos societe pour PDF (autorise, sans cles API)',
       'pas de resend_api_key', CASE WHEN j ? 'resend_api_key' THEN 'cle API exposee' ELSE 'OK' END,
       NOT (j ? 'resend_api_key'));
   EXCEPTION WHEN others THEN
-    INSERT INTO _cloison VALUES (30, 'Infos societe pour PDF (autorise)', 'lisible',
+    INSERT INTO public._cloison_test VALUES (30, 'Infos societe pour PDF (autorise)', 'lisible',
       'ERREUR ' || SQLSTATE || ' ' || SQLERRM || ' (migration lot 2 appliquee ?)', false);
   END;
 
@@ -129,13 +132,13 @@ BEGIN
     res := CASE WHEN v = me THEN 'proprietaire force = moi' ELSE 'proprietaire = autre' END;
   EXCEPTION WHEN others THEN res := 'ERREUR ' || SQLSTATE || ' ' || SQLERRM;
   END;
-  INSERT INTO _cloison VALUES (40, 'Creer un client au nom d''un autre', 'proprietaire force = moi', res,
+  INSERT INTO public._cloison_test VALUES (40, 'Creer un client au nom d''un autre', 'proprietaire force = moi', res,
     res = 'proprietaire force = moi');
 
   IF foreign_client IS NOT NULL THEN
     UPDATE clients SET notes = notes WHERE id = foreign_client;
     GET DIAGNOSTICS rc = ROW_COUNT;
-    INSERT INTO _cloison VALUES (40, 'Modifier le client d''un autre', '0 ligne', rc::text || ' ligne(s)', rc = 0);
+    INSERT INTO public._cloison_test VALUES (40, 'Modifier le client d''un autre', '0 ligne', rc::text || ' ligne(s)', rc = 0);
 
     res := NULL;
     BEGIN
@@ -143,13 +146,13 @@ BEGIN
       res := 'accepte';
     EXCEPTION WHEN others THEN res := SQLSTATE;
     END;
-    INSERT INTO _cloison VALUES (40, 'Creer un devis sur le client d''un autre', 'refuse (42501)', res, res = '42501');
+    INSERT INTO public._cloison_test VALUES (40, 'Creer un devis sur le client d''un autre', 'refuse (42501)', res, res = '42501');
   END IF;
 
   IF foreign_quote IS NOT NULL THEN
     UPDATE quotes SET notes = notes WHERE id = foreign_quote;
     GET DIAGNOSTICS rc = ROW_COUNT;
-    INSERT INTO _cloison VALUES (40, 'Modifier le devis d''un autre', '0 ligne', rc::text || ' ligne(s)', rc = 0);
+    INSERT INTO public._cloison_test VALUES (40, 'Modifier le devis d''un autre', '0 ligne', rc::text || ' ligne(s)', rc = 0);
 
     res := NULL;
     BEGIN
@@ -157,7 +160,7 @@ BEGIN
       res := 'accepte';
     EXCEPTION WHEN others THEN res := SQLSTATE;
     END;
-    INSERT INTO _cloison VALUES (40, 'Ajouter une ligne au devis d''un autre', 'refuse (42501)', res, res = '42501');
+    INSERT INTO public._cloison_test VALUES (40, 'Ajouter une ligne au devis d''un autre', 'refuse (42501)', res, res = '42501');
 
     res := NULL;
     BEGIN
@@ -165,13 +168,13 @@ BEGIN
       res := 'accepte';
     EXCEPTION WHEN others THEN res := SQLSTATE;
     END;
-    INSERT INTO _cloison VALUES (40, 'RPC save_quote_lines sur le devis d''un autre', 'refuse (P0001)', res, res = 'P0001');
+    INSERT INTO public._cloison_test VALUES (40, 'RPC save_quote_lines sur le devis d''un autre', 'refuse (P0001)', res, res = 'P0001');
   END IF;
 
   IF an_invoice IS NOT NULL THEN
     UPDATE invoices SET notes = notes WHERE id = an_invoice;
     GET DIAGNOSTICS rc = ROW_COUNT;
-    INSERT INTO _cloison VALUES (40, 'Modifier une facture', '0 ligne', rc::text || ' ligne(s)', rc = 0);
+    INSERT INTO public._cloison_test VALUES (40, 'Modifier une facture', '0 ligne', rc::text || ' ligne(s)', rc = 0);
 
     res := NULL;
     BEGIN
@@ -179,7 +182,7 @@ BEGIN
       res := 'accepte';
     EXCEPTION WHEN others THEN res := SQLSTATE;
     END;
-    INSERT INTO _cloison VALUES (40, 'RPC save_invoice_lines', 'refuse (P0001)', res, res = 'P0001');
+    INSERT INTO public._cloison_test VALUES (40, 'RPC save_invoice_lines', 'refuse (P0001)', res, res = 'P0001');
   END IF;
 
   IF a_location IS NOT NULL THEN
@@ -189,7 +192,7 @@ BEGIN
       res := 'accepte';
     EXCEPTION WHEN others THEN res := SQLSTATE;
     END;
-    INSERT INTO _cloison VALUES (40, 'Creer un contrat terrain', 'refuse (42501)', res, res = '42501');
+    INSERT INTO public._cloison_test VALUES (40, 'Creer un contrat terrain', 'refuse (42501)', res, res = '42501');
   END IF;
 
   IF other_admin IS NOT NULL THEN
@@ -199,7 +202,7 @@ BEGIN
       res := 'accepte';
     EXCEPTION WHEN others THEN res := SQLSTATE;
     END;
-    INSERT INTO _cloison VALUES (40, 'Envoyer une notification a un admin', 'refuse (42501)', res, res = '42501');
+    INSERT INTO public._cloison_test VALUES (40, 'Envoyer une notification a un admin', 'refuse (42501)', res, res = '42501');
   END IF;
 
   res := NULL;
@@ -208,7 +211,7 @@ BEGIN
     res := 'accepte';
   EXCEPTION WHEN others THEN res := SQLSTATE;
   END;
-  INSERT INTO _cloison VALUES (40, 'Ecrire dans le bucket panel-photos', 'refuse (42501)', res, res = '42501');
+  INSERT INTO public._cloison_test VALUES (40, 'Ecrire dans le bucket panel-photos', 'refuse (42501)', res, res = '42501');
 
   -- ---------------------------------------------------------------- Escalade de privileges
   res := NULL;
@@ -218,7 +221,7 @@ BEGIN
     res := CASE WHEN rc = 0 THEN '0 ligne' ELSE 'MODIFIE' END;
   EXCEPTION WHEN others THEN res := SQLSTATE;
   END;
-  INSERT INTO _cloison VALUES (50, 'Se passer admin (UPDATE profiles.role)', 'refuse', res, res IN ('0 ligne', '42501'));
+  INSERT INTO public._cloison_test VALUES (50, 'Se passer admin (UPDATE profiles.role)', 'refuse', res, res IN ('0 ligne', '42501'));
 
   res := NULL;
   BEGIN
@@ -227,10 +230,10 @@ BEGIN
     res := CASE WHEN rc = 0 THEN '0 ligne' ELSE 'MODIFIE' END;
   EXCEPTION WHEN others THEN res := SQLSTATE;
   END;
-  INSERT INTO _cloison VALUES (50, 'Modifier son propre statut actif (is_active)', 'refuse', res, res IN ('0 ligne', '42501'));
+  INSERT INTO public._cloison_test VALUES (50, 'Modifier son propre statut actif (is_active)', 'refuse', res, res IN ('0 ligne', '42501'));
 
   SELECT public.admin_update_user_role(me, 'admin') INTO j;
-  INSERT INTO _cloison VALUES (50, 'Se passer admin (RPC admin_update_user_role)', 'success = false',
+  INSERT INTO public._cloison_test VALUES (50, 'Se passer admin (RPC admin_update_user_role)', 'success = false',
     j::text, COALESCE((j ->> 'success')::boolean, false) = false);
 
   res := NULL;
@@ -239,7 +242,7 @@ BEGIN
     res := 'accepte';
   EXCEPTION WHEN others THEN res := SQLSTATE;
   END;
-  INSERT INTO _cloison VALUES (50, 'RPC get_next_invoice_number', 'refuse (P0001)', res, res = 'P0001');
+  INSERT INTO public._cloison_test VALUES (50, 'RPC get_next_invoice_number', 'refuse (P0001)', res, res = 'P0001');
 
   res := NULL;
   BEGIN
@@ -247,7 +250,7 @@ BEGIN
     res := 'accepte';
   EXCEPTION WHEN others THEN res := SQLSTATE;
   END;
-  INSERT INTO _cloison VALUES (50, 'RPC cleanup_orphan_locations', 'refuse (P0001)', res, res = 'P0001');
+  INSERT INTO public._cloison_test VALUES (50, 'RPC cleanup_orphan_locations', 'refuse (P0001)', res, res = 'P0001');
 END $$;
 
 -- Session anonyme (visiteur non connecte, cle publique du site)
@@ -268,25 +271,25 @@ BEGIN
   ] LOOP
     BEGIN
       EXECUTE format('SELECT count(*) FROM public.%I', t) INTO n;
-      INSERT INTO _cloison VALUES (60, 'Anonyme : lecture ' || t, '0', n::text, n = 0);
+      INSERT INTO public._cloison_test VALUES (60, 'Anonyme : lecture ' || t, '0', n::text, n = 0);
     EXCEPTION
       WHEN undefined_table THEN NULL;
       WHEN insufficient_privilege THEN
-        INSERT INTO _cloison VALUES (60, 'Anonyme : lecture ' || t, '0', 'refuse (droits)', true);
+        INSERT INTO public._cloison_test VALUES (60, 'Anonyme : lecture ' || t, '0', 'refuse (droits)', true);
     END;
   END LOOP;
 
   SELECT count(*) INTO n FROM storage.objects;
-  INSERT INTO _cloison VALUES (60, 'Anonyme : liste des fichiers stockes', '0', n::text, n = 0);
+  INSERT INTO public._cloison_test VALUES (60, 'Anonyme : liste des fichiers stockes', '0', n::text, n = 0);
 
   SELECT count(*) INTO n FROM campaign_reports;
-  INSERT INTO _cloison VALUES (60, 'Anonyme : liste des rapports de campagne publies', '0', n::text, n = 0);
+  INSERT INTO public._cloison_test VALUES (60, 'Anonyme : liste des rapports de campagne publies', '0', n::text, n = 0);
 
   BEGIN
     INSERT INTO audit_logs (action, table_name) VALUES ('test', 'test');
-    INSERT INTO _cloison VALUES (60, 'Anonyme : ecrire un faux journal d''audit', 'refuse', 'accepte', false);
+    INSERT INTO public._cloison_test VALUES (60, 'Anonyme : ecrire un faux journal d''audit', 'refuse', 'accepte', false);
   EXCEPTION WHEN others THEN
-    INSERT INTO _cloison VALUES (60, 'Anonyme : ecrire un faux journal d''audit', 'refuse', 'refuse (' || SQLSTATE || ')', true);
+    INSERT INTO public._cloison_test VALUES (60, 'Anonyme : ecrire un faux journal d''audit', 'refuse', 'refuse (' || SQLSTATE || ')', true);
   END;
 END $$;
 
@@ -295,7 +298,7 @@ RESET ROLE;
 SELECT
   CASE WHEN ok THEN 'OK' ELSE 'ECHEC' END AS statut,
   verification, attendu, obtenu
-FROM _cloison
+FROM public._cloison_test
 ORDER BY ok, ordre, verification;
 
 ROLLBACK;
