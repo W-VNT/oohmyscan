@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
-import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown, SlidersHorizontal, Pencil, Mail, Send } from 'lucide-react'
+import { Users, Loader2, UserPlus, PanelTop, Camera, Search, Check, X, ChevronLeft, ChevronRight, MoreHorizontal, KeyRound, Trash2, Shield, CheckCircle2, ArrowUpDown, SlidersHorizontal, Pencil, Mail, Send, Ban, UserCheck } from 'lucide-react'
 
 type RoleFilter = 'all' | UserRole
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -66,7 +66,6 @@ export function UsersPage() {
   const [inviteRole, setInviteRole] = useState<UserRole>('operator')
   const [inviting, setInviting] = useState(false)
 
-  const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null)
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
@@ -150,26 +149,30 @@ export function UsersPage() {
     }
   }
 
-  async function setActive(user: Profile, active: boolean) {
+  async function handleToggleActive(user: Profile) {
+    const deactivate = user.is_active
+    const ok = await confirm(
+      deactivate
+        ? {
+            title: `Désactiver le compte de ${user.full_name} ?`,
+            description:
+              "Cette personne perd immédiatement l'accès à l'app et ne peut plus se connecter. Ses poses, photos, contrats et devis sont conservés. Tu peux réactiver le compte à tout moment.",
+            confirmLabel: 'Désactiver le compte',
+            variant: 'destructive',
+          }
+        : {
+            title: `Réactiver le compte de ${user.full_name} ?`,
+            description: 'Cette personne pourra de nouveau se connecter et retrouvera ses accès.',
+            confirmLabel: 'Réactiver le compte',
+          },
+    )
+    if (!ok) return
     try {
-      await setUserActive.mutateAsync({ userId: user.id, active })
-      toast(active ? 'Utilisateur réactivé' : 'Utilisateur désactivé')
+      await setUserActive.mutateAsync({ userId: user.id, active: !deactivate })
+      toast(deactivate ? 'Compte désactivé' : 'Compte réactivé')
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erreur', 'error')
     }
-  }
-
-  function handleToggleActive(user: Profile) {
-    if (user.is_active) {
-      setConfirmDeactivate(user.id)
-    } else {
-      void setActive(user, true)
-    }
-  }
-
-  function confirmToggle(user: Profile) {
-    setConfirmDeactivate(null)
-    void setActive(user, false)
   }
 
   async function handleResetPassword(userId: string) {
@@ -356,7 +359,7 @@ export function UsersPage() {
             >
               <option value="all">Tous statuts</option>
               <option value="active">Actifs ({roleCounts.active})</option>
-              <option value="inactive">Inactifs ({roleCounts.inactive})</option>
+              <option value="inactive">Désactivés ({roleCounts.inactive})</option>
             </select>
           </div>
           <div className="relative hidden sm:flex">
@@ -398,7 +401,7 @@ export function UsersPage() {
               >
                 <option value="all">Tous statuts</option>
                 <option value="active">Actifs ({roleCounts.active})</option>
-                <option value="inactive">Inactifs ({roleCounts.inactive})</option>
+                <option value="inactive">Désactivés ({roleCounts.inactive})</option>
               </select>
             </div>
             <div className="relative">
@@ -530,36 +533,16 @@ export function UsersPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 border-t border-border pt-2">
-                  {confirmDeactivate === user.id ? (
-                    <>
-                      <button
-                        onClick={() => confirmToggle(user)}
-                        className="flex-1 rounded-md bg-red-500/15 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-500/25"
-                      >
-                        Confirmer désactivation
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeactivate(null)}
-                        className="rounded-md px-2 py-1.5 text-xs font-medium hover:bg-muted"
-                      >
-                        Annuler
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => handleToggleActive(user)}
-                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${user.is_active ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}
-                      >
-                        {user.is_active ? 'Actif' : 'Inactif'}
-                      </button>
-                      <Button size="sm" variant="outline" onClick={() => startEdit(user)} className="flex-1">
-                        <Pencil className="mr-1.5 size-3.5" />
-                        Modifier
-                      </Button>
-                      {canDelete && <UserActionsMenu user={user} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} onCopyEmail={handleCopyEmail} onResendInvite={handleResendInvite} onChangeRole={handleChangeRole} confirm={confirm} />}
-                    </>
-                  )}
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${user.is_active ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}
+                  >
+                    {user.is_active ? 'Actif' : 'Désactivé'}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => startEdit(user)} className="flex-1">
+                    <Pencil className="mr-1.5 size-3.5" />
+                    Modifier
+                  </Button>
+                  {canDelete && <UserActionsMenu user={user} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} onCopyEmail={handleCopyEmail} onResendInvite={handleResendInvite} onChangeRole={handleChangeRole} onToggleActive={handleToggleActive} confirm={confirm} />}
                 </div>
               </div>
             )
@@ -683,23 +666,15 @@ export function UsersPage() {
                         {userStats?.last_activity ? <span className="text-muted-foreground">{formatRelativeDate(userStats.last_activity)}</span> : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="px-4 py-2.5">
-                        {confirmDeactivate === user.id ? (
-                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => confirmToggle(user)} className="rounded px-2 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-500/10">Confirmer</button>
-                            <button onClick={() => setConfirmDeactivate(null)} className="rounded px-2 py-0.5 text-[10px] font-medium hover:bg-muted">Non</button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleToggleActive(user) }}
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${user.is_active ? 'bg-green-500/15 text-green-600 hover:bg-green-500/25' : 'bg-red-500/15 text-red-500 hover:bg-red-500/25'}`}
-                          >
-                            {user.is_active ? 'Actif' : 'Inactif'}
-                          </button>
-                        )}
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${user.is_active ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}
+                        >
+                          {user.is_active ? 'Actif' : 'Désactivé'}
+                        </span>
                       </td>
                       <td className="px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
                         {user.id !== currentUserId && (
-                          <UserActionsMenu user={user} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} onCopyEmail={handleCopyEmail} onResendInvite={handleResendInvite} onChangeRole={handleChangeRole} confirm={confirm} variant="ghost" />
+                          <UserActionsMenu user={user} onDelete={handleDeleteUser} onResetPassword={handleResetPassword} onCopyEmail={handleCopyEmail} onResendInvite={handleResendInvite} onChangeRole={handleChangeRole} onToggleActive={handleToggleActive} confirm={confirm} variant="ghost" />
                         )}
                       </td>
                       {editingId && <td />}
@@ -737,6 +712,7 @@ interface UserActionsMenuProps {
   onCopyEmail: (userId: string) => Promise<void>
   onResendInvite: (user: Profile) => Promise<void>
   onChangeRole: (user: Profile) => Promise<void>
+  onToggleActive: (user: Profile) => Promise<void>
   confirm: ReturnType<typeof useConfirm>
 }
 
@@ -748,6 +724,7 @@ function UserActionsMenu({
   onCopyEmail,
   onResendInvite,
   onChangeRole,
+  onToggleActive,
   confirm,
 }: UserActionsMenuProps) {
   const isInvited = user.status === 'invited'
@@ -781,6 +758,13 @@ function UserActionsMenu({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onToggleActive(user)}>
+          {user.is_active ? (
+            <><Ban className="size-3.5" /> Désactiver le compte</>
+          ) : (
+            <><UserCheck className="size-3.5" /> Réactiver le compte</>
+          )}
+        </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
           onClick={async () => {
