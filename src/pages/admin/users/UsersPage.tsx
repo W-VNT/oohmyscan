@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useUsers, useUpdateUser, useOperatorStats, useInviteUser, useSetUserActive, type Profile } from '@/hooks/admin/useUsers'
 import { useAppStore } from '@/store/app.store'
 import type { UserRole } from '@/lib/constants'
@@ -41,6 +42,7 @@ export function UsersPage() {
   const { data: stats } = useOperatorStats()
   const updateUser = useUpdateUser()
   const setUserActive = useSetUserActive()
+  const queryClient = useQueryClient()
   const inviteUser = useInviteUser()
   const currentUserId = useAppStore((s) => s.profile?.id)
   const confirm = useConfirm()
@@ -242,8 +244,15 @@ export function UsersPage() {
   async function handleDeleteUser(userId: string) {
     try {
       const { data, error } = await supabase.functions.invoke('manage-user', { body: { action: 'delete', userId } })
-      if (error) throw error
+      if (error) {
+        // Sur un statut non-2xx, supabase-js remplace le message serveur par
+        // un texte generique : on relit le corps de la reponse.
+        const ctx = (error as { context?: Response }).context
+        const body = ctx ? await ctx.json().catch(() => null) : null
+        throw new Error(body?.error ?? error.message)
+      }
       if (data?.error) throw new Error(data.error)
+      await queryClient.invalidateQueries({ queryKey: ['users'] })
       toast('Utilisateur supprimé')
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erreur', 'error')

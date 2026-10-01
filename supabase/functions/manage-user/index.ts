@@ -185,13 +185,23 @@ Deno.serve(async (req) => {
     }
 
     if (action === "delete") {
-      // Delete profile first
-      await supabaseAdmin.from("profiles").delete().eq("id", userId);
-
-      // Delete auth user
+      // Suppression du compte Auth : le profil part en cascade. Si le compte a
+      // un historique (poses, contrats, devis...), la base refuse : on le
+      // signale clairement au lieu d'un "Erreur serveur".
       const { error: deleteErr } =
         await supabaseAdmin.auth.admin.deleteUser(userId);
-      if (deleteErr) throw deleteErr;
+      if (deleteErr) {
+        console.error("Delete user error:", deleteErr);
+        return new Response(
+          JSON.stringify({
+            error: "Ce compte a un historique (poses, contrats, devis…) et ne peut pas être supprimé. Désactive-le plutôt.",
+          }),
+          {
+            status: 409,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
 
       return new Response(
         JSON.stringify({ success: true, message: "Utilisateur supprimé" }),
