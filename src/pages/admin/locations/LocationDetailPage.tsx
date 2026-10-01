@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSignedUrls } from '@/hooks/useSignedUrls'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useLocation, useLocationPanels, useLocationContract, useContractAmendments, useUpdateLocation, useDeleteLocation, useDeleteContract } from '@/hooks/useLocations'
 import { useLocationFreePanels } from '@/hooks/admin/useLocationFreePanels'
@@ -33,6 +34,8 @@ export function LocationDetailPage() {
   const { data: location, isLoading } = useLocation(id)
   const { data: panels } = useLocationPanels(id)
   const { data: freePanels } = useLocationFreePanels(id)
+  // Bucket panel-photos prive : liens signes temporaires
+  const { data: freePanelUrls } = useSignedUrls('panel-photos', (freePanels ?? []).map((fp) => fp.photo_path))
   const { data: contract } = useLocationContract(id)
   const { data: amendments } = useContractAmendments(contract?.id)
   const updateLocation = useUpdateLocation()
@@ -448,9 +451,7 @@ export function LocationDetailPage() {
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {freePanels.map((fp, idx) => {
-                  const publicUrl = supabase.storage
-                    .from('panel-photos')
-                    .getPublicUrl(fp.photo_path).data.publicUrl
+                  const publicUrl = freePanelUrls?.get(fp.photo_path)
                   return (
                     <button
                       key={fp.id}
@@ -659,7 +660,7 @@ export function LocationDetailPage() {
           )}
 
           <img
-            src={supabase.storage.from('panel-photos').getPublicUrl(freePanels[viewerIndex].photo_path).data.publicUrl}
+            src={freePanelUrls?.get(freePanels[viewerIndex].photo_path)}
             alt={`Panneau libre ${freePanels[viewerIndex].campaign?.name ?? ''}`}
             className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
             onClick={(e) => e.stopPropagation()}

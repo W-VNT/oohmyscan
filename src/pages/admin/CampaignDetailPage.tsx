@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { validateUpload, IMAGE_MIMES } from '@/lib/upload-validation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSignedUrls } from '@/hooks/useSignedUrls'
 import {
   ArrowLeft,
   PanelTop,
@@ -69,6 +70,8 @@ export function CampaignDetailPage() {
   const { data: campaign, isLoading } = useCampaign(id)
   const { data: panelTypes } = usePanelTypes()
   const { data: visuals } = useCampaignVisuals(id)
+  // Bucket campaign-visuals prive : liens signes (getPublicUrl ne marchait pas)
+  const { data: visualUrls } = useSignedUrls('campaign-visuals', (visuals ?? []).map((v) => v.storage_path))
   const { data: clients } = useClients()
   const { data: allUsers } = useUsers()
   // Admins peuvent aussi etre assignes en operateur (ils font parfois du terrain).
@@ -563,8 +566,7 @@ export function CampaignDetailPage() {
   }
 
   function getVisualUrl(storagePath: string) {
-    const { data } = supabase.storage.from('campaign-visuals').getPublicUrl(storagePath)
-    return data.publicUrl
+    return visualUrls?.get(storagePath)
   }
 
   if (isLoading) return <LoadingScreen />

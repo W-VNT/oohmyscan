@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { supabase } from '@/lib/supabase'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSignedUrls } from '@/hooks/useSignedUrls'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/shared/Toast'
@@ -86,6 +87,8 @@ export function PanelDetailPage() {
     },
     enabled: !!id,
   })
+  // Bucket panel-photos prive : liens signes temporaires
+  const { data: photoUrls } = useSignedUrls('panel-photos', (photos ?? []).map((p) => p.storage_path))
 
   const { data: assignments } = useQuery({
     queryKey: ['panel-campaigns', id],
@@ -246,8 +249,7 @@ export function PanelDetailPage() {
   }
 
   function getPhotoUrl(storagePath: string) {
-    const { data } = supabase.storage.from('panel-photos').getPublicUrl(storagePath)
-    return data.publicUrl
+    return photoUrls?.get(storagePath)
   }
 
   const displayName = panel.locations?.name || panel.name || panel.reference
