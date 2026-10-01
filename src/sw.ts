@@ -42,9 +42,11 @@ self.addEventListener('message', (event) => {
   }
 })
 
-// SPA fallback : toute navigation vers une route inconnue renvoie index.html
+// SPA fallback : toute navigation renvoie app.html (coquille vide de l'app).
+// index.html contient la landing pre-rendue (SEO) : la servir ici ferait
+// apparaitre la landing une fraction de seconde au lancement de l'app.
 registerRoute(
-  new NavigationRoute(createHandlerBoundToURL('/index.html'), {
+  new NavigationRoute(createHandlerBoundToURL('/app.html'), {
     denylist: [/^\/api/, /^\/functions/, /^\/storage/],
   }),
 )

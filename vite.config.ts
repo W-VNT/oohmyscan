@@ -3,12 +3,16 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import fs from 'fs'
 
-export default defineConfig({
+// Build client : index.html (landing, pre-rendue ensuite) + app.html
+// (coquille de l'app, generee par scripts/make-app-html.mjs). Build SSR :
+// uniquement le rendu de la landing, sans PWA.
+export default defineConfig(({ isSsrBuild }) => ({
   plugins: [
     react(),
     tailwindcss(),
-    VitePWA({
+    !isSsrBuild && VitePWA({
       // autoUpdate : quand un nouveau deploiement arrive, le SW se met a jour
       // automatiquement et recharge la page au prochain focus. Evite le
       // pb "'text/html' is not a valid JavaScript MIME type" qui se produit
@@ -50,4 +54,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-})
+  // SSR : tout est embarque dans un seul fichier (evite les soucis
+  // d'interop CJS/ESM de certaines dependances sous Node).
+  ssr: { noExternal: true },
+  build: isSsrBuild || !fs.existsSync(path.resolve(__dirname, 'app.html'))
+    ? {}
+    : {
+        rollupOptions: {
+          input: {
+            main: path.resolve(__dirname, 'index.html'),
+            app: path.resolve(__dirname, 'app.html'),
+          },
+        },
+      },
+}))

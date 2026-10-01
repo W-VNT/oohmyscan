@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && node scripts/make-app-html.mjs && vite build && vite build --ssr src/entry-landing.tsx --outDir dist-ssr && node scripts/prerender-landing.mjs",
     "preview": "vite preview"
   },
   "pnpm": {

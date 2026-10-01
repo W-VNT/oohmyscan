@@ -16,16 +16,16 @@
     {
       "source": "/(.*)",
       "has": [{ "type": "host", "value": "app.oohmyad.com" }],
-      "destination": "/index.html"
+      "destination": "/app.html"
     },
     {
       "source": "/(.*)",
       "has": [{ "type": "host", "value": "admin.oohmyad.com" }],
-      "destination": "/index.html"
+      "destination": "/app.html"
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/app.html"
     }
   ]
 }

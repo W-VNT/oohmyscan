@@ -42,3 +42,4 @@ supabase/.temp/
 # Temp migration files
 ALL_MIGRATIONS*.sql
 
+app.html
