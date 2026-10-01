@@ -43,7 +43,7 @@ export function OperatorPanelDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { session } = useAuth()
+  const { session, isAdmin } = useAuth()
   const validId = isValidUUID(id) ? id : undefined
   const { data: panel, isLoading } = usePanel(validId)
   const updatePanel = useUpdatePanel()
@@ -728,6 +728,8 @@ export function OperatorPanelDetailPage() {
         const currentUrl = photoUrls?.[currentPhoto.id]
         const currentType = PHOTO_TYPE_LABELS[currentPhoto.photo_type as PhotoType] ?? currentPhoto.photo_type
         const total = visiblePhotos.length
+        // Suppression : ses propres photos uniquement (admin : toutes)
+        const canDeletePhoto = isAdmin || currentPhoto.taken_by === session?.user.id
 
         function goNext() {
           setViewingIndex((i) => i !== null && i < total - 1 ? i + 1 : i)
@@ -833,7 +835,7 @@ export function OperatorPanelDetailPage() {
               </div>
             )}
 
-            {!confirmDelete ? (
+            {canDeletePhoto && (!confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-500/15 py-3 text-[14px] font-medium text-red-400 transition-colors active:bg-red-500/25"
@@ -866,7 +868,7 @@ export function OperatorPanelDetailPage() {
                   </button>
                 </div>
               </div>
-            )}
+            ))}
           </div>
         </div>
         )
