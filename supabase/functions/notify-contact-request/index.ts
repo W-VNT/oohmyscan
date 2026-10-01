@@ -20,6 +20,17 @@ const SUPPORT_LABELS: Record<string, string> = {
   "multiple": "Plusieurs familles / Je ne sais pas encore",
 };
 
+/** Comparaison en temps constant (evite de deviner le secret par timing). */
+function timingSafeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  let diff = ea.length ^ eb.length;
+  for (let i = 0; i < Math.max(ea.length, eb.length); i++) {
+    diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -93,9 +104,9 @@ Deno.serve(async (req) => {
 
   try {
     // Validate webhook secret
-    const expectedSecret = Deno.env.get("WEBHOOK_SECRET");
-    const providedSecret = req.headers.get("x-webhook-secret");
-    if (!expectedSecret || providedSecret !== expectedSecret) {
+    const expectedSecret = Deno.env.get("WEBHOOK_SECRET") ?? "";
+    const providedSecret = req.headers.get("x-webhook-secret") ?? "";
+    if (!expectedSecret || !timingSafeEqual(providedSecret, expectedSecret)) {
       console.error("Invalid or missing webhook secret");
       return new Response("Unauthorized", { status: 401 });
     }
@@ -112,25 +123,29 @@ Deno.serve(async (req) => {
       return new Response("Ignored", { status: 200 });
     }
 
-    const row = payload.record as {
-      name: string;
-      email: string;
-      city: string | null;
-      support_interest: string | null;
-      message: string;
-      created_at: string;
-    };
-
-    if (!row?.email || !row?.name || !row?.message) {
-      console.error("Malformed record:", row);
-      return new Response("Bad payload", { status: 400 });
-    }
-
-    // Load Resend config from company_settings
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
+
+    // On relit la demande en base par son id : le contenu de l'email ne
+    // vient jamais directement du payload recu.
+    const recordId = String(payload.record?.id ?? "");
+    const { data: row } = recordId
+      ? await supabaseAdmin
+        .from("contact_requests")
+        .select("name, email, city, support_interest, message, created_at")
+        .eq("id", recordId)
+        .maybeSingle()
+      : { data: null };
+
+    if (!row?.email || !row?.name || !row?.message) {
+      console.error("Contact request introuvable ou incomplete:", recordId);
+      return new Response("Bad payload", { status: 400 });
+    }
+    const replyTo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(row.email).trim())
+      ? String(row.email).trim()
+      : undefined;
 
     const { data: settings, error: settingsErr } = await supabaseAdmin
       .from("company_settings")
@@ -138,7 +153,9 @@ Deno.serve(async (req) => {
       .limit(1)
       .single();
 
-    if (settingsErr || !settings?.resend_api_key || !settings.email_from) {
+    // Cle Resend : secret Supabase en priorite, valeur en base en secours
+    const resendKey = Deno.env.get("RESEND_API_KEY") || settings?.resend_api_key;
+    if (settingsErr || !resendKey || !settings?.email_from) {
       console.error("Missing Resend config:", settingsErr);
       return new Response("Resend not configured", { status: 500 });
     }
@@ -147,19 +164,19 @@ Deno.serve(async (req) => {
       ? `${settings.email_from_name} <${settings.email_from}>`
       : settings.email_from;
 
-    const subject = `🎯 Nouvelle demande — ${row.name}`;
+    const subject = `🎯 Nouvelle demande — ${String(row.name).slice(0, 120)}`;
     const html = buildHtml(row);
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${settings.resend_api_key}`,
+        Authorization: `Bearer ${resendKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         from: fromAddress,
         to: [notifyTo],
-        reply_to: row.email,
+        ...(replyTo ? { reply_to: replyTo } : {}),
         subject,
         html,
         attachments: [
@@ -178,7 +195,7 @@ Deno.serve(async (req) => {
     if (!resendResponse.ok) {
       console.error("Resend error:", resendData);
       return new Response(
-        JSON.stringify({ error: resendData.message ?? "Resend failed" }),
+        JSON.stringify({ error: "Resend failed" }),
         { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }

@@ -59,28 +59,20 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile } = await supabaseAdmin
       .from("profiles")
-      .select("role")
+      .select("role, is_active")
       .eq("id", caller.id)
       .single();
 
-    // Parse request body (deplace AVANT le check allowed pour que documentType
-    // soit defini au moment du check operator).
-    const { to, subject, html, pdfBase64, pdfFilename, documentType } = await req.json();
+    const { to, subject, html, pdfBase64, pdfFilename } = await req.json();
 
-    // Admin peut tout envoyer. Operateur peut envoyer un contrat (juste apres
-    // installation terrain, workflow legitime).
-    const role = callerProfile?.role;
-    const allowed =
-      role === "admin" ||
-      (role === "operator" && documentType === "contract");
+    // Admin uniquement. Les emails de contrat du terrain sont envoyes par
+    // generate-contract-pdf, qui construit destinataire/sujet/corps cote
+    // serveur. Avant, un operateur pouvait envoyer n'importe quel email
+    // (destinataire, contenu, piece jointe libres) au nom de l'entreprise.
+    const allowed = callerProfile?.role === "admin" && callerProfile?.is_active !== false;
     if (!allowed) {
       return new Response(
-        JSON.stringify({
-          error:
-            role === "operator"
-              ? "Opérateur autorisé uniquement pour les emails de contrat"
-              : "Accès réservé aux administrateurs",
-        }),
+        JSON.stringify({ error: "Accès réservé aux administrateurs" }),
         {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -116,10 +108,13 @@ Deno.serve(async (req) => {
       .limit(1)
       .single();
 
-    if (!settings?.resend_api_key) {
+    // Cle Resend : secret Supabase en priorite, valeur en base en secours
+    // (transition, a retirer une fois le secret RESEND_API_KEY configure)
+    const resendKey = Deno.env.get("RESEND_API_KEY") || settings?.resend_api_key;
+    if (!resendKey) {
       return new Response(
         JSON.stringify({
-          error: "Clé API Resend non configurée. Allez dans Paramètres → Email.",
+          error: "Clé API Resend non configurée (secret RESEND_API_KEY).",
         }),
         {
           status: 400,
@@ -128,7 +123,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!settings.email_from) {
+    if (!settings?.email_from) {
       return new Response(
         JSON.stringify({
           error:
@@ -167,7 +162,7 @@ Deno.serve(async (req) => {
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${settings.resend_api_key}`,
+        Authorization: `Bearer ${resendKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(resendPayload),
@@ -179,7 +174,7 @@ Deno.serve(async (req) => {
       console.error("Resend error:", resendData);
       return new Response(
         JSON.stringify({
-          error: resendData.message || "Erreur lors de l'envoi de l'email",
+          error: "Erreur lors de l'envoi de l'email",
         }),
         {
           status: 500,

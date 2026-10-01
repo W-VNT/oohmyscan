@@ -5,10 +5,8 @@
 // Remplace la generation client-side @react-pdf/renderer qui asphyxiait les
 // telephones bas de gamme.
 //
-// Auth : verify_jwt=true (defaut). Un utilisateur authentifie qui a insert
-// le contract row en amont peut appeler la fonction. On ne re-check pas
-// created_by/is_admin : si le contract existe deja en DB, il a passe la
-// RLS INSERT, c'est bon.
+// Auth : l'appelant doit etre un admin ou un operateur actif (JWT verifie +
+// role lu en base). Le JWT anon seul ne suffit plus.
 //
 // Input : POST body {
 //   contractId: uuid,
@@ -24,8 +22,9 @@
 //   }
 // }
 //
-// Le bloc email est optionnel : si fourni, l'edge fn envoie le contrat par
-// email au gerant apres la generation du PDF. Ca permet au client de faire
+// Le bloc email est optionnel : sa presence declenche l'envoi du contrat au
+// gerant. Destinataire, sujet et corps sont lus en base (contrat + modeles
+// company_settings) : les champs envoyes par le client sont ignores. Ca permet au client de faire
 // fire-and-forget (invoke sans await), le success step est immediat.
 //
 // Output :
@@ -76,20 +75,36 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const contractId = String(body?.contractId ?? "").trim();
     const type = body?.type === "amendment" ? "amendment" : "contract";
-    const emailReq = body?.email as EmailRequest | undefined;
+    const wantsEmail = !!body?.email;
     if (!contractId) {
       return json({ error: "contractId required" }, 400, corsHeaders);
     }
 
     // Client service_role : bypass RLS pour lire company_settings + storage.
-    // Ok car on est deja post-auth (verify_jwt=true de la config par defaut).
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Auth caller header (pour transmettre au send-document-email en aval)
+    // Verification de l'appelant : admin ou operateur actif uniquement
     const authHeader = req.headers.get("Authorization") ?? "";
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return json({ error: "Non autorisé" }, 401, corsHeaders);
+    }
+    const { data: caller } = await admin
+      .from("profiles")
+      .select("role, is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!caller || caller.is_active === false || !["admin", "operator"].includes(caller.role)) {
+      return json({ error: "Accès refusé" }, 403, corsHeaders);
+    }
 
     let result;
     if (type === "contract") {
@@ -101,8 +116,8 @@ Deno.serve(async (req: Request) => {
     // Envoi email en aval (only pour les nouveaux contrats, pas les avenants).
     // Best-effort : si l'email fail, on renvoie quand meme 200 avec emailError,
     // le PDF est deja genere et update en DB.
-    if (type === "contract" && emailReq?.to && result.pdfBytes) {
-      const emailResult = await sendContractEmail(authHeader, emailReq, result);
+    if (type === "contract" && wantsEmail && result.pdfBytes) {
+      const emailResult = await sendContractEmail(admin, result);
       return json(
         { path: result.path, size: result.size, emailSent: emailResult.ok, emailError: emailResult.error },
         200,
@@ -113,14 +128,7 @@ Deno.serve(async (req: Request) => {
     return json({ path: result.path, size: result.size }, 200, corsHeaders);
   } catch (err) {
     console.error("[generate-contract-pdf] error:", err);
-    return json(
-      {
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      },
-      500,
-      corsHeaders,
-    );
+    return json({ error: "Erreur lors de la génération du PDF" }, 500, corsHeaders);
   }
 });
 
@@ -131,22 +139,21 @@ function json(body: unknown, status: number, headers: Record<string, string>) {
   });
 }
 
-interface EmailRequest {
-  to: string;
-  subjectTemplate?: string | null;
-  bodyTemplate?: string | null;
-  ownerFirstName?: string;
-  ownerLastName?: string;
-  establishmentName?: string;
-  companyName?: string;
-}
-
 interface PdfGenResult {
   path: string;
   size: number;
   contractNumber: string;
   pdfBytes: Uint8Array | null;
+  owner?: {
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    establishmentName: string | null;
+  };
 }
+
+/** Numeros de contrat/avenant utilises dans un chemin de stockage. */
+const DOC_NUMBER_RE = /^[A-Za-z0-9-]{1,64}$/;
 
 // ============================================================================
 // Email (chain vers send-document-email)
@@ -168,47 +175,80 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+function escapeHtml(v: string): string {
+  return v
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Envoie le contrat au gerant via Resend. Tout vient de la base : email du
+ * gerant (snapshot du contrat), modeles company_settings. Les valeurs saisies
+ * sur le terrain sont echappees avant insertion dans le HTML.
+ */
 async function sendContractEmail(
-  authHeader: string,
-  emailReq: EmailRequest,
+  admin: SupabaseClient,
   pdf: PdfGenResult,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     if (!pdf.pdfBytes) return { ok: false, error: "no PDF bytes" };
-    const vars: Record<string, string> = {
-      numero: pdf.contractNumber,
-      gerant_prenom: emailReq.ownerFirstName ?? "",
-      gerant_nom: emailReq.ownerLastName ?? "",
-      etablissement: emailReq.establishmentName ?? "",
-      entreprise: emailReq.companyName ?? "OOHMYAD",
-    };
-    const subject = interpolate(emailReq.subjectTemplate || CONTRACT_EMAIL_FALLBACK_SUBJECT, vars);
-    const html = interpolate(emailReq.bodyTemplate || CONTRACT_EMAIL_FALLBACK_BODY, vars);
-    const pdfBase64 = bytesToBase64(pdf.pdfBytes);
+    const to = (pdf.owner?.email ?? "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      return { ok: false, error: "email du gérant absent ou invalide" };
+    }
 
-    const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-document-email`;
-    const res = await fetch(url, {
+    const { data: settings } = await admin
+      .from("company_settings")
+      .select("company_name, resend_api_key, email_from, email_from_name, email_contract_subject, email_contract_body")
+      .limit(1)
+      .maybeSingle();
+    const resendKey = Deno.env.get("RESEND_API_KEY") || settings?.resend_api_key;
+    if (!resendKey || !settings?.email_from) {
+      return { ok: false, error: "Resend non configuré" };
+    }
+
+    const raw: Record<string, string> = {
+      numero: pdf.contractNumber,
+      gerant_prenom: pdf.owner?.firstName ?? "",
+      gerant_nom: pdf.owner?.lastName ?? "",
+      etablissement: pdf.owner?.establishmentName ?? "",
+      entreprise: settings.company_name ?? "OOH MY AD !",
+    };
+    const escaped: Record<string, string> = Object.fromEntries(
+      Object.entries(raw).map(([k, v]) => [k, escapeHtml(v)]),
+    );
+    const subject = interpolate(settings.email_contract_subject || CONTRACT_EMAIL_FALLBACK_SUBJECT, raw);
+    const html = interpolate(settings.email_contract_body || CONTRACT_EMAIL_FALLBACK_BODY, escaped);
+    const from = settings.email_from_name
+      ? `${settings.email_from_name} <${settings.email_from}>`
+      : settings.email_from;
+
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${resendKey}`,
         "Content-Type": "application/json",
-        "Authorization": authHeader,
       },
       body: JSON.stringify({
-        to: emailReq.to,
+        from,
+        to: [to],
         subject,
         html,
-        pdfBase64,
-        pdfFilename: `contrat-${pdf.contractNumber}.pdf`,
-        documentType: "contract",
+        attachments: [{ filename: `contrat-${pdf.contractNumber}.pdf`, content: bytesToBase64(pdf.pdfBytes) }],
       }),
     });
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
-      return { ok: false, error: `send-document-email HTTP ${res.status}: ${errBody.slice(0, 200)}` };
+      console.error("[generate-contract-pdf] Resend error:", res.status, errBody.slice(0, 300));
+      return { ok: false, error: `Resend HTTP ${res.status}` };
     }
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "email invoke failed" };
+    console.error("[generate-contract-pdf] email error:", e);
+    return { ok: false, error: "envoi email impossible" };
   }
 }
 
@@ -224,6 +264,9 @@ async function generateContractPdf(admin: SupabaseClient, contractId: string): P
     .single();
   if (cErr) throw new Error(`panel_contracts fetch: ${cErr.message}`);
   if (!contract) throw new Error("contract not found");
+  if (!DOC_NUMBER_RE.test(String(contract.contract_number ?? ""))) {
+    throw new Error("invalid contract_number");
+  }
 
   // 2. Fetch company settings
   const company = await fetchCompany(admin);
@@ -284,7 +327,18 @@ async function generateContractPdf(admin: SupabaseClient, contractId: string): P
     .eq("id", contractId);
   if (updErr) throw new Error(`update storage_path: ${updErr.message}`);
 
-  return { path, size: bytes.byteLength, contractNumber: contract.contract_number, pdfBytes: bytes };
+  return {
+    path,
+    size: bytes.byteLength,
+    contractNumber: contract.contract_number,
+    pdfBytes: bytes,
+    owner: {
+      email: contract.owner_email ?? null,
+      firstName: contract.owner_first_name ?? null,
+      lastName: contract.owner_last_name ?? null,
+      establishmentName: contract.establishment_name ?? null,
+    },
+  };
 }
 
 // ============================================================================
@@ -298,6 +352,9 @@ async function generateAmendmentPdf(admin: SupabaseClient, amendmentId: string):
     .eq("id", amendmentId)
     .single();
   if (aErr) throw new Error(`contract_amendments fetch: ${aErr.message}`);
+  if (!DOC_NUMBER_RE.test(String(amendment?.amendment_number ?? ""))) {
+    throw new Error("invalid amendment_number");
+  }
   if (!amendment) throw new Error("amendment not found");
 
   const { data: parent, error: pErr } = await admin

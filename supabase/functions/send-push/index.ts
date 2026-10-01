@@ -13,8 +13,8 @@ import webpush from "https://esm.sh/web-push@3.6.7?target=deno";
  *     Le payload est {type: 'INSERT', table: 'notifications',
  *     record: {...notification row}}.
  *
- *  2. Direct HTTP POST avec {user_id, title, body, link?} depuis un
- *     appelant authentifié (test).
+ *     Le webhook doit envoyer le header x-webhook-secret (= secret
+ *     WEBHOOK_SECRET). La notification est relue en base par son id.
  *
  * Secrets Supabase requis (via `supabase secrets set`) :
  *   VAPID_PUBLIC_KEY   : cle publique VAPID
@@ -47,6 +47,17 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+/** Comparaison en temps constant (evite de deviner le secret par timing). */
+function timingSafeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  let diff = ea.length ^ eb.length;
+  for (let i = 0; i < Math.max(ea.length, eb.length); i++) {
+    diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 interface PushPayload {
   user_id: string;
   title: string;
@@ -72,29 +83,49 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    // Parse body — support 2 formats : webhook Supabase OU appel direct
-    const body = await req.json();
-
-    let payload: PushPayload;
-    if (body.type === "INSERT" && body.table === "notifications" && body.record) {
-      // Format Database Webhook : { type, table, record: {...notif} }
-      const r = body.record;
-      payload = {
-        user_id: r.user_id,
-        title: r.title,
-        body: r.body,
-        link: r.link,
-        notification_id: r.id,
-      };
-    } else if (body.user_id && body.title && body.body) {
-      // Format direct : { user_id, title, body, link }
-      payload = body as PushPayload;
-    } else {
-      return new Response(
-        JSON.stringify({ error: "Format inattendu (attendu: webhook Supabase OU {user_id, title, body})" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    // Securite : uniquement le Database Webhook (INSERT notifications), avec
+    // le secret partage x-webhook-secret. L'ancien "appel direct" permettait
+    // a n'importe qui d'envoyer un push arbitraire a n'importe quel user.
+    const expectedSecret = Deno.env.get("WEBHOOK_SECRET") ?? "";
+    const providedSecret = req.headers.get("x-webhook-secret") ?? "";
+    if (!expectedSecret || !timingSafeEqual(providedSecret, expectedSecret)) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
+    const body = await req.json().catch(() => ({}));
+    const notificationId = body?.type === "INSERT" && body?.table === "notifications"
+      ? String(body?.record?.id ?? "")
+      : "";
+    if (!notificationId) {
+      return new Response(JSON.stringify({ error: "Format inattendu" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // On relit la notification en base : le contenu envoye ne vient jamais
+    // du payload recu.
+    const { data: notif, error: notifErr } = await supabaseAdmin
+      .from("notifications")
+      .select("id, user_id, title, body, link")
+      .eq("id", notificationId)
+      .maybeSingle();
+    if (notifErr || !notif) {
+      return new Response(JSON.stringify({ success: true, sent: 0 }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const payload: PushPayload = {
+      user_id: notif.user_id,
+      title: notif.title,
+      body: notif.body,
+      link: notif.link ?? undefined,
+      notification_id: notif.id,
+    };
 
     // Fetch les subscriptions du user
     const { data: subs, error: subsErr } = await supabaseAdmin
@@ -159,7 +190,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("send-push error:", err);
     return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Erreur serveur" }),
+      JSON.stringify({ error: "Erreur serveur" }),
       { status: 500, headers: { ...(getCorsHeaders(req)), "Content-Type": "application/json" } },
     );
   }
