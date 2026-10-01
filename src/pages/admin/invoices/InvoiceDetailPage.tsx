@@ -602,7 +602,8 @@ export function InvoiceDetailPage() {
   }
 
   async function handleDeleteDraft() {
-    if (!invoice || invoice.status !== 'draft') return
+    // Un brouillon deja numerote (ancien systeme) ne se supprime pas : trou
+    if (!invoice || invoice.status !== 'draft' || invoice.invoice_number) return
     const ok = await confirm({
       title: 'Supprimer ce brouillon ?',
       description: "Le brouillon et ses lignes sont supprimés définitivement. Aucun numéro de facture n'est perdu.",
@@ -858,9 +859,16 @@ export function InvoiceDetailPage() {
                         <Send className="size-3.5" /> Repasser en émise
                       </button>
                     )}
-                    {invoice.status === 'draft' && (
+                    {invoice.status === 'draft' && !invoice.invoice_number && (
                       <button onClick={() => { setShowActionsMenu(false); handleDeleteDraft() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
                         <Trash2 className="size-3.5" /> Supprimer le brouillon
+                      </button>
+                    )}
+                    {/* Ancien brouillon deja numerote : le supprimer creerait un trou
+                        dans la sequence -> annulation (le numero reste, statut Annulee) */}
+                    {invoice.status === 'draft' && !!invoice.invoice_number && (
+                      <button onClick={() => { handleStatusChange('cancelled'); setShowActionsMenu(false) }} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted">
+                        <Ban className="size-3.5" /> Annuler la facture
                       </button>
                     )}
                     {(invoice.status === 'sent' || invoice.status === 'overdue') && (
