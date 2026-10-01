@@ -57,9 +57,10 @@ export function useActivityLogs(filters: ActivityLogsFilters = {}) {
  * Count des erreurs (severity=error) non-resolues pour le badge sidebar.
  * Les logs 'info' (actions) ne remontent pas dans le badge.
  */
-export function useUnresolvedErrorCount() {
+export function useUnresolvedErrorCount(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ['activity-logs-unresolved-count'],
+    enabled: options.enabled ?? true,
     queryFn: async (): Promise<number> => {
       const { count, error } = await supabase
         .from('activity_logs')

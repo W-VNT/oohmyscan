@@ -8,7 +8,8 @@ import { useAdmins } from '@/hooks/admin/useUsers'
 import { useClientCampaigns } from '@/hooks/useCampaigns'
 import { useServiceCatalog } from '@/hooks/admin/useServiceCatalog'
 import { useQuoteTemplates, useCreateQuoteTemplate, type TemplateLine } from '@/hooks/admin/useQuoteTemplates'
-import { useCompanySettings } from '@/hooks/admin/useCompanySettings'
+import { useCompanySettings, useDocumentCompanySettings } from '@/hooks/admin/useCompanySettings'
+import { useBasePath } from '@/hooks/useBasePath'
 import { useAppStore } from '@/store/app.store'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
@@ -103,7 +104,14 @@ export function QuoteDetailPage() {
   const { data: clients } = useClients()
   const { data: admins } = useAdmins()
   const { data: services } = useServiceCatalog()
-  const { data: settings } = useCompanySettings()
+  const profileRole = useAppStore((s) => s.profile?.role)
+  const isCommercial = profileRole === 'commercial'
+  const base = useBasePath()
+  // company_settings est admin-only : le commercial passe par la RPC
+  // "documents" (champs imprimes sur le PDF, sans cles API).
+  const { data: fullSettings } = useCompanySettings({ enabled: !isCommercial })
+  const { data: docSettings } = useDocumentCompanySettings({ enabled: isCommercial })
+  const settings = isCommercial ? docSettings : fullSettings
 
   const createQuote = useCreateQuote()
   const updateQuote = useUpdateQuote()
@@ -340,7 +348,7 @@ export function QuoteDetailPage() {
 
       toast(isNew ? 'Devis créé' : 'Devis mis à jour')
       await queryClient.invalidateQueries({ queryKey: ['quotes'] })
-      navigate('/admin/quotes')
+      navigate(`${base}/quotes`)
     } catch (err) {
       toast(`Erreur : ${extractErrorMessage(err)}`, 'error')
     } finally {
@@ -367,12 +375,12 @@ export function QuoteDetailPage() {
   // Resolve commercial contact info for PDF (commercial on quote → on client → fallback to logged-in user)
   const pdfContact = useMemo(() => {
     const resolvedId = commercialId || quote?.commercial_id || clientData?.commercial_id || null
-    const commercial = resolvedId ? admins?.find((a) => a.id === resolvedId) : null
+    const commercial = isCommercial ? profile : (resolvedId ? admins?.find((a) => a.id === resolvedId) : null)
     return {
       name: commercial?.full_name ?? profile?.full_name,
       phone: commercial?.phone ?? null,
     }
-  }, [commercialId, quote?.commercial_id, clientData?.commercial_id, admins, profile])
+  }, [commercialId, quote?.commercial_id, clientData?.commercial_id, admins, profile, isCommercial])
 
   async function generatePdfBlob(): Promise<Blob | null> {
     if (!quote || !clientData || !settings) {
@@ -449,7 +457,7 @@ export function QuoteDetailPage() {
     try {
       await deleteQuote.mutateAsync(id)
       toast('Devis supprimé')
-      navigate('/admin/quotes')
+      navigate(`${base}/quotes`)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erreur lors de la suppression', 'error')
     }
@@ -494,7 +502,7 @@ export function QuoteDetailPage() {
       })
 
       toast('Devis dupliqué')
-      navigate(`/admin/quotes/${result.id}`)
+      navigate(`${base}/quotes/${result.id}`)
     } catch {
       toast('Erreur lors de la duplication', 'error')
     } finally {
@@ -561,7 +569,7 @@ export function QuoteDetailPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Header — stack en mobile (titre + badge sur row 1, actions full-width sur row 2) */}
       <div className="flex flex-wrap items-start gap-3">
-        <button onClick={() => navigate('/admin/quotes')} className="text-muted-foreground hover:text-foreground">
+        <button onClick={() => navigate(`${base}/quotes`)} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-5" />
         </button>
         <div className="min-w-0 flex-1">
@@ -599,7 +607,7 @@ export function QuoteDetailPage() {
                 </Button>
               </>
             )}
-            {quote.status === 'accepted' && (
+            {quote.status === 'accepted' && !isCommercial && (
               <div className="relative flex-1 sm:flex-none">
                 <Button size="sm" onClick={() => setShowConvertMenu((v) => !v)} className="w-full">
                   <Receipt className="mr-1.5 size-3.5" /> Convertir en facture
@@ -849,7 +857,7 @@ export function QuoteDetailPage() {
       <Card>
         <CardContent className="space-y-4">
           {/* Row 1: Client | Campagne */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className={isCommercial ? 'grid gap-4' : 'grid gap-4 sm:grid-cols-2'}>
             <div>
               <label className="mb-2 block text-sm font-medium">Client <span className="text-red-500">*</span></label>
               <select
@@ -864,6 +872,7 @@ export function QuoteDetailPage() {
                 ))}
               </select>
             </div>
+            {!isCommercial && (
             <div>
               <label className="mb-2 block text-sm font-medium">Campagne</label>
               <select
@@ -880,6 +889,7 @@ export function QuoteDetailPage() {
                 ))}
               </select>
             </div>
+            )}
           </div>
 
           {/* Row 1b: Contact */}
@@ -900,7 +910,8 @@ export function QuoteDetailPage() {
             </div>
           )}
 
-          {/* Row 1c: Commercial OOH MY AD ! (affiché sur le PDF) */}
+          {/* Row 1c: Commercial OOH MY AD ! (affiché sur le PDF) — le commercial est toujours lui-meme */}
+          {!isCommercial && (
           <div>
             <label className="mb-2 block text-sm font-medium">Votre commercial (affiché sur le PDF)</label>
             <select
@@ -915,6 +926,7 @@ export function QuoteDetailPage() {
               ))}
             </select>
           </div>
+          )}
 
           {/* Row 2: Date émission | Valide jusqu'au | Réf. dossier */}
           <div className="grid gap-4 sm:grid-cols-3">
@@ -969,7 +981,7 @@ export function QuoteDetailPage() {
             <p className="text-sm font-semibold">Lignes du devis</p>
             {!isStructureLocked && (
               <div className="flex gap-2">
-                {templates && templates.length > 0 && (
+                {!isCommercial && templates && templates.length > 0 && (
                   <select
                     onChange={(e) => { if (e.target.value) handleLoadTemplate(e.target.value); e.target.value = '' }}
                     className="h-9 rounded-lg border border-input bg-background px-2 text-xs sm:h-8"
@@ -983,7 +995,7 @@ export function QuoteDetailPage() {
                     ))}
                   </select>
                 )}
-                {lines.some((l) => l.description.trim()) && (
+                {!isCommercial && lines.some((l) => l.description.trim()) && (
                   <Button size="sm" variant="ghost" onClick={handleSaveAsTemplate}>
                     <BookmarkPlus className="mr-1 size-3.5" /> Sauver modèle
                   </Button>
@@ -1192,7 +1204,7 @@ export function QuoteDetailPage() {
             {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
             {isNew ? 'Créer le brouillon' : 'Enregistrer'}
           </Button>
-          <Button variant="outline" onClick={() => navigate('/admin/quotes')} className="flex-1 sm:flex-none">
+          <Button variant="outline" onClick={() => navigate(`${base}/quotes`)} className="flex-1 sm:flex-none">
             Annuler
           </Button>
         </div>

@@ -1531,6 +1531,28 @@ export interface Database {
         Args: { p_token: string }
         Returns: unknown
       }
+      get_company_document_settings: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          company_name: string | null
+          address: string | null
+          city: string | null
+          postal_code: string | null
+          siret: string | null
+          tva_number: string | null
+          logo_path: string | null
+          email: string | null
+          phone: string | null
+          iban: string | null
+          bic: string | null
+          quote_prefix: string
+          legal_mentions: string | null
+          late_penalty_text: string | null
+          terms_and_conditions: string | null
+          terms_and_conditions_pdf_path: string | null
+        }[]
+      }
       get_company_public: {
         Args: Record<string, never>
         Returns: {

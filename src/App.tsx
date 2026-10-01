@@ -70,6 +70,7 @@ const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then((m) => (
 const LogsPage = lazy(() => import('@/pages/admin/logs/LogsPage').then((m) => ({ default: m.LogsPage })))
 const CampaignReportEditorPage = lazy(() => import('@/pages/admin/reports/CampaignReportEditorPage').then((m) => ({ default: m.CampaignReportEditorPage })))
 const AdminProfilePage = lazy(() => import('@/pages/admin/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const CommercialDashboardPage = lazy(() => import('@/pages/commercial/CommercialDashboardPage').then((m) => ({ default: m.CommercialDashboardPage })))
 const SettingsPage = lazy(() => import('@/pages/admin/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
 const LocationsPage = lazy(() => import('@/pages/admin/locations/LocationsPage').then((m) => ({ default: m.LocationsPage })))
@@ -210,6 +211,20 @@ export default function App() {
                   <Route path="profile" element={<AdminProfilePage />} />
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
+                </Route>
+              </Route>
+
+              {/* Commercial routes — memes pages devis/clients que l'admin,
+                  le cloisonnement des donnees est fait par la RLS */}
+              <Route element={<ProtectedRoute role="commercial" />}>
+                <Route path="/commercial" element={<AdminLayout />}>
+                  <Route index element={<CommercialDashboardPage />} />
+                  <Route path="quotes" element={<QuotesPage />} />
+                  <Route path="quotes/:id" element={<QuoteDetailPage />} />
+                  <Route path="clients" element={<ClientsPage />} />
+                  <Route path="clients/new" element={<ClientNewPage />} />
+                  <Route path="clients/:id" element={<ClientDetailPage />} />
+                  <Route path="profile" element={<AdminProfilePage />} />
                 </Route>
               </Route>
 

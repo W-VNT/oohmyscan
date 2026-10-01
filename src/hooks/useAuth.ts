@@ -98,5 +98,6 @@ export function useAuth() {
     signOut,
     isAdmin: profile?.role === 'admin',
     isOperator: profile?.role === 'operator',
+    isCommercial: profile?.role === 'commercial',
   }
 }

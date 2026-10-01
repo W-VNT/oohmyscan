@@ -13,6 +13,7 @@ import { ErrorState } from '@/components/shared/ErrorState'
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 import { saveAs } from 'file-saver'
 import { useCreateClient } from '@/hooks/admin/useClients'
+import { useBasePath } from '@/hooks/useBasePath'
 
 type SortOption = 'name' | 'city' | 'newest' | 'oldest'
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -33,7 +34,10 @@ export function ClientsPage() {
   const { data: clients, isLoading, isError, error, refetch } = useClients()
   const updateClient = useUpdateClient()
   const createClient = useCreateClient()
-  useListPageHotkeys('/admin/clients/new')
+  const base = useBasePath()
+  // Commercial : pas de campagnes ni de factures (RLS) -> colonnes masquees
+  const isCommercial = base === '/commercial'
+  useListPageHotkeys(`${base}/clients/new`)
 
   const [search, setSearch] = useState('')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -51,6 +55,7 @@ export function ClientsPage() {
   // Campaign counts per client
   const { data: campaignCounts = new Map<string, number>() } = useQuery({
     queryKey: ['client-campaign-counts'],
+    enabled: !isCommercial,
     queryFn: async () => {
       const { data } = await supabase
         .from('campaigns')
@@ -69,6 +74,7 @@ export function ClientsPage() {
   // Financial KPIs per client (CA = paid invoices, Solde = unpaid invoices)
   const { data: clientFinance } = useQuery({
     queryKey: ['client-finance'],
+    enabled: !isCommercial,
     queryFn: async () => {
       const { data } = await supabase
         .from('invoices')
@@ -269,7 +275,7 @@ export function ClientsPage() {
           <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>
             <Upload className="mr-1.5 size-3.5" /> Importer
           </Button>
-          <Button size="sm" onClick={() => navigate('/admin/clients/new')}>
+          <Button size="sm" onClick={() => navigate(`${base}/clients/new`)}>
             <Plus className="mr-1.5 size-4" /> Nouveau
           </Button>
         </div>
@@ -332,6 +338,7 @@ export function ClientsPage() {
               <option value="inactive">Inactifs ({statusCounts.inactive})</option>
             </select>
           </div>
+          {!isCommercial && (<>
           <select
             value={campaignFilter}
             onChange={(e) => setCampaignFilter(e.target.value as 'all' | 'with' | 'without')}
@@ -349,6 +356,7 @@ export function ClientsPage() {
             <option value="all">Solde : tous</option>
             <option value="with_solde">Avec solde dû</option>
           </select>
+          </>)}
           <div className="relative hidden sm:flex">
             <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <select
@@ -380,6 +388,7 @@ export function ClientsPage() {
         {/* Filtres avances mobile */}
         {mobileFiltersOpen && (
           <div className="grid grid-cols-2 gap-2 sm:hidden">
+            {!isCommercial && (<>
             <select
               value={campaignFilter}
               onChange={(e) => setCampaignFilter(e.target.value as 'all' | 'with' | 'without')}
@@ -397,6 +406,7 @@ export function ClientsPage() {
               <option value="all">Solde : tous</option>
               <option value="with_solde">Avec solde dû</option>
             </select>
+            </>)}
             <div className="relative col-span-2">
               <ArrowUpDown className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <select
@@ -439,7 +449,7 @@ export function ClientsPage() {
             return (
               <button
                 key={client.id}
-                onClick={() => navigate(`/admin/clients/${client.id}`)}
+                onClick={() => navigate(`${base}/clients/${client.id}`)}
                 className={`flex w-full flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted/70 ${!client.is_active ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -469,6 +479,7 @@ export function ClientsPage() {
                     {client.city || ''}
                   </p>
                 )}
+                {!isCommercial && (
                 <div className="flex items-center justify-between gap-2 text-[11px] tabular-nums">
                   <span className="text-muted-foreground">
                     CA : <span className="font-medium text-foreground">{ca > 0 ? formatCurrency(ca) : '—'}</span>
@@ -477,6 +488,7 @@ export function ClientsPage() {
                     <span className="font-medium text-red-600">Solde : {formatCurrency(solde)}</span>
                   )}
                 </div>
+                )}
               </button>
             )
           })
@@ -493,8 +505,8 @@ export function ClientsPage() {
                   <th className="px-4 py-3 font-medium">Société</th>
                   <th className="hidden px-4 py-3 font-medium lg:table-cell">Contact</th>
                   <th className="hidden px-4 py-3 font-medium md:table-cell">Ville</th>
-                  <th className="hidden px-4 py-3 font-medium text-right md:table-cell">CA</th>
-                  <th className="hidden px-4 py-3 font-medium text-right md:table-cell">Solde</th>
+                  {!isCommercial && <th className="hidden px-4 py-3 font-medium text-right md:table-cell">CA</th>}
+                  {!isCommercial && <th className="hidden px-4 py-3 font-medium text-right md:table-cell">Solde</th>}
                   <th className="px-4 py-3 text-center font-medium">Statut</th>
                   <th className="w-12 px-4 py-3" />
                 </tr>
@@ -506,7 +518,7 @@ export function ClientsPage() {
                       <EmptyState
                         icon={Building2}
                         title={hasActiveFilters ? 'Aucun client trouvé' : 'Aucun client pour le moment'}
-                        action={!hasActiveFilters ? { label: 'Nouveau client', onClick: () => navigate('/admin/clients/new') } : undefined}
+                        action={!hasActiveFilters ? { label: 'Nouveau client', onClick: () => navigate(`${base}/clients/new`) } : undefined}
                       />
                     </td>
                   </tr>
@@ -519,7 +531,7 @@ export function ClientsPage() {
                     return (
                       <tr
                         key={client.id}
-                        onClick={() => navigate(`/admin/clients/${client.id}`)}
+                        onClick={() => navigate(`${base}/clients/${client.id}`)}
                         className="cursor-pointer transition-colors hover:bg-muted/50"
                       >
                         <td className="px-4 py-3">
@@ -542,6 +554,7 @@ export function ClientsPage() {
                         <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                           {client.city || '—'}
                         </td>
+                        {!isCommercial && (<>
                         <td className="hidden px-4 py-3 text-right tabular-nums md:table-cell">
                           {ca > 0 ? (
                             <span className="font-medium text-foreground">{formatCurrency(ca)}</span>
@@ -556,6 +569,7 @@ export function ClientsPage() {
                             <span className="text-muted-foreground">0,00 €</span>
                           )}
                         </td>
+                        </>)}
                         <td className="px-4 py-3 text-center">
                           {confirmDeactivate === client.id ? (
                             <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -592,7 +606,7 @@ export function ClientsPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              navigate(`/admin/quotes/new?client=${client.id}`)
+                              navigate(`${base}/quotes/new?client=${client.id}`)
                             }}
                             title="Créer un devis"
                             className="inline-flex h-7 items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium transition-colors hover:bg-primary hover:text-primary-foreground"

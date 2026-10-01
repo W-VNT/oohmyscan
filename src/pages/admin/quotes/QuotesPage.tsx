@@ -11,6 +11,7 @@ import { QUOTE_STATUSES, QUOTE_STATUS_CONFIG, type QuoteStatus } from '@/lib/con
 import { useListPageHotkeys } from '@/hooks/usePageHotkeys'
 import { useClients } from '@/hooks/admin/useClients'
 import { useCampaigns } from '@/hooks/useCampaigns'
+import { useBasePath } from '@/hooks/useBasePath'
 
 type SortOption = 'newest' | 'oldest' | 'amount_desc' | 'amount_asc' | 'number'
 
@@ -39,6 +40,8 @@ export function QuotesPage() {
   const [sort, setSort] = useState<SortOption>('newest')
   const [archiveMode, setArchiveMode] = useState<'active' | 'archived' | 'all'>('active')
   const { data: clientsList } = useClients()
+  const base = useBasePath()
+  const isCommercial = base === '/commercial'
   const { data: campaignsList } = useCampaigns()
   const { data: paginatedData, isLoading } = usePaginatedQuotes(
     page,
@@ -50,7 +53,7 @@ export function QuotesPage() {
     campaignFilter,
   )
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
-  useListPageHotkeys('/admin/quotes/new')
+  useListPageHotkeys(`${base}/quotes/new`)
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
@@ -151,7 +154,7 @@ export function QuotesPage() {
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!filtered.length}>
             <Download className="mr-1.5 size-3.5" /> CSV
           </Button>
-          <Button size="sm" onClick={() => navigate('/admin/quotes/new')}>
+          <Button size="sm" onClick={() => navigate(`${base}/quotes/new`)}>
             <Plus className="mr-1.5 size-4" />
             Nouveau devis
           </Button>
@@ -199,6 +202,7 @@ export function QuotesPage() {
               ))}
             </select>
           </div>
+          {!isCommercial && (
           <div className="relative hidden sm:flex">
             <Megaphone className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <select
@@ -212,6 +216,7 @@ export function QuotesPage() {
               ))}
             </select>
           </div>
+          )}
           <div className="relative hidden sm:flex">
             <Archive className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <select
@@ -332,7 +337,7 @@ export function QuotesPage() {
             return (
               <button
                 key={quote.id}
-                onClick={() => navigate(`/admin/quotes/${quote.id}`)}
+                onClick={() => navigate(`${base}/quotes/${quote.id}`)}
                 className="flex w-full flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted/70"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -372,7 +377,7 @@ export function QuotesPage() {
                 <tr className="border-b border-border bg-muted/50 text-left">
                   <th className="px-4 py-3 font-medium">Numéro</th>
                   <th className="px-4 py-3 font-medium">Client</th>
-                  <th className="hidden px-4 py-3 font-medium md:table-cell">Campagne</th>
+                  {!isCommercial && <th className="hidden px-4 py-3 font-medium md:table-cell">Campagne</th>}
                   <th className="hidden px-4 py-3 font-medium md:table-cell">Date</th>
                   <th className="hidden px-4 py-3 font-medium lg:table-cell">Validité</th>
                   <th className="px-4 py-3 font-medium">Statut</th>
@@ -386,7 +391,7 @@ export function QuotesPage() {
                       <EmptyState
                         icon={FileText}
                         title={hasActiveFilters ? 'Aucun devis trouvé' : 'Aucun devis pour le moment'}
-                        action={!hasActiveFilters ? { label: 'Nouveau devis', onClick: () => navigate('/admin/quotes/new') } : undefined}
+                        action={!hasActiveFilters ? { label: 'Nouveau devis', onClick: () => navigate(`${base}/quotes/new`) } : undefined}
                       />
                     </td>
                   </tr>
@@ -396,16 +401,18 @@ export function QuotesPage() {
                     return (
                       <tr
                         key={quote.id}
-                        onClick={() => navigate(`/admin/quotes/${quote.id}`)}
+                        onClick={() => navigate(`${base}/quotes/${quote.id}`)}
                         className="cursor-pointer transition-colors hover:bg-muted/50"
                       >
                         <td className="px-4 py-3 font-medium">{quote.quote_number}</td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {quote.clients?.company_name ?? '—'}
                         </td>
+                        {!isCommercial && (
                         <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                           {quote.campaigns?.name ?? '—'}
                         </td>
+                        )}
                         <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                           {new Date(quote.issued_at).toLocaleDateString('fr-FR')}
                         </td>
@@ -424,7 +431,7 @@ export function QuotesPage() {
                             <Badge variant={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.variant ?? 'secondary'} className={QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.className}>
                               {QUOTE_STATUS_CONFIG[quote.status as QuoteStatus]?.label ?? quote.status}
                             </Badge>
-                            {quote.status === 'accepted' && (
+                            {quote.status === 'accepted' && !isCommercial && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); navigate(`/admin/invoices/new?from_quote=${quote.id}`) }}
                                 className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline"

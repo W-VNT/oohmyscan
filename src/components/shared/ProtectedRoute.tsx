@@ -23,9 +23,10 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
     return <LoadingScreen />
   }
 
-  // Admin can access everything; others must match required role
+  // Admin can access everything; others must match required role and are
+  // sent back to their own space otherwise.
   if (role && profile.role !== 'admin' && profile.role !== role) {
-    return <Navigate to="/app" replace />
+    return <Navigate to={profile.role === 'commercial' ? '/commercial' : '/app'} replace />
   }
 
   return <Outlet />

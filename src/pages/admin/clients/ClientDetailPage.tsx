@@ -5,6 +5,7 @@ import { useAdmins } from '@/hooks/admin/useUsers'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useQuotes } from '@/hooks/admin/useQuotes'
 import { useInvoices } from '@/hooks/admin/useInvoices'
+import { useBasePath } from '@/hooks/useBasePath'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,6 +48,9 @@ export function ClientDetailPage() {
   const { data: allCampaigns } = useCampaigns()
   const { data: allQuotes } = useQuotes()
   const { data: allInvoices } = useInvoices()
+  const base = useBasePath()
+  // Commercial : pas de campagnes, factures ni CA (RLS) -> sections masquees
+  const isCommercial = base === '/commercial'
 
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -154,7 +158,7 @@ export function ClientDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-lg font-medium">Client non trouvé</p>
-        <Button variant="link" onClick={() => navigate('/admin/clients')}>
+        <Button variant="link" onClick={() => navigate(`${base}/clients`)}>
           Retour aux clients
         </Button>
       </div>
@@ -165,7 +169,7 @@ export function ClientDetailPage() {
     <div className="space-y-6">
       {/* Header — stack en mobile, ligne unique desktop */}
       <div className="flex flex-wrap items-start gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/admin/clients')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(`${base}/clients`)}>
           <ArrowLeft className="size-5" />
         </Button>
         <div className="min-w-0 flex-1">
@@ -183,12 +187,13 @@ export function ClientDetailPage() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => navigate(`/admin/quotes/new?client=${client.id}`)}
+            onClick={() => navigate(`${base}/quotes/new?client=${client.id}`)}
             className="flex-1 sm:flex-none"
           >
             <Plus className="mr-1.5 size-3.5" />
             <span className="hidden sm:inline">Nouveau </span>Devis
           </Button>
+          {!isCommercial && (
           <Button
             size="sm"
             variant="outline"
@@ -198,6 +203,7 @@ export function ClientDetailPage() {
             <Plus className="mr-1.5 size-3.5" />
             <span className="hidden sm:inline">Nouvelle </span>Facture
           </Button>
+          )}
           {!editing && (
             <Button variant="outline" size="sm" onClick={openEdit} className="flex-1 sm:flex-none">
               <Pencil className="mr-1.5 size-3.5" />
@@ -208,6 +214,7 @@ export function ClientDetailPage() {
       </div>
 
       {/* KPI Cards : slider horizontal sur mobile, grille sur desktop */}
+      {!isCommercial && (
       <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:py-0 lg:grid-cols-4">
         <Card className="min-w-[80%] shrink-0 snap-center sm:min-w-0 sm:shrink">
           <CardContent className="flex items-center gap-3 p-4">
@@ -256,6 +263,7 @@ export function ClientDetailPage() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Info client — full width */}
       <Card>
@@ -356,7 +364,8 @@ export function ClientDetailPage() {
                   </div>
                 </div>
 
-                {/* Row 4: Commercial dédié */}
+                {/* Row 4: Commercial dédié (admin seulement : le commercial est proprietaire) */}
+                {!isCommercial && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-sm font-medium">Commercial dédié</label>
@@ -372,6 +381,7 @@ export function ClientDetailPage() {
                     </select>
                   </div>
                 </div>
+                )}
 
                 {/* Row 5: Notes (full width) */}
                 <div>
@@ -478,8 +488,9 @@ export function ClientDetailPage() {
           </CardContent>
         </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className={isCommercial ? 'grid gap-6' : 'grid gap-6 lg:grid-cols-3'}>
         {/* Campagnes */}
+        {!isCommercial && (
         <Card>
           <CardContent className="p-4 sm:p-5">
             <div className="mb-4 flex items-center justify-between">
@@ -512,6 +523,7 @@ export function ClientDetailPage() {
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Devis */}
         <Card>
@@ -523,7 +535,7 @@ export function ClientDetailPage() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => navigate(`/admin/quotes/new?client=${client.id}`)}
+                onClick={() => navigate(`${base}/quotes/new?client=${client.id}`)}
               >
                 Nouveau devis
               </Button>
@@ -535,7 +547,7 @@ export function ClientDetailPage() {
                 {quotes.map((q) => (
                   <Link
                     key={q.id}
-                    to={`/admin/quotes/${q.id}`}
+                    to={`${base}/quotes/${q.id}`}
                     className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
                   >
                     <div>
@@ -560,6 +572,7 @@ export function ClientDetailPage() {
         </Card>
 
         {/* Factures */}
+        {!isCommercial && (
         <Card>
           <CardContent className="p-4 sm:p-5">
             <div className="mb-4 flex items-center justify-between">
@@ -607,6 +620,7 @@ export function ClientDetailPage() {
             )}
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   )

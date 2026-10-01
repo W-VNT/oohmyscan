@@ -47,7 +47,7 @@ export interface CompanySettings {
  * PotentialNewPage) need the full row. If a lightweight consumer is added later,
  * create a separate hook with an explicit column list excluding iban/bic.
  */
-export function useCompanySettings() {
+export function useCompanySettings(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ['company-settings'],
     queryFn: async (): Promise<CompanySettings> => {
@@ -59,6 +59,29 @@ export function useCompanySettings() {
       if (error) throw error
       return data as unknown as CompanySettings
     },
+    enabled: options.enabled ?? true,
+  })
+}
+
+/** Champs societe imprimes sur les documents (sans cles API ni modeles email). */
+export type DocumentCompanySettings = Pick<
+  CompanySettings,
+  | 'id' | 'company_name' | 'address' | 'city' | 'postal_code' | 'siret' | 'tva_number'
+  | 'logo_path' | 'email' | 'phone' | 'iban' | 'bic' | 'quote_prefix' | 'legal_mentions'
+  | 'late_penalty_text' | 'terms_and_conditions' | 'terms_and_conditions_pdf_path'
+>
+
+/** Version commerciale : passe par une RPC, company_settings etant admin-only. */
+export function useDocumentCompanySettings(options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: ['company-document-settings'],
+    queryFn: async (): Promise<DocumentCompanySettings> => {
+      const { data, error } = await supabase.rpc('get_company_document_settings').single()
+      if (error) throw error
+      return data as DocumentCompanySettings
+    },
+    enabled: options.enabled ?? true,
+    staleTime: 10 * 60 * 1000,
   })
 }
 

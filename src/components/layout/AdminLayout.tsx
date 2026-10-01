@@ -91,11 +91,26 @@ const navSections = [
   },
 ]
 
+// Espace commercial : devis + clients uniquement (cloisonnement en RLS)
+const commercialNavSections = [
+  {
+    items: [
+      { to: '/commercial', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
+      { to: '/commercial/quotes', icon: FileText, label: 'Devis' },
+      { to: '/commercial/clients', icon: Building2, label: 'Clients' },
+    ],
+  },
+]
+
 export function AdminLayout() {
-  const { profile } = useAuth()
+  const { profile, isCommercial } = useAuth()
   const { sidebarOpen, toggleSidebar } = useAppStore()
-  const { pathname } = useLocation()
-  const { data: unresolvedCount = 0 } = useUnresolvedErrorCount()
+  const { pathname: rawPathname } = useLocation()
+  // Les pages commerciales reutilisent les titres admin
+  const pathname = rawPathname.replace(/^\/commercial/, '/admin')
+  const { data: unresolvedCount = 0 } = useUnresolvedErrorCount({ enabled: !isCommercial })
+  const sections = isCommercial ? commercialNavSections : navSections
+  const basePath = isCommercial ? '/commercial' : '/admin'
 
   const { data: avatarUrl } = useQuery({
     queryKey: ['avatar-url', profile?.avatar_url],
@@ -118,7 +133,7 @@ export function AdminLayout() {
     .slice(0, 2)
 
   // Match exact path or parent path for detail pages
-  const pageTitle = PAGE_TITLES[pathname] ?? (
+  const pageTitle = (isCommercial && pathname === '/admin' ? 'Tableau de bord' : PAGE_TITLES[pathname]) ?? (
     pathname.match(/^\/admin\/campaigns\/[^/]+\/report$/) ? 'Rapport campagne' :
     pathname.startsWith('/admin/panels/') ? 'Détail panneau' :
     pathname.startsWith('/admin/campaigns/') ? 'Détail campagne' :
@@ -151,7 +166,7 @@ export function AdminLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-3">
-          {navSections.map((section, sIdx) => (
+          {sections.map((section, sIdx) => (
             <div key={sIdx}>
               {sIdx > 0 && <div className="my-2 border-t border-border" />}
               <div className="space-y-0.5">
@@ -191,7 +206,7 @@ export function AdminLayout() {
         {/* User + actions */}
         <div className="border-t border-border px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <NavLink
-            to="/admin/profile"
+            to={`${basePath}/profile`}
             onClick={() => useAppStore.setState({ sidebarOpen: false })}
             className="mb-2 flex items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors hover:bg-muted"
           >
@@ -201,9 +216,10 @@ export function AdminLayout() {
             </Avatar>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium">{profile?.full_name}</p>
-              <p className="text-[11px] text-muted-foreground">Administrateur</p>
+              <p className="text-[11px] text-muted-foreground">{isCommercial ? 'Commercial' : 'Administrateur'}</p>
             </div>
           </NavLink>
+          {!isCommercial && (
           <NavLink
             to="/app/dashboard"
             className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -211,6 +227,7 @@ export function AdminLayout() {
             <Smartphone className="size-4" />
             Mode terrain
           </NavLink>
+          )}
         </div>
       </aside>
 
@@ -230,7 +247,7 @@ export function AdminLayout() {
           </button>
           {pageTitle && <h2 className="text-sm font-semibold">{pageTitle}</h2>}
           <div className="flex-1" />
-          <NotificationBell to="/admin/notifications" />
+          {!isCommercial && <NotificationBell to="/admin/notifications" />}
         </header>
         <main className={cn('flex-1 overflow-hidden', isFullscreen ? 'p-0' : 'overflow-y-auto p-6')}>
           <ErrorBoundary>

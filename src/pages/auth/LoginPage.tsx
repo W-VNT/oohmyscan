@@ -10,6 +10,12 @@ import { Loader2, ScanLine, MapPin, BarChart3, QrCode } from 'lucide-react'
 const MAX_ATTEMPTS = 5
 const COOLDOWN_SECONDS = 30
 
+function homeForRole(role: string | undefined): string {
+  if (role === 'admin') return '/admin'
+  if (role === 'commercial') return '/commercial'
+  return '/app/dashboard'
+}
+
 export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -117,7 +123,7 @@ export function LoginPage() {
         // Update profile status to active on first login
         await supabase.from('profiles').update({ is_active: true, status: 'active' }).eq('id', session.user.id)
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
-        navigate(profile?.role === 'admin' ? '/admin' : '/app/dashboard')
+        navigate(homeForRole(profile?.role))
       } else {
         navigate('/app/dashboard')
       }
@@ -153,7 +159,7 @@ export function LoginPage() {
     if (session?.user) {
       await supabase.from('profiles').update({ is_active: true }).eq('id', session.user.id)
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
-      navigate(profile?.role === 'admin' ? '/admin' : '/app/dashboard')
+      navigate(homeForRole(profile?.role))
     } else {
       setMode('login')
       setSettingPassword(false)

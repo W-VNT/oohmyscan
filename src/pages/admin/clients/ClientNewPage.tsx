@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useCreateClient, type Client } from '@/hooks/admin/useClients'
 import { useAdmins } from '@/hooks/admin/useUsers'
 import { useUpdateLead } from '@/hooks/admin/useLeads'
+import { useBasePath } from '@/hooks/useBasePath'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -34,6 +35,8 @@ export function ClientNewPage() {
   const createClient = useCreateClient()
   const updateLead = useUpdateLead()
   const { data: admins } = useAdmins()
+  const base = useBasePath()
+  const isCommercial = base === '/commercial'
 
   // Prefill depuis un lead converti (location.state injecte par LeadDetailPage)
   const prefill = (location.state as { prefill?: Partial<ClientForm>; leadId?: string } | null)?.prefill
@@ -114,7 +117,7 @@ export function ClientNewPage() {
     try {
       const result = await createClient.mutateAsync(form)
       toast('Client créé')
-      navigate(`/admin/clients/${result.id}`)
+      navigate(`${base}/clients/${result.id}`)
     } catch {
       toast('Erreur lors de la sauvegarde', 'error')
     } finally {
@@ -153,7 +156,7 @@ export function ClientNewPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/admin/clients')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(`${base}/clients`)}>
           <ArrowLeft className="size-5" />
         </Button>
         <h1 className="text-xl font-semibold">Nouveau client</h1>
@@ -215,7 +218,8 @@ export function ClientNewPage() {
               {field('postal_code', 'Code postal', '75001')}
             </div>
 
-            {/* Row 4: Commercial dédié */}
+            {/* Row 4: Commercial dédié (le commercial devient proprietaire automatiquement) */}
+            {!isCommercial && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm font-medium">Commercial dédié</label>
@@ -231,6 +235,7 @@ export function ClientNewPage() {
                 </select>
               </div>
             </div>
+            )}
 
             {/* Row 5: Notes (full width) */}
             <div>
@@ -251,7 +256,7 @@ export function ClientNewPage() {
               {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
               Créer le client
             </Button>
-            <Button variant="outline" onClick={() => navigate('/admin/clients')}>
+            <Button variant="outline" onClick={() => navigate(`${base}/clients`)}>
               Annuler
             </Button>
           </div>
