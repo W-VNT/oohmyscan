@@ -47,6 +47,8 @@ WITH checks(categorie, verification, ok, detail) AS (
     AND EXISTS (SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'invoices' AND column_name = 'invoice_number' AND is_nullable = 'YES'),
     '20261003_invoice_number_on_emit'
+  UNION ALL SELECT 'Migration', 'Factures : repasser en brouillon',
+    EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'revert_invoice_to_draft'), '20261006_revert_invoice_to_draft'
   UNION ALL SELECT 'Migration', 'Journaux ne bloquent plus la suppression',
     NOT EXISTS (SELECT 1 FROM pg_constraint c
                 JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]

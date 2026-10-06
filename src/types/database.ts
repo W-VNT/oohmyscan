@@ -1535,6 +1535,10 @@ export interface Database {
         Args: { p_invoice_id: string; p_issued_at: string; p_due_at: string }
         Returns: string
       }
+      revert_invoice_to_draft: {
+        Args: { p_invoice_id: string }
+        Returns: string
+      }
       get_public_report: {
         Args: { p_token: string }
         Returns: unknown

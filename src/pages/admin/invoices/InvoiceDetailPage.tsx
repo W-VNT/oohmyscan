@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/shared/Toast'
 import { useConfirm } from '@/components/shared/ConfirmDialog'
-import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText, Eye, X, MoreHorizontal, Archive } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Send, Check, Package, Download, Mail, Copy, Ban, FileText, Eye, X, MoreHorizontal, Archive, Undo2 } from 'lucide-react'
 import { LineDescriptionEditor } from '@/components/shared/LineDescriptionEditor'
 import { DocumentAttachments } from '@/components/shared/DocumentAttachments'
 import { pdf } from '@react-pdf/renderer'
@@ -572,25 +572,30 @@ export function InvoiceDetailPage() {
    *  du jour + echeance, en une transaction cote base (emit_invoice). */
   async function handleEmit() {
     if (!invoice || invoice.status !== 'draft') return
-    const today = new Date().toISOString().split('T')[0]
+    // Facture repassee en brouillon : elle reprend son numero ET sa date
+    // d'emission (ordre chronologique de la sequence). Sinon : date du jour.
+    const reemit = !!invoice.invoice_number
+    const emitDate = reemit ? issuedAt : new Date().toISOString().split('T')[0]
     const ok = await confirm({
-      title: 'Émettre la facture ?',
-      description: `Elle recevra le prochain numéro de facture et sera datée d'aujourd'hui (${new Date().toLocaleDateString('fr-FR')}). Elle ne pourra plus être modifiée structurellement (sauf descriptions et notes).`,
-      confirmLabel: 'Émettre la facture',
+      title: reemit ? 'Réémettre la facture ?' : 'Émettre la facture ?',
+      description: reemit
+        ? `Elle reprend son numéro ${invoice.invoice_number} et sa date d'émission (${new Date(emitDate).toLocaleDateString('fr-FR')}). Elle ne pourra plus être modifiée structurellement (sauf descriptions et notes).`
+        : `Elle recevra le prochain numéro de facture et sera datée d'aujourd'hui (${new Date(emitDate).toLocaleDateString('fr-FR')}). Elle ne pourra plus être modifiée structurellement (sauf descriptions et notes).`,
+      confirmLabel: reemit ? 'Réémettre la facture' : 'Émettre la facture',
     })
     if (!ok) return
     setSaving(true)
     try {
       const invoiceId = await persistInvoice()
       if (!invoiceId) return
-      const dueDate = computeDueDate(today, paymentTerms)
+      const dueDate = computeDueDate(emitDate, paymentTerms)
       const { data: number, error } = await supabase.rpc('emit_invoice', {
         p_invoice_id: invoiceId,
-        p_issued_at: today,
+        p_issued_at: emitDate,
         p_due_at: dueDate,
       })
       if (error) throw error
-      setIssuedAt(today)
+      setIssuedAt(emitDate)
       setDueAt(dueDate)
       toast(`Facture émise : ${number}`)
       await queryClient.invalidateQueries({ queryKey: ['invoices'] })
@@ -598,6 +603,26 @@ export function InvoiceDetailPage() {
       toast(`Erreur : ${extractErrorMessage(err)}`, 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  /** Erreur de saisie sur une facture emise (non envoyee au client) :
+   *  retour en brouillon, numero conserve. Sinon -> avoir. */
+  async function handleRevertToDraft() {
+    if (!invoice || !['sent', 'overdue'].includes(invoice.status)) return
+    const ok = await confirm({
+      title: 'Repasser en brouillon ?',
+      description: `À utiliser seulement si la facture n'a pas été envoyée au client (sinon, émets un avoir). Elle redevient modifiable et garde son numéro ${invoice.invoice_number} et sa date d'émission à la réémission.`,
+      confirmLabel: 'Repasser en brouillon',
+    })
+    if (!ok) return
+    try {
+      const { error } = await supabase.rpc('revert_invoice_to_draft', { p_invoice_id: invoice.id })
+      if (error) throw error
+      toast('Facture repassée en brouillon')
+      await queryClient.invalidateQueries({ queryKey: ['invoices'] })
+    } catch (err) {
+      toast(`Erreur : ${extractErrorMessage(err)}`, 'error')
     }
   }
 
@@ -847,6 +872,11 @@ export function InvoiceDetailPage() {
                     {(invoice.status === 'sent' || invoice.status === 'overdue') && (
                       <button onClick={() => { setShowActionsMenu(false); handleMailto() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
                         <Mail className="size-3.5" /> Relancer par email
+                      </button>
+                    )}
+                    {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                      <button onClick={() => { setShowActionsMenu(false); handleRevertToDraft() }} className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted">
+                        <Undo2 className="size-3.5" /> Repasser en brouillon
                       </button>
                     )}
                     {invoice.status !== 'draft' && invoice.status !== 'cancelled' && invoice.invoice_type !== 'avoir' && (
